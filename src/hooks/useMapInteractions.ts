@@ -14,6 +14,7 @@ import { ModifyManager } from '@/lib/topology/modifyManager';
 import { PipeDrawingManager } from '@/lib/topology/pipeDrawingManager';
 import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
+import { useUIStore } from '@/store/uiStore';
 
 interface UseMapInteractionsOptions {
     map: Map | null;
@@ -21,7 +22,7 @@ interface UseMapInteractionsOptions {
 }
 
 export function useMapInteractions({ map, vectorSource }: UseMapInteractionsOptions) {
-    const { activeTool } = useMapStore();
+    const { activeTool } = useUIStore();
     const { addFeature, generateUniqueId } = useNetworkStore();
 
     // Manager instances
@@ -323,22 +324,12 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsOpti
         contextMenuManagerRef.current?.setEnabled(enabled);
     }, []);
 
-    /**
-     * Undo last modification
-     */
-    const undoLastModification = useCallback(() => {
-        modifyManagerRef.current?.undoLastModification();
-    }, []);
-
-
-
     return {
         pipeDrawingManager: pipeDrawingManagerRef.current,
         modifyManager: modifyManagerRef.current,
         deleteManager: deleteManagerRef.current,
         contextMenuManager: contextMenuManagerRef.current,
         setContextMenuEnabled,
-        undoLastModification,
         cleanupInteractions,
     };
 }

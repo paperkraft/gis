@@ -6,7 +6,7 @@ import { click, pointerMove } from "ol/events/condition";
 import Map from "ol/Map";
 import VectorLayer from "ol/layer/Vector";
 import { useNetworkStore } from "@/store/networkStore";
-import { useMapStore } from "@/store/mapStore";
+import { useUIStore } from "@/store/uiStore";
 
 interface UseFeatureSelectionOptions {
     map: Map | null;
@@ -24,7 +24,7 @@ export function useFeatureSelection({
     enableHover = true,
 }: UseFeatureSelectionOptions) {
     const { selectFeature, selectedFeatureId } = useNetworkStore();
-    const { activeTool } = useMapStore();
+    const { activeTool } = useUIStore();
 
     const selectInteractionRef = useRef<Select | null>(null);
     const hoverInteractionRef = useRef<Select | null>(null);

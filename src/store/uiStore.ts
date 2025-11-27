@@ -8,6 +8,9 @@ interface UIState {
     propertyPanelOpen: boolean;
     showPipeArrows: boolean;
 
+    // Tab navigation
+    activeTab: string;
+
 
     // Modal states
     deleteModalOpen: boolean;
@@ -54,6 +57,9 @@ interface UIState {
     // Actions - Search
     setSearchFocused: (focused: boolean) => void;
 
+    // Actions - Tab navigation
+    setActiveTab: (tab: string) => void;
+
     // Utility - Reset all tools
     resetAllTools: () => void;
     resetToDefaultState: () => void;
@@ -81,6 +87,7 @@ const DEFAULT_STATE = {
     searchFocused: false,
     sidebarOpen: true,
     showPipeArrows: true,
+    activeTab: 'network-editor',
 };
 
 
@@ -192,6 +199,11 @@ export const useUIStore = create<UIState>((set, get) => ({
     // Search actions
     setSearchFocused: (focused) => {
         set({ searchFocused: focused });
+    },
+
+    // Tab navigation actions
+    setActiveTab: (tab) => {
+        set({ activeTab: tab });
     },
 
     // Utility actions
