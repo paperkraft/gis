@@ -64,7 +64,8 @@ export class AnimatedFlowRenderer {
 }
 
 /**
- * Create animated flow style for a pipe
+ * Create animated flow overlay style for a pipe
+ * This is a SEMI-TRANSPARENT OVERLAY that goes on top of the base pipe style
  * Uses dashed stroke with animated offset to simulate flow
  */
 export function createAnimatedFlowStyle(
@@ -72,28 +73,19 @@ export function createAnimatedFlowStyle(
     animationOffset: number = 0
 ): Style {
     const diameter = feature.get('diameter') || 300;
-    const status = feature.get('status') || 'active';
-    const isSelected = feature.get('selected') || false;
 
-    // Determine stroke width based on diameter
-    let strokeWidth = 3;
-    if (diameter < 150) strokeWidth = 2;
-    else if (diameter < 300) strokeWidth = 3;
-    else if (diameter < 600) strokeWidth = 4;
-    else strokeWidth = 5;
+    // Thinner stroke for overlay effect (doesn't replace base pipe)
+    let strokeWidth = 2;
+    if (diameter < 150) strokeWidth = 1.5;
+    else if (diameter < 300) strokeWidth = 2;
+    else if (diameter < 600) strokeWidth = 2.5;
+    else strokeWidth = 3;
 
-    // Color based on status
-    let strokeColor = '#2563EB'; // Blue for active
-    if (status === 'closed') strokeColor = '#DC2626'; // Red
-    else if (status === 'inactive') strokeColor = '#9CA3AF'; // Gray
-
-    if (isSelected) {
-        strokeColor = '#F59E0B'; // Orange for selected
-        strokeWidth += 1;
-    }
+    // Bright color with good contrast - semi-transparent
+    const strokeColor = 'rgba(96, 165, 250, 0.7)'; // Light blue with 70% opacity
 
     // Create animated dash pattern
-    const dashLength = 20;
+    const dashLength = 15;
     const gapLength = 10;
 
     return new Style({
@@ -103,7 +95,7 @@ export function createAnimatedFlowStyle(
             lineDash: [dashLength, gapLength],
             lineDashOffset: -animationOffset, // Negative for forward flow
         }),
-        zIndex: 10,
+        zIndex: 15, // Higher than base pipe (10) but lower than arrows (100)
     });
 }
 
@@ -124,7 +116,11 @@ export function createFlowParticleStyles(
     const styles: Style[] = [];
     const reversed = feature.get('reversed') || false;
     const flowRate = feature.get('flow') || 1; // Flow rate (affects speed)
-    const numParticles = Math.max(2, Math.floor(geometry.getLength() / 100)); // Density
+    const diameter = feature.get('diameter') || 300;
+    
+    // Adjust particle density based on pipe length
+    const pipeLength = geometry.getLength();
+    const numParticles = Math.max(2, Math.min(5, Math.floor(pipeLength / 150))); // 2-5 particles
 
     // Calculate total length
     let totalLength = 0;
@@ -142,7 +138,7 @@ export function createFlowParticleStyles(
     }
 
     // Create particles at intervals
-    const speed = 0.5 + Math.abs(flowRate) * 0.5; // Speed based on flow rate
+    const speed = 20 + Math.abs(flowRate) * 10; // Increased speed for visibility
     const cycleLength = totalLength;
 
     for (let i = 0; i < numParticles; i++) {
@@ -156,15 +152,22 @@ export function createFlowParticleStyles(
         );
 
         if (position) {
+            // Particle size based on diameter
+            let particleRadius = 3;
+            if (diameter < 150) particleRadius = 2;
+            else if (diameter < 300) particleRadius = 3;
+            else if (diameter < 600) particleRadius = 4;
+            else particleRadius = 5;
+
             // Particle style
             const particleStyle = new Style({
                 geometry: new Point(position),
                 image: new CircleStyle({
-                    radius: 4,
-                    fill: new Fill({ color: 'rgba(59, 130, 246, 0.8)' }),
-                    stroke: new Stroke({ color: '#FFFFFF', width: 1 }),
+                    radius: particleRadius,
+                    fill: new Fill({ color: 'rgba(59, 130, 246, 0.9)' }), // More opaque
+                    stroke: new Stroke({ color: '#FFFFFF', width: 1.5 }),
                 }),
-                zIndex: 102,
+                zIndex: 105, // Above everything else
             });
 
             styles.push(particleStyle);
@@ -201,6 +204,7 @@ function getPositionAlongPipe(
 
 /**
  * Create pulsing glow effect for active pipes
+ * This is a WIDE SOFT OVERLAY that pulses behind the base pipe
  */
 export function createPulsingGlowStyle(
     feature: Feature,
@@ -216,25 +220,33 @@ export function createPulsingGlowStyle(
 
     // Pulsing alpha based on time
     const pulseSpeed = 2; // Complete cycle in 2 seconds
-    const alpha = 0.2 + Math.sin(time * pulseSpeed) * 0.15; // 0.05 to 0.35
+    const alpha = 0.15 + Math.sin(time * pulseSpeed) * 0.1; // 0.05 to 0.25
 
-    let glowWidth = 8;
-    if (diameter < 150) glowWidth = 6;
-    else if (diameter < 300) glowWidth = 8;
-    else if (diameter < 600) glowWidth = 10;
-    else glowWidth = 12;
+    // Wide glow stroke (wider than base pipe)
+    let glowWidth = 10;
+    if (diameter < 150) glowWidth = 8;
+    else if (diameter < 300) glowWidth = 10;
+    else if (diameter < 600) glowWidth = 12;
+    else glowWidth = 14;
 
     return new Style({
         stroke: new Stroke({
             color: `rgba(59, 130, 246, ${alpha})`,
             width: glowWidth,
         }),
-        zIndex: 9,
+        zIndex: 8, // Behind base pipe (which should be at 10)
     });
 }
 
 /**
  * Combined style function that creates all flow animations
+ * IMPORTANT: These styles should be ADDED to the base pipe style, not replace it
+ * 
+ * Usage:
+ * const styles = [
+ *   getBasePipeStyle(feature),           // Base pipe (zIndex: 10)
+ *   ...createCombinedFlowStyles(...)     // Animated overlays (zIndex: 8, 15, 105)
+ * ];
  */
 export function createCombinedFlowStyles(
     feature: Feature,
@@ -253,19 +265,19 @@ export function createCombinedFlowStyles(
 
     const styles: Style[] = [];
 
-    // Base animated dash style
+    // Pulsing glow (behind base pipe)
+    if (showGlow) {
+        styles.push(createPulsingGlowStyle(feature, animationTime));
+    }
+
+    // Animated dash overlay (on top of base pipe)
     if (showDashes) {
         styles.push(createAnimatedFlowStyle(feature, animationTime));
     }
 
-    // Particle effects
+    // Particle effects (on top of everything)
     if (showParticles) {
         styles.push(...createFlowParticleStyles(feature, animationTime));
-    }
-
-    // Pulsing glow
-    if (showGlow) {
-        styles.push(createPulsingGlowStyle(feature, animationTime));
     }
 
     return styles;
