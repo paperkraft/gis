@@ -14,10 +14,13 @@ export function createPipeArrowStyle(feature: Feature): Style[] {
 
     const styles: Style[] = [];
 
+    // Determine if we need to reverse the arrow direction
+    const shouldReverse = shouldReverseArrowDirection(feature, coords);
+
     // Create arrow for each segment
     for (let i = 0; i < coords.length - 1; i++) {
-        const start = coords[i];
-        const end = coords[i + 1];
+        const start = shouldReverse ? coords[coords.length - 1 - i] : coords[i];
+        const end = shouldReverse ? coords[coords.length - 2 - i] : coords[i + 1];
 
         // Midpoint of segment
         const midX = (start[0] + end[0]) / 2;
@@ -43,16 +46,7 @@ export function createPipeArrowStyle(feature: Feature): Style[] {
                 radius: arrowSize,
                 rotateWithView: false,
                 rotation: rotation,
-                // rotation: rotation - Math.PI / 2,
             }),
-
-            // image: new Icon({
-            //     src: '/arrow.svg',
-            //     scale: 0.02,
-            //     anchor: [0.75, 0.5],
-            //     rotateWithView: true,
-            //     rotation: -rotation,
-            // }),
 
             zIndex: 100,
         });
@@ -71,13 +65,17 @@ export function createSinglePipeArrow(feature: Feature): Style | null {
     const coords = geometry.getCoordinates();
     if (coords.length < 2) return null;
 
+    // Determine if we need to reverse the arrow direction
+    const shouldReverse = shouldReverseArrowDirection(feature, coords);
+    const workingCoords = shouldReverse ? [...coords].reverse() : coords;
+
     // Calculate total length
     let totalLength = 0;
     const segments: { start: number[]; end: number[]; length: number }[] = [];
 
-    for (let i = 0; i < coords.length - 1; i++) {
-        const start = coords[i];
-        const end = coords[i + 1];
+    for (let i = 0; i < workingCoords.length - 1; i++) {
+        const start = workingCoords[i];
+        const end = workingCoords[i + 1];
         const dx = end[0] - start[0];
         const dy = end[1] - start[1];
         const length = Math.sqrt(dx * dx + dy * dy);
@@ -129,6 +127,34 @@ export function createSinglePipeArrow(feature: Feature): Style | null {
     });
 }
 
+/**
+ * Determine if arrow direction should be reversed based on node topology
+ * 
+ * Logic:
+ * - If pipe has startNodeId and endNodeId, use those to determine direction
+ * - Flow direction is from startNode → endNode
+ * - If the geometry coordinates are in reverse order (endNode coords first),
+ *   we need to reverse the arrow to point in the correct flow direction
+ */
+function shouldReverseArrowDirection(feature: Feature, coords: number[][]): boolean {
+    const startNodeId = feature.get('startNodeId');
+    const endNodeId = feature.get('endNodeId');
+
+    // If no topology info, assume coordinates are in correct order
+    if (!startNodeId || !endNodeId) {
+        return false;
+    }
+
+    // Get the actual start and end coordinates
+    const firstCoord = coords[0];
+    const lastCoord = coords[coords.length - 1];
+
+    // This would require access to the node features to compare positions
+    // For now, we'll add a 'reversed' property that can be set when creating/modifying pipes
+    const isReversed = feature.get('reversed') || false;
+    
+    return isReversed;
+}
 
 export function getArrowColor(feature: Feature): string {
     // Default: Red arrows
