@@ -1,0 +1,215 @@
+import { layerType } from "@/types/components";
+import { create } from "zustand";
+
+interface UIState {
+
+    // Sidebar
+    sidebarOpen: boolean;
+    propertyPanelOpen: boolean;
+    showPipeArrows: boolean;
+
+
+    // Modal states
+    deleteModalOpen: boolean;
+    keyboardShortcutsModalOpen: boolean;
+    componentSelectionModalOpen: boolean;
+
+    // Map control states
+    activeTool: 'select' | 'modify' | 'draw' | null;
+    measurementActive: boolean;
+    measurementType: 'distance' | 'area';
+    showAttributeTable: boolean;
+    sidebarCollapsed: boolean;
+
+    // Layer visibility
+    layerVisibility: Record<string, boolean>;
+
+    // Base layer
+    baseLayer: layerType;
+
+    // Search
+    searchFocused: boolean;
+
+    setShowPipeArrows: (show: boolean) => void;
+
+    // Actions - Modals
+    setComponentSelectionModalOpen: (open: boolean) => void;
+    setDeleteModalOpen: (open: boolean) => void;
+    setKeyboardShortcutsModalOpen: (open: boolean) => void;
+    togglePropertyPanel: () => void;
+
+    // Actions - Map Controls
+    setActiveTool: (tool: 'select' | 'modify' | 'draw' | null) => void;
+    setMeasurementActive: (active: boolean) => void;
+    setMeasurementType: (type: 'distance' | 'area') => void;
+    setShowAttributeTable: (open: boolean) => void;
+    setSidebarCollapsed: (collapsed: boolean) => void;
+
+    // Actions - Layers
+    setBaseLayer: (layer: layerType) => void;
+    toggleLayerVisibility: (layerId: string) => void;
+    setLayerVisibility: (layerId: string, visible: boolean) => void;
+    setAllLayersVisibility: (visible: boolean) => void;
+
+    // Actions - Search
+    setSearchFocused: (focused: boolean) => void;
+
+    // Utility - Reset all tools
+    resetAllTools: () => void;
+    resetToDefaultState: () => void;
+}
+
+const DEFAULT_STATE = {
+    componentSelectionModalOpen: false,
+    keyboardShortcutsModalOpen: false,
+    propertyPanelOpen: false,
+    deleteModalOpen: false,
+    activeTool: 'select' as const,
+    measurementActive: false,
+    measurementType: 'distance' as const,
+    showAttributeTable: false,
+    sidebarCollapsed: false,
+    layerVisibility: {
+        junction: true,
+        tank: true,
+        reservoir: true,
+        pipe: true,
+        pump: true,
+        valve: true,
+    },
+    baseLayer: 'osm' as const,
+    searchFocused: false,
+    sidebarOpen: true,
+    showPipeArrows: true,
+};
+
+
+export const useUIStore = create<UIState>((set, get) => ({
+    ...DEFAULT_STATE,
+
+    // Modal actions
+    setComponentSelectionModalOpen: (open) => {
+        set({ componentSelectionModalOpen: open });
+    },
+
+    setDeleteModalOpen: (open) => {
+        set({ deleteModalOpen: open });
+    },
+
+    setKeyboardShortcutsModalOpen: (open) => {
+        set({ keyboardShortcutsModalOpen: open });
+    },
+
+    setShowPipeArrows: (show) => {
+        set({ showPipeArrows: show });
+    },
+
+    // Map control actions
+    setActiveTool: (tool) => {
+        const currentTool = get().activeTool;
+        if (currentTool === tool) {
+            return;
+        }
+
+        // Reset other tools when switching
+        const updates: Partial<UIState> = {
+            activeTool: tool,
+        };
+
+        // If switching away from pipe, close component selection
+        if (currentTool === 'draw' && tool !== 'draw') {
+            updates.componentSelectionModalOpen = false;
+        }
+
+        // Deactivate measurement when switching to other tools
+        if (tool !== 'select' && get().measurementActive) {
+            updates.measurementActive = false;
+        }
+
+        set(updates);
+    },
+
+    setMeasurementActive: (active) => {
+
+        // When activating measurement, switch to select tool
+        if (active && get().activeTool !== 'select') {
+            set({ activeTool: 'select' });
+        }
+
+        set({ measurementActive: active });
+    },
+
+    setMeasurementType: (type) => {
+        set({ measurementType: type });
+    },
+
+    setShowAttributeTable: (open) => {
+        set({ showAttributeTable: open });
+    },
+
+    setSidebarCollapsed: (collapsed) => {
+        set({ sidebarCollapsed: collapsed });
+    },
+
+    // Layer actions
+    toggleLayerVisibility: (layerId) => {
+        set((state) => {
+            const newVisibility = !state.layerVisibility[layerId];
+
+            return {
+                layerVisibility: {
+                    ...state.layerVisibility,
+                    [layerId]: newVisibility,
+                },
+            };
+        });
+    },
+
+    setLayerVisibility: (layerId, visible) => {
+        set((state) => ({
+            layerVisibility: {
+                ...state.layerVisibility,
+                [layerId]: visible,
+            },
+        }));
+    },
+
+    setAllLayersVisibility: (visible) => {
+        set((state) => {
+            const layerVisibility: Record<string, boolean> = {};
+            Object.keys(state.layerVisibility).forEach((key) => {
+                layerVisibility[key] = visible;
+            });
+            return { layerVisibility };
+        });
+    },
+
+    // Base layer actions
+    setBaseLayer: (layer: layerType) => {
+        set({ baseLayer: layer });
+    },
+
+    // Search actions
+    setSearchFocused: (focused) => {
+        set({ searchFocused: focused });
+    },
+
+    // Utility actions
+    resetAllTools: () => {
+        set({
+            activeTool: 'select',
+            measurementActive: false,
+            componentSelectionModalOpen: false,
+            showAttributeTable: false,
+            propertyPanelOpen: false
+        });
+
+    },
+
+    resetToDefaultState: () => {
+        set({ ...DEFAULT_STATE });
+    },
+
+    togglePropertyPanel: () => set((state) => ({ propertyPanelOpen: !state.propertyPanelOpen })),
+
+}));

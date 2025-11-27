@@ -1,0 +1,693 @@
+"use client";
+import "ol/ol.css";
+
+import { Feature, MapBrowserEvent } from "ol";
+import { click } from "ol/events/condition";
+import { Point } from "ol/geom";
+import { Select } from "ol/interaction";
+import TileLayer from "ol/layer/Tile";
+import VectorLayer from "ol/layer/Vector";
+import Map from "ol/Map";
+import { fromLonLat, toLonLat } from "ol/proj";
+import { XYZ } from "ol/source";
+import OSM from "ol/source/OSM";
+import VectorSource from "ol/source/Vector";
+import {
+  Circle as CircleStyle,
+  Fill,
+  RegularShape,
+  Stroke,
+  Style,
+} from "ol/style";
+import View from "ol/View";
+import { useEffect, useRef } from "react";
+
+import { ComponentSelectionModal } from "@/components/modals/ComponentSelectionModal";
+import { COMPONENT_TYPES } from "@/constants/networkComponents";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { VertexLayerManager } from "@/lib/topology/vertexManager";
+import { ContextMenuManager } from "@/lib/topology/contextMenuManager";
+import { DeleteManager } from "@/lib/topology/deleteManager";
+import { ModifyManager } from "@/lib/topology/modifyManager";
+import { PipeDrawingManager } from "@/lib/topology/pipeDrawingManager";
+import { useMapStore } from "@/store/mapStore";
+import { useNetworkStore } from "@/store/networkStore";
+import { useUIStore } from "@/store/uiStore";
+import { FeatureType } from "@/types/network";
+
+import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
+import { AttributeTable } from "./AttributeTable";
+import { LocationSearch } from "./LocationSearch";
+import { MapControls } from "./MapControls";
+import { PropertyPanel } from "./PropertyPanel";
+import { createPipeArrowStyle } from "@/lib/styles/pipeArrowStyles";
+
+export function MapContainer() {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<Map | null>(null);
+  const vectorSourceRef = useRef<VectorSource | null>(null);
+  const vectorLayerRef = useRef<VectorLayer<any> | null>(null);
+  const selectInteractionRef = useRef<Select | null>(null);
+
+  const pipeDrawingManagerRef = useRef<PipeDrawingManager | null>(null);
+  const contextMenuManagerRef = useRef<ContextMenuManager | null>(null);
+  const vertexLayerManagerRef = useRef<VertexLayerManager | null>(null);
+  const modifyManagerRef = useRef<ModifyManager | null>(null);
+  const deleteManagerRef = useRef<DeleteManager | null>(null);
+
+  const {
+    addFeature,
+    selectFeature,
+    selectedFeature,
+    selectedFeatureId,
+    setSelectedFeature,
+    generateUniqueId,
+  } = useNetworkStore();
+
+  const { coordinates, setMap, setCoordinates, setVectorSource } =
+    useMapStore();
+
+  const {
+    activeTool,
+    showAttributeTable,
+    layerVisibility,
+    deleteModalOpen,
+    componentSelectionModalOpen,
+    setActiveTool,
+    setDeleteModalOpen,
+    setShowAttributeTable,
+    setComponentSelectionModalOpen,
+    resetAllTools,
+  } = useUIStore();
+
+  useKeyboardShortcuts();
+
+  // Initialize map
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+
+    const vectorSource = new VectorSource();
+    vectorSourceRef.current = vectorSource;
+
+    // Base layers
+    const osmLayer = new TileLayer({
+      source: new OSM(),
+      visible: true,
+      properties: { name: "osm", title: "OpenStreetMap" },
+    });
+
+    const mapboxLayer = new TileLayer({
+      source: new XYZ({
+        url: "https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=YOUR_MAPBOX_TOKEN",
+        tileSize: 512,
+        maxZoom: 22,
+        crossOrigin: "anonymous",
+      }),
+      visible: false,
+      properties: { name: "mapbox", title: "Mapbox Streets" },
+    });
+
+    const esriStreetLayer = new TileLayer({
+      source: new XYZ({
+        url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+      }),
+      visible: false,
+      properties: { name: "esri-street", title: "ESRI World Street" },
+    });
+
+    const esriImageryLayer = new TileLayer({
+      source: new XYZ({
+        url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      }),
+      visible: false,
+      properties: { name: "esri-imagery", title: "ESRI World Imagery" },
+    });
+
+    const vectorLayer = new VectorLayer({
+      source: vectorSource,
+      style: (feature) => getFeatureStyle(feature as Feature),
+      properties: { name: "network" },
+      updateWhileAnimating: true,
+      updateWhileInteracting: true,
+      zIndex: 100,
+    });
+
+    vectorLayerRef.current = vectorLayer;
+
+    const map = new Map({
+      target: mapRef.current,
+      layers: [
+        osmLayer,
+        mapboxLayer,
+        esriStreetLayer,
+        esriImageryLayer,
+        vectorLayer,
+      ],
+      view: new View({
+        center: fromLonLat([77.5946, 12.9716]),
+        zoom: 16,
+      }),
+      controls: [],
+    });
+
+    mapInstanceRef.current = map;
+    setMap(map);
+    setVectorSource(vectorSource);
+
+    // CRITICAL: Initialize Select interaction
+    const selectInteraction = new Select({
+      layers: [vectorLayer],
+      condition: click,
+      style: (feature) => getSelectedStyle(feature as Feature),
+      filter: (feature) =>
+        !feature.get("isPreview") &&
+        !feature.get("isVertexMarker") &&
+        !feature.get("isVisualLink"),
+    });
+
+    selectInteraction.on("select", (event) => {
+      if (event.selected.length > 0) {
+        const feature = event.selected[0];
+        const featureId = feature.getId() as string;
+        const props = feature.getProperties();
+
+        // Update store
+        selectFeature(featureId);
+
+        // Update local state for property panel
+        setSelectedFeature(feature);
+      } else {
+        selectFeature(null);
+        setSelectedFeature(null);
+      }
+    });
+
+    map.addInteraction(selectInteraction);
+    selectInteractionRef.current = selectInteraction;
+
+    // Track coordinates
+    map.on("pointermove", (event) => {
+      const coord = event.coordinate;
+      const [lat, lon] = toLonLat(coord);
+
+      // Show Web Mercator (EPSG:3857)
+      // setCoordinates(`X: ${coord[0].toFixed(2)}, Y: ${coord[1].toFixed(2)}`);
+      // Show Lat/Lon (EPSG:4326)
+      setCoordinates(`${lat.toFixed(6)}°N, ${lon.toFixed(6)}°E`);
+    });
+
+    // ============================================
+    // Initialize Managers
+    // ============================================
+
+    const pipeDrawingManager = new PipeDrawingManager(map, vectorSource);
+    const contextMenuManager = new ContextMenuManager(map, vectorSource);
+    // const vertexLayerManager = new VertexLayerManager(map, VectorSource);
+    const modifyManager = new ModifyManager(map, vectorSource);
+    const deleteManager = new DeleteManager(map, vectorSource);
+
+    // Connect managers
+    pipeDrawingManager.registerWithContextMenu(contextMenuManager);
+    contextMenuManager.setPipeDrawingManager(pipeDrawingManager);
+
+    // CRITICAL: Sync drawing mode
+    const originalStartDrawing =
+      pipeDrawingManager.startDrawing.bind(pipeDrawingManager);
+
+    pipeDrawingManager.startDrawing = () => {
+      originalStartDrawing();
+      contextMenuManager.setDrawingMode(true);
+    };
+
+    const originalStopDrawing =
+      pipeDrawingManager.stopDrawing.bind(pipeDrawingManager);
+    pipeDrawingManager.stopDrawing = () => {
+      originalStopDrawing();
+      contextMenuManager.setDrawingMode(false);
+    };
+
+    deleteManager.onDeleteRequest = (feature: Feature) => {
+      // setFeatureToDelete(feature);
+      setSelectedFeature(feature);
+      setDeleteModalOpen(true);
+    };
+
+    pipeDrawingManagerRef.current = pipeDrawingManager;
+    contextMenuManagerRef.current = contextMenuManager;
+    vertexLayerManagerRef.current = new VertexLayerManager(map, vectorSource);
+    modifyManagerRef.current = modifyManager;
+    deleteManagerRef.current = deleteManager;
+
+    // Load sample data
+    // loadSampleData(vectorSource);
+
+    return () => {
+      pipeDrawingManager.cleanup();
+      contextMenuManager.cleanup();
+      vertexLayerManagerRef.current?.cleanup();
+      modifyManager.cleanup();
+      deleteManager.cleanup();
+      map.setTarget(undefined);
+      mapInstanceRef.current = null;
+    };
+  }, []);
+
+  // Handle tool changes
+  useEffect(() => {
+    if (!mapInstanceRef.current || !pipeDrawingManagerRef.current) return;
+
+    modifyManagerRef.current?.cleanup();
+
+    // Clear selection when changing tools
+    if (selectInteractionRef.current) {
+      selectInteractionRef.current.getFeatures().clear();
+    }
+
+    setSelectedFeature(null);
+    selectFeature(null);
+
+    switch (activeTool) {
+      case "select":
+        mapInstanceRef.current.getViewport().style.cursor = "default";
+        break;
+      case "modify":
+        modifyManagerRef.current?.startModifying();
+        break;
+      case "draw":
+        pipeDrawingManagerRef.current.startDrawing();
+        break;
+    }
+  }, [activeTool]);
+
+  // Sync with store selection
+  useEffect(() => {
+    if (!vectorSourceRef.current || !selectInteractionRef.current) return;
+
+    if (selectedFeatureId) {
+      // Find feature by ID
+      const feature = vectorSourceRef.current
+        .getFeatures()
+        .find((f) => f.getId() === selectedFeatureId);
+
+      if (feature) {
+        // Update select interaction
+        const selectedFeatures = selectInteractionRef.current.getFeatures();
+        selectedFeatures.clear();
+        selectedFeatures.push(feature);
+
+        // Update local state
+        setSelectedFeature(feature);
+      }
+    } else {
+      // Clear selection
+      selectInteractionRef.current.getFeatures().clear();
+      setSelectedFeature(null);
+    }
+  }, [selectedFeatureId]);
+
+  // Handle layer visibility
+  useEffect(() => {
+    if (!vectorSourceRef.current) return;
+
+    vectorSourceRef.current.getFeatures().forEach((feature) => {
+      const featureType = feature.get("type");
+      if (layerVisibility[featureType] === false) {
+        feature.set("hidden", true);
+      } else {
+        feature.set("hidden", false);
+      }
+    });
+
+    vectorLayerRef.current?.changed();
+  }, [layerVisibility]);
+
+  // Add event listeners for custom events
+  useEffect(() => {
+    const handleFitToExtent = () => {
+      // Trigger the fit to extent function from MapControls
+      window.dispatchEvent(new CustomEvent("triggerFitToExtent"));
+    };
+
+    window.addEventListener("fitToExtent", handleFitToExtent);
+
+    return () => {
+      window.removeEventListener("fitToExtent", handleFitToExtent);
+    };
+  }, [selectedFeature]);
+
+  // ESC key to reset all tools
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        console.log("⌨️ ESC pressed - resetting all tools");
+        resetAllTools();
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [resetAllTools]);
+
+  // Tooltip
+  // why junction can't be moved
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+
+    const handlePointerMove = (event: any) => {
+      const feature = mapInstanceRef.current?.forEachFeatureAtPixel(
+        event.pixel,
+        (f) => f as Feature
+      );
+
+      if (feature && feature.get("type") === "junction") {
+        const isLinkJunction = isJunctionConnectedToLink(feature);
+
+        if (isLinkJunction) {
+          mapInstanceRef.current!.getViewport().style.cursor = "not-allowed";
+          mapInstanceRef.current!.getViewport().title =
+            "This junction is part of a pump/valve. Move the pump/valve to reposition.";
+        } else {
+          mapInstanceRef.current!.getViewport().style.cursor = "pointer";
+          mapInstanceRef.current!.getViewport().title = "";
+        }
+      }
+    };
+
+    mapInstanceRef.current.on("pointermove", handlePointerMove);
+
+    return () => {
+      mapInstanceRef.current?.un("pointermove", handlePointerMove);
+    };
+  }, []);
+
+  // Register callback
+  useEffect(() => {
+    if (contextMenuManagerRef.current && pipeDrawingManagerRef.current) {
+      contextMenuManagerRef.current.setComponentPlacedCallback(
+        (component: Feature) => {
+          // This should only continue drawing, not create a pipe
+          pipeDrawingManagerRef.current?.continueDrawingFromNode(component);
+        }
+      );
+    }
+  }, []);
+
+  // ============================================
+  // COMPONENT SELECTION
+  // ============================================
+
+  const handleComponentSelection = (componentType: FeatureType | "skip") => {
+    setComponentSelectionModalOpen(false);
+    setActiveTool("draw");
+
+    if (componentType === "skip") {
+      pipeDrawingManagerRef.current?.startDrawing();
+    } else {
+      startComponentPlacementWithAutoDrawing(componentType);
+    }
+  };
+
+  const startComponentPlacementWithAutoDrawing = (
+    componentType: FeatureType
+  ) => {
+    if (!mapInstanceRef.current || !vectorSourceRef.current) return;
+
+    const map = mapInstanceRef.current;
+    const vectorSource = vectorSourceRef.current;
+
+    map.getViewport().style.cursor = "crosshair";
+
+    // Use map click (not singleclick) to avoid OpenLayers event conflicts
+    const placementHandler = (event: MapBrowserEvent<any>) => {
+      const coordinate = map.getCoordinateFromPixel(event.pixel);
+
+      const feature = new Feature({
+        geometry: new Point(coordinate),
+      });
+
+      const id = generateUniqueId(componentType);
+
+      feature.setId(id);
+      feature.set("type", componentType);
+      feature.set("isNew", true);
+      feature.setProperties({
+        ...COMPONENT_TYPES[componentType].defaultProperties,
+        label: `${COMPONENT_TYPES[componentType].name}-${id}`,
+      });
+      feature.set("connectedLinks", []);
+
+      vectorSource.addFeature(feature);
+      addFeature(feature);
+
+      // Remove handler
+      map.un("click", placementHandler);
+
+      // CRITICAL: Start drawing on NEXT frame cycle
+      requestAnimationFrame(() => {
+        if (pipeDrawingManagerRef.current) {
+          pipeDrawingManagerRef.current.startDrawing();
+
+          requestAnimationFrame(() => {
+            if (pipeDrawingManagerRef.current) {
+              pipeDrawingManagerRef.current.continueDrawingFromNode(feature);
+
+              map.getViewport().style.cursor = "crosshair";
+              setActiveTool("draw");
+            }
+          });
+        }
+      });
+    };
+
+    // Use 'click' instead of 'singleclick'
+    map.once("click", placementHandler);
+  };
+
+  // ============================================
+  // STYLING
+  // ============================================
+
+  const getFeatureStyle = (feature: Feature): Style | Style[] => {
+    const featureType = feature.get("type") as FeatureType;
+
+    // Handle visual link lines
+    if (feature.get("isVisualLink")) {
+      const linkType = feature.get("linkType");
+      const color = linkType === "pump" ? "#F59E0B" : "#EC4899";
+
+      return new Style({
+        stroke: new Stroke({
+          color: color,
+          width: 3,
+          lineDash: [8, 4], // Dashed line
+        }),
+        // zIndex: 98,
+      });
+    }
+
+    if (feature.get("isPreview") || feature.get("isVertexMarker")) {
+      return feature.getStyle() as Style;
+    }
+
+    if (feature.get("hidden")) {
+      return new Style({});
+    }
+
+    const config = COMPONENT_TYPES[featureType];
+    if (!config) return new Style({});
+
+    // Special styling for junctions connected to pump/valve
+    if (featureType === "junction") {
+      const isLinkJunction = isJunctionConnectedToLink(feature);
+
+      if (isLinkJunction) {
+        // Style link junctions differently (locked appearance)
+        return new Style({
+          image: new CircleStyle({
+            radius: 6,
+            fill: new Fill({ color: "#9CA3AF" }), // Gray fill
+            stroke: new Stroke({
+              color: "#6B7280", // Darker gray border
+              width: 2,
+              lineDash: [4, 4], // Dashed border to indicate "locked"
+            }),
+          }),
+          // zIndex: 99,
+        });
+      }
+    }
+
+    if (featureType === "pipe") {
+      const diameter = feature.get("diameter") || 300;
+      const width = Math.max(2, Math.min(diameter / 100, 8));
+      const baseStyle = new Style({
+        stroke: new Stroke({
+          color: config.color,
+          width: width ?? 4,
+        }),
+        zIndex: 99,
+      });
+
+      // Add arrows for pipes
+      const { showPipeArrows } = useUIStore.getState();
+      if (showPipeArrows) {
+        const arrowStyles = createPipeArrowStyle(feature);
+        // Return array with base style + arrow styles
+        return [baseStyle, ...arrowStyles];
+      }
+
+      return baseStyle;
+    }
+
+    if (["junction", "tank", "reservoir"].includes(featureType)) {
+      return new Style({
+        image: new CircleStyle({
+          radius: 8,
+          fill: new Fill({ color: config.color }),
+          stroke: new Stroke({ color: "#ffffff", width: 2 }),
+        }),
+      });
+    }
+
+    if (["pump", "valve"].includes(featureType)) {
+      return new Style({
+        image: new RegularShape({
+          fill: new Fill({ color: config.color }),
+          stroke: new Stroke({ color: "#ffffff", width: 2 }),
+          points: 4,
+          radius: 10,
+        }),
+      });
+    }
+
+    return new Style({});
+  };
+
+  const getSelectedStyle = (feature: Feature): Style => {
+    const featureType = feature.get("type");
+    const config = COMPONENT_TYPES[featureType];
+
+    if (featureType === "pipe") {
+      return new Style({
+        stroke: new Stroke({
+          color: "rgba(31, 184, 205, 0.9)",
+          width: 6,
+        }),
+      });
+    }
+
+    return new Style({
+      image: new CircleStyle({
+        radius: 12,
+        fill: new Fill({ color: config?.color || "#cccccc" }),
+        stroke: new Stroke({ color: "#1FB8CD", width: 3 }),
+      }),
+    });
+  };
+
+  function isJunctionConnectedToLink(junction: Feature): boolean {
+    const junctionId = junction.getId() as string;
+    const features = vectorSourceRef.current?.getFeatures() || [];
+
+    return features.some((feature) => {
+      const type = feature.get("type");
+      if (type !== "pump" && type !== "valve") {
+        return false;
+      }
+
+      const startNodeId = feature.get("startNodeId");
+      const endNodeId = feature.get("endNodeId");
+
+      return startNodeId === junctionId || endNodeId === junctionId;
+    });
+  }
+
+  // ============================================
+  // DELETE HANDLING
+  // ============================================
+
+  const handleDeleteRequestFromPanel = () => {
+    const selectedFeatureId = useNetworkStore.getState().selectedFeatureId;
+    if (!selectedFeatureId || !vectorSourceRef.current) return;
+
+    const feature = vectorSourceRef.current
+      .getFeatures()
+      .find((f) => f.getId() === selectedFeatureId);
+
+    if (feature) {
+      setSelectedFeature(feature);
+      setDeleteModalOpen(true);
+    }
+  };
+
+  const handleDeleteConfirm = () => {
+    if (selectedFeature && deleteManagerRef.current) {
+      deleteManagerRef.current.executeDelete(selectedFeature);
+      setDeleteModalOpen(false);
+      selectFeature(null);
+      setSelectedFeature(null);
+      useNetworkStore.getState().selectFeature(null);
+    }
+  };
+
+  const cascadeInfo = selectedFeature
+    ? deleteManagerRef.current?.getCascadeInfo(selectedFeature)
+    : undefined;
+
+  return (
+    <div className="relative w-full h-full">
+      <div ref={mapRef} className="w-full h-full" />
+
+      <MapControls />
+      <LocationSearch />
+
+      <AttributeTable
+        isOpen={showAttributeTable}
+        onClose={() => setShowAttributeTable(false)}
+        vectorSource={vectorSourceRef.current || undefined}
+      />
+
+      <ComponentSelectionModal
+        isOpen={componentSelectionModalOpen}
+        onClose={() => setComponentSelectionModalOpen(false)}
+        onSelectComponent={handleComponentSelection}
+      />
+
+      {selectedFeature && activeTool === "select" && (
+        <PropertyPanel
+          properties={selectedFeature.getProperties() as any}
+          onDeleteRequest={handleDeleteRequestFromPanel}
+        />
+      )}
+
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        featureName={selectedFeature?.get("label") || "Unknown"}
+        featureType={selectedFeature?.get("type") || "Feature"}
+        featureId={selectedFeature?.getId()?.toString() || "Unknown"}
+        cascadeInfo={cascadeInfo}
+      />
+
+      <div className="absolute bottom-4 right-4 bg-white/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-md border border-gray-200">
+        <div className="flex items-center gap-2">
+          <svg
+            className="w-3 h-3 text-blue-500"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fillRule="evenodd"
+              d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <span className="text-xs font-mono text-gray-700 font-medium">
+            {coordinates}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
