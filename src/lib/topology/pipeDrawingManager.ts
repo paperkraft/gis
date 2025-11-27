@@ -88,15 +88,18 @@ export class PipeDrawingManager {
         const coordinate = (geometry as Point).getCoordinates();
 
         if (this.drawingCoordinates.length === 0) {
+            // Starting new pipe segment
             this.startNode = node;
             this.drawingCoordinates.push(coordinate);
             this.addVertexMarker(coordinate);
             this.showHelpMessage(`Drawing from ${node.get('label')} | Right-click to add junction`);
-            return
+            return;
         } else {
+            // Ending current pipe segment
             this.drawingCoordinates.push(coordinate);
             this.endNode = node;
-            this.addVertexMarker(coordinate);
+            // Don't add vertex marker here - createPipeSegment will clear all markers
+            // and resetForNextSegment will add the marker for the next segment
             this.createPipeSegment();
             this.resetForNextSegment(node);
         }
