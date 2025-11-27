@@ -539,7 +539,8 @@ export class PipeDrawingManager {
         this.vertexMarkers = [];
 
         this.createPipe(
-            this.drawingCoordinates,
+            // this.drawingCoordinates,
+            uniqueCoords,
             this.startNode,
             this.endNode
         );
@@ -1027,7 +1028,7 @@ export class PipeDrawingManager {
                 fill: new Fill({ color: "#1FB8CD" }),
                 stroke: new Stroke({ color: "#fff", width: 2 }),
             }),
-            zIndex: 200,
+            zIndex: 100,
         }));
         marker.set("isVertexMarker", true);
         this.vectorSource.addFeature(marker);

@@ -10,7 +10,7 @@ export interface FlowAnimationOptions {
 }
 
 /**
- * Hook to manage animated water flow in pipes
+ * Hook to manage animated wap;oter flow in pipes
  */
 export function useFlowAnimation(
     vectorLayer: VectorLayer<VectorSource> | null,
@@ -84,7 +84,7 @@ export function useFlowAnimation(
     };
 
     const setSpeed = (speed: number) => {
-        setOptions(prev => ({ ...prev, speed: Math.max(0.1, Math.min(3, speed)) }));
+        setOptions(prev => ({ ...prev, speed: Math.max(0.1, Math.min(5, speed)) }));
     };
 
     const setStyle = (style: FlowAnimationOptions['style']) => {

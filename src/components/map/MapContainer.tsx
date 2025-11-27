@@ -1,46 +1,40 @@
 "use client";
-import "ol/ol.css";
+import 'ol/ol.css';
 
-import { Feature, MapBrowserEvent } from "ol";
-import { click } from "ol/events/condition";
-import { Point } from "ol/geom";
-import { Select } from "ol/interaction";
-import TileLayer from "ol/layer/Tile";
-import VectorLayer from "ol/layer/Vector";
-import Map from "ol/Map";
-import { fromLonLat, toLonLat } from "ol/proj";
-import { XYZ } from "ol/source";
-import OSM from "ol/source/OSM";
-import VectorSource from "ol/source/Vector";
-import {
-  Circle as CircleStyle,
-  Fill,
-  RegularShape,
-  Stroke,
-  Style,
-} from "ol/style";
-import View from "ol/View";
-import { useEffect, useRef } from "react";
+import { Feature, MapBrowserEvent } from 'ol';
+import { click } from 'ol/events/condition';
+import { Point } from 'ol/geom';
+import { Select } from 'ol/interaction';
+import TileLayer from 'ol/layer/Tile';
+import VectorLayer from 'ol/layer/Vector';
+import Map from 'ol/Map';
+import { fromLonLat, toLonLat } from 'ol/proj';
+import { XYZ } from 'ol/source';
+import OSM from 'ol/source/OSM';
+import VectorSource from 'ol/source/Vector';
+import { Circle as CircleStyle, Fill, RegularShape, Stroke, Style } from 'ol/style';
+import View from 'ol/View';
+import { useEffect, useRef } from 'react';
 
-import { ComponentSelectionModal } from "@/components/modals/ComponentSelectionModal";
-import { COMPONENT_TYPES } from "@/constants/networkComponents";
-import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { VertexLayerManager } from "@/lib/topology/vertexManager";
-import { ContextMenuManager } from "@/lib/topology/contextMenuManager";
-import { DeleteManager } from "@/lib/topology/deleteManager";
-import { ModifyManager } from "@/lib/topology/modifyManager";
-import { PipeDrawingManager } from "@/lib/topology/pipeDrawingManager";
-import { useMapStore } from "@/store/mapStore";
-import { useNetworkStore } from "@/store/networkStore";
-import { useUIStore } from "@/store/uiStore";
-import { FeatureType } from "@/types/network";
+import { ComponentSelectionModal } from '@/components/modals/ComponentSelectionModal';
+import { COMPONENT_TYPES } from '@/constants/networkComponents';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { createSegmentArrows } from '@/lib/styles/pipeArrowStyles';
+import { ContextMenuManager } from '@/lib/topology/contextMenuManager';
+import { DeleteManager } from '@/lib/topology/deleteManager';
+import { ModifyManager } from '@/lib/topology/modifyManager';
+import { PipeDrawingManager } from '@/lib/topology/pipeDrawingManager';
+import { VertexLayerManager } from '@/lib/topology/vertexManager';
+import { useMapStore } from '@/store/mapStore';
+import { useNetworkStore } from '@/store/networkStore';
+import { useUIStore } from '@/store/uiStore';
+import { FeatureType } from '@/types/network';
 
-import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
-import { AttributeTable } from "./AttributeTable";
-import { LocationSearch } from "./LocationSearch";
-import { MapControls } from "./MapControls";
-import { PropertyPanel } from "./PropertyPanel";
-import { createPipeArrowStyle } from "@/lib/styles/pipeArrowStyles";
+import { DeleteConfirmationModal } from '../modals/DeleteConfirmationModal';
+import { AttributeTable } from './AttributeTable';
+import { LocationSearch } from './LocationSearch';
+import { MapControls } from './MapControls';
+import { PropertyPanel } from './PropertyPanel';
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -64,7 +58,7 @@ export function MapContainer() {
     generateUniqueId,
   } = useNetworkStore();
 
-  const { coordinates, setMap, setCoordinates, setVectorSource } =
+  const { coordinates, map, setMap, setCoordinates, setVectorSource } =
     useMapStore();
 
   const {
@@ -144,7 +138,7 @@ export function MapContainer() {
         vectorLayer,
       ],
       view: new View({
-        center: fromLonLat([77.5946, 12.9716]),
+        center: fromLonLat([74.2381, 16.7012]),
         zoom: 16,
       }),
       controls: [],
@@ -339,7 +333,6 @@ export function MapContainer() {
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        console.log("⌨️ ESC pressed - resetting all tools");
         resetAllTools();
       }
     };
@@ -348,8 +341,7 @@ export function MapContainer() {
     return () => window.removeEventListener("keydown", handleEscape);
   }, [resetAllTools]);
 
-  // Tooltip
-  // why junction can't be moved
+  // Tooltip why junction can't be moved
   useEffect(() => {
     if (!mapInstanceRef.current) return;
 
@@ -478,10 +470,9 @@ export function MapContainer() {
       return new Style({
         stroke: new Stroke({
           color: color,
-          width: 3,
+          width: 4,
           lineDash: [8, 4], // Dashed line
         }),
-        // zIndex: 98,
       });
     }
 
@@ -512,7 +503,6 @@ export function MapContainer() {
               lineDash: [4, 4], // Dashed border to indicate "locked"
             }),
           }),
-          // zIndex: 99,
         });
       }
     }
@@ -523,15 +513,14 @@ export function MapContainer() {
       const baseStyle = new Style({
         stroke: new Stroke({
           color: config.color,
-          width: width ?? 4,
+          width: width ?? 6,
         }),
-        zIndex: 99,
       });
 
       // Add arrows for pipes
       const { showPipeArrows } = useUIStore.getState();
       if (showPipeArrows) {
-        const arrowStyles = createPipeArrowStyle(feature);
+        const arrowStyles = createSegmentArrows(feature);
         // Return array with base style + arrow styles
         return [baseStyle, ...arrowStyles];
       }
@@ -542,10 +531,11 @@ export function MapContainer() {
     if (["junction", "tank", "reservoir"].includes(featureType)) {
       return new Style({
         image: new CircleStyle({
-          radius: 8,
+          radius: 10,
           fill: new Fill({ color: config.color }),
           stroke: new Stroke({ color: "#ffffff", width: 2 }),
         }),
+        zIndex: 101,
       });
     }
 
@@ -557,6 +547,7 @@ export function MapContainer() {
           points: 4,
           radius: 10,
         }),
+        zIndex: 101,
       });
     }
 
@@ -570,7 +561,8 @@ export function MapContainer() {
     if (featureType === "pipe") {
       return new Style({
         stroke: new Stroke({
-          color: "rgba(31, 184, 205, 0.9)",
+          // color: "rgba(31, 184, 205, 0.9)",
+          color: "rgba(255, 215, 0, 0.9)", // gold
           width: 6,
         }),
       });

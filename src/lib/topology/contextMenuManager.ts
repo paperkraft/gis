@@ -263,22 +263,6 @@ export class ContextMenuManager {
         if (!this.pipeDrawingManager || !this.currentCoordinate) return;
 
         const component = this.createComponent(componentType, this.currentCoordinate);
-
-
-        // const existingPipe = this.findPipeAtCoordinate(this.currentCoordinate);
-
-        // let component: Feature;
-
-        // if (existingPipe && this.pipeDrawingManager) {
-        //     component = this.pipeDrawingManager.insertNodeOnPipe(
-        //         existingPipe,
-        //         this.currentCoordinate,
-        //         componentType
-        //     );
-        // } else {
-        //     component = this.createComponent(componentType, this.currentCoordinate);
-        // }
-
         this.hideContextMenu();
 
         // Connect to drawing

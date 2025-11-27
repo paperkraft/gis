@@ -22,7 +22,7 @@ export function FlowAnimationControls({
     onStyleChange,
 }: FlowAnimationControlsProps) {
     return (
-        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-3 space-y-3 z-10">
+        <div className="absolute top-4 right-20 bg-white rounded-lg shadow-lg p-3 space-y-3 z-10">
             {/* Animation Toggle */}
             <div className="flex items-center gap-2">
                 <Button
@@ -56,7 +56,7 @@ export function FlowAnimationControls({
                         <input
                             type="range"
                             min="0.5"
-                            max="3"
+                            max="5"
                             step="0.1"
                             value={speed}
                             onChange={(e) => onSpeedChange(parseFloat(e.target.value))}

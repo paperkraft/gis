@@ -5,12 +5,12 @@ interface UIState {
 
     // Sidebar
     sidebarOpen: boolean;
-    propertyPanelOpen: boolean;
     showPipeArrows: boolean;
+    sidebarCollapsed: boolean;
+    propertyPanelOpen: boolean;
 
     // Tab navigation
     activeTab: string;
-
 
     // Modal states
     deleteModalOpen: boolean;
@@ -19,10 +19,11 @@ interface UIState {
 
     // Map control states
     activeTool: 'select' | 'modify' | 'draw' | null;
-    measurementActive: boolean;
     measurementType: 'distance' | 'area';
+    showBaseLayerMenu: boolean;
+    measurementActive: boolean;
     showAttributeTable: boolean;
-    sidebarCollapsed: boolean;
+    showMeasurementMenu: boolean;
 
     // Layer visibility
     layerVisibility: Record<string, boolean>;
@@ -37,16 +38,18 @@ interface UIState {
 
     // Actions - Modals
     setComponentSelectionModalOpen: (open: boolean) => void;
-    setDeleteModalOpen: (open: boolean) => void;
     setKeyboardShortcutsModalOpen: (open: boolean) => void;
+    setDeleteModalOpen: (open: boolean) => void;
+    setSidebarCollapsed: (collapsed: boolean) => void;
     togglePropertyPanel: () => void;
 
     // Actions - Map Controls
     setActiveTool: (tool: 'select' | 'modify' | 'draw' | null) => void;
-    setMeasurementActive: (active: boolean) => void;
     setMeasurementType: (type: 'distance' | 'area') => void;
+    setShowBaseLayerMenu: (open: boolean) => void;
     setShowAttributeTable: (open: boolean) => void;
-    setSidebarCollapsed: (collapsed: boolean) => void;
+    setMeasurementActive: (active: boolean) => void;
+    setShowMeasurementMenu: (open: boolean) => void;
 
     // Actions - Layers
     setBaseLayer: (layer: layerType) => void;
@@ -74,6 +77,8 @@ const DEFAULT_STATE = {
     measurementActive: false,
     measurementType: 'distance' as const,
     showAttributeTable: false,
+    showBaseLayerMenu: false,
+    showMeasurementMenu: false,
     sidebarCollapsed: false,
     layerVisibility: {
         junction: true,
@@ -89,7 +94,6 @@ const DEFAULT_STATE = {
     showPipeArrows: true,
     activeTab: 'network-editor',
 };
-
 
 export const useUIStore = create<UIState>((set, get) => ({
     ...DEFAULT_STATE,
@@ -150,8 +154,16 @@ export const useUIStore = create<UIState>((set, get) => ({
         set({ measurementType: type });
     },
 
-    setShowAttributeTable: (open) => {
-        set({ showAttributeTable: open });
+    setShowAttributeTable: () => {
+        set((state) => ({ showAttributeTable: !state.showAttributeTable }));
+    },
+
+    setShowBaseLayerMenu: () => {
+        set((state) => ({ showBaseLayerMenu: !state.showBaseLayerMenu }));
+    },
+
+    setShowMeasurementMenu: () => {
+        set((state) => ({ showMeasurementMenu: !state.showMeasurementMenu }));
     },
 
     setSidebarCollapsed: (collapsed) => {

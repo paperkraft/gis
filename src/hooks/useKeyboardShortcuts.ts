@@ -4,11 +4,21 @@ import { useEffect } from "react";
 import { useMapStore } from "@/store/mapStore";
 import { useUIStore } from "@/store/uiStore";
 import { useNetworkStore } from "@/store/networkStore";
+import { handleZoomToExtent } from "@/lib/interactions/map-controls";
 
 export function useKeyboardShortcuts() {
     const { map } = useMapStore();
     const { selectedFeature } = useNetworkStore();
-    const { activeTool, setActiveTool, setDeleteModalOpen, setComponentSelectionModalOpen, setKeyboardShortcutsModalOpen, setShowAttributeTable } = useUIStore();
+    const {
+        activeTool,
+        setActiveTool,
+        setDeleteModalOpen,
+        setComponentSelectionModalOpen,
+        setKeyboardShortcutsModalOpen,
+        setShowAttributeTable,
+        setShowBaseLayerMenu,
+        setShowMeasurementMenu
+    } = useUIStore();
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -102,7 +112,7 @@ export function useKeyboardShortcuts() {
 
             // H - Home / Fit to extent
             if (key === "h" && !ctrl) {
-                window.dispatchEvent(new CustomEvent("fitToExtent"));
+                handleZoomToExtent(map);
                 return;
             }
 
@@ -116,9 +126,21 @@ export function useKeyboardShortcuts() {
                 return;
             }
 
+            // T - Toggle Attribute Table
+            if (key === "t" && !ctrl) {
+                setShowAttributeTable(true);
+                return;
+            }
+
+            // L - Toggle Base Layer Map
+            if (key === "l" && !ctrl) {
+                setShowBaseLayerMenu(true);
+                return;
+            }
+
             // R - Ruler/Measure tool
             if (key === "r" && !ctrl) {
-                window.dispatchEvent(new CustomEvent("toggleMeasurement"));
+                setShowMeasurementMenu(true);
                 return;
             }
 
@@ -152,11 +174,7 @@ export function useKeyboardShortcuts() {
                 return;
             }
 
-            // T - Toggle Attribute Table
-            if (key === "t" && !ctrl) {
-                setShowAttributeTable(true);
-                return;
-            }
+
 
             // ? - Toggle help
             if ((key === "?" || key === "/") && !ctrl) {

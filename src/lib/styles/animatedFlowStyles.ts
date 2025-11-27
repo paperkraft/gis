@@ -9,11 +9,11 @@ import { Fill, Stroke, Style, Circle as CircleStyle } from 'ol/style';
 export class AnimatedFlowRenderer {
     private animationFrame: number | null = null;
     private offset = 0;
-    private speed = 2; // pixels per frame
-    private dashLength = 20;
-    private gapLength = 10;
+    private speed = 10; // pixels per frame
+    private dashLength = 40;
+    private gapLength = 20;
 
-    constructor(private vectorLayer: any) {}
+    constructor(private vectorLayer: any) { }
 
     /**
      * Start the flow animation
@@ -83,7 +83,7 @@ export function createAnimatedFlowStyle(
     else strokeWidth = 5;
 
     // Color based on status
-    let strokeColor = '#2563EB'; // Blue for active
+    let strokeColor = '#FFFFFF'; // Blue for active
     if (status === 'closed') strokeColor = '#DC2626'; // Red
     else if (status === 'inactive') strokeColor = '#9CA3AF'; // Gray
 
@@ -103,7 +103,7 @@ export function createAnimatedFlowStyle(
             lineDash: [dashLength, gapLength],
             lineDashOffset: -animationOffset, // Negative for forward flow
         }),
-        zIndex: 10,
+        zIndex: 12,
     });
 }
 
@@ -164,7 +164,7 @@ export function createFlowParticleStyles(
                     fill: new Fill({ color: 'rgba(59, 130, 246, 0.8)' }),
                     stroke: new Stroke({ color: '#FFFFFF', width: 1 }),
                 }),
-                zIndex: 102,
+                zIndex: 13,
             });
 
             styles.push(particleStyle);
@@ -229,7 +229,7 @@ export function createPulsingGlowStyle(
             color: `rgba(59, 130, 246, ${alpha})`,
             width: glowWidth,
         }),
-        zIndex: 9,
+        zIndex: 11,
     });
 }
 
@@ -276,9 +276,9 @@ export function createCombinedFlowStyles(
  */
 export function getFlowSpeedMultiplier(flow: number | undefined): number {
     if (!flow) return 1;
-    
+
     const absFlow = Math.abs(flow);
-    
+
     if (absFlow < 10) return 0.5;   // Slow
     if (absFlow < 50) return 1;     // Normal
     if (absFlow < 100) return 1.5;  // Fast

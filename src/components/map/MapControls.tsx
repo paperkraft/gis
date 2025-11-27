@@ -1,38 +1,32 @@
 "use client";
 
-import {
-  Home,
-  Map as MapIcon,
-  Ruler,
-  Square,
-  Table,
-  ZoomIn,
-  ZoomOut,
-} from "lucide-react";
-import { useEffect, useState } from "react";
+import { Home, Map as MapIcon, Ruler, Square, Table, ZoomIn, ZoomOut } from 'lucide-react';
+import { useEffect } from 'react';
 
-import { useMapStore } from "@/store/mapStore";
-import { cn } from "@/lib/utils";
-import { useUIStore } from "@/store/uiStore";
-import { layerType } from "@/types/components";
+import { handleZoomIn, handleZoomOut, handleZoomToExtent } from '@/lib/interactions/map-controls';
+import { cn } from '@/lib/utils';
+import { useMapStore } from '@/store/mapStore';
+import { useUIStore } from '@/store/uiStore';
+import { layerType } from '@/types/components';
 
 export function MapControls() {
   const { map } = useMapStore();
   const {
     activeTool,
     baseLayer,
-    setBaseLayer,
-    measurementActive,
     measurementType,
+    showBaseLayerMenu,
+    measurementActive,
     showAttributeTable,
-    setMeasurementActive,
-    setMeasurementType,
-    setShowAttributeTable,
+    showMeasurementMenu,
+    setBaseLayer,
     setActiveTool,
+    setMeasurementType,
+    setMeasurementActive,
+    setShowBaseLayerMenu,
+    setShowAttributeTable,
+    setShowMeasurementMenu,
   } = useUIStore();
-
-  const [showBaseLayerMenu, setShowBaseLayerMenu] = useState(false);
-  const [showMeasurementMenu, setShowMeasurementMenu] = useState(false);
 
   const baseLayerOptions = [
     { id: "osm", name: "OpenStreetMap", description: "Standard map view" },
@@ -54,100 +48,6 @@ export function MapControls() {
       icon: Square,
     },
   ];
-
-  const handleZoomIn = () => {
-    if (!map) return;
-    const view = map.getView();
-    const zoom = view.getZoom();
-    if (zoom !== undefined) {
-      view.animate({ zoom: zoom + 1, duration: 250 });
-    }
-  };
-
-  const handleZoomOut = () => {
-    if (!map) return;
-    const view = map.getView();
-    const zoom = view.getZoom();
-    if (zoom !== undefined) {
-      view.animate({ zoom: zoom - 1, duration: 250 });
-    }
-  };
-
-  const handleZoomToExtent = () => {
-    if (!map) return;
-
-    // Get all layers
-    const layers = map.getLayers().getArray();
-
-    // Find the network vector layer
-    const vectorLayer = layers.find(
-      (layer) =>
-        layer.get("name") === "network" ||
-        layer.get("title") === "Network Layer"
-    );
-
-    if (!vectorLayer) {
-      console.warn("⚠️ No network layer found");
-      return;
-    }
-
-    // Get the vector source
-    const source = (vectorLayer as any).getSource();
-
-    if (!source) {
-      console.warn("⚠️ No source found");
-      return;
-    }
-
-    // Get all features
-    const features = source.getFeatures();
-
-    if (features.length === 0) {
-      console.warn("⚠️ No features to fit");
-      // Fallback to default view
-      map.getView().animate({
-        center: [8637540.55, 1456850.9],
-        zoom: 14,
-        duration: 500,
-      });
-      return;
-    }
-
-    // Calculate the extent of all features
-    let extent: number[] | undefined;
-
-    features.forEach((feature: any) => {
-      const geometry = feature.getGeometry();
-      if (geometry) {
-        const featureExtent = geometry.getExtent();
-
-        if (!extent) {
-          extent = [...featureExtent];
-        } else {
-          // Extend the extent to include this feature
-          extent[0] = Math.min(extent[0], featureExtent[0]); // minX
-          extent[1] = Math.min(extent[1], featureExtent[1]); // minY
-          extent[2] = Math.max(extent[2], featureExtent[2]); // maxX
-          extent[3] = Math.max(extent[3], featureExtent[3]); // maxY
-        }
-      }
-    });
-
-    if (!extent) {
-      console.warn("⚠️ Could not calculate extent");
-      return;
-    }
-
-    console.log("  Calculated extent:", extent);
-    console.log("  Total features:", features.length);
-
-    // Fit the view to the extent with padding
-    map.getView().fit(extent, {
-      padding: [50, 50, 50, 50], // top, right, bottom, left padding
-      duration: 500,
-      maxZoom: 18, // Don't zoom in too much
-    });
-  };
 
   const handleBaseLayerChange = (layerType: layerType) => {
     if (!map) return;
@@ -216,8 +116,6 @@ export function MapControls() {
   };
 
   const handleMeasurementTypeSelect = (type: "distance" | "area") => {
-    console.log("📏 Measurement type selected:", type);
-
     // If measurement is already active, deactivate and reactivate with new type
     if (measurementActive) {
       removeMeasurementInteraction();
@@ -240,8 +138,6 @@ export function MapControls() {
       setMeasurementActive(false);
     } else {
       // Activate measurement
-      // addMeasurementInteraction(measurementType);
-      // setMeasurementActive(true);
       setShowMeasurementMenu(!showMeasurementMenu);
     }
   };
@@ -463,45 +359,12 @@ export function MapControls() {
     };
   }, [measurementActive]);
 
-  // Add useEffect to listen for keyboard shortcuts
-  useEffect(() => {
-    const handleTriggerFitToExtent = () => {
-      handleZoomToExtent();
-    };
-
-    const handleToggleMeasurementEvent = () => {
-      handleToggleMeasurement();
-    };
-
-    window.addEventListener("triggerFitToExtent", handleTriggerFitToExtent);
-    window.addEventListener("toggleMeasurement", handleToggleMeasurementEvent);
-
-    return () => {
-      window.removeEventListener(
-        "triggerFitToExtent",
-        handleTriggerFitToExtent
-      );
-      window.removeEventListener(
-        "toggleMeasurement",
-        handleToggleMeasurementEvent
-      );
-    };
-  }, [map]);
-
-  useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent("toggleAttributeTable", {
-        detail: { isOpen: showAttributeTable },
-      })
-    );
-  }, [showAttributeTable]);
-
   return (
     <>
       {/* Zoom Controls - Right Side Top */}
       <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-2 space-y-1">
         <button
-          onClick={handleZoomIn}
+          onClick={() => handleZoomIn(map)}
           className="w-10 h-10 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors"
           title="Zoom In"
         >
@@ -511,7 +374,7 @@ export function MapControls() {
         <div className="h-px bg-gray-200" />
 
         <button
-          onClick={handleZoomOut}
+          onClick={() => handleZoomOut(map)}
           className="w-10 h-10 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors"
           title="Zoom Out"
         >
@@ -521,7 +384,7 @@ export function MapControls() {
         <div className="h-px bg-gray-200" />
 
         <button
-          onClick={handleZoomToExtent}
+          onClick={() => handleZoomToExtent(map)}
           className="w-10 h-10 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors"
           title="Zoom to Extent"
         >
@@ -536,7 +399,9 @@ export function MapControls() {
             onClick={handleToggleMeasurement}
             className={cn(
               "size-10 flex items-center justify-center rounded-md transition-colors group relative",
-              measurementActive ? "bg-blue-100" : "hover:bg-gray-100"
+              showMeasurementMenu || measurementActive
+                ? "bg-blue-100"
+                : "hover:bg-gray-100"
             )}
             title="Measurement Tool"
           >
@@ -544,14 +409,18 @@ export function MapControls() {
               <Ruler
                 className={cn(
                   "size-5",
-                  measurementActive ? "text-blue-600" : "text-gray-700"
+                  showMeasurementMenu || measurementActive
+                    ? "text-blue-600"
+                    : "text-gray-700"
                 )}
               />
             ) : (
               <Square
                 className={cn(
                   "size-5",
-                  measurementActive ? "text-blue-600" : "text-gray-700"
+                  measurementActive || measurementActive
+                    ? "text-blue-600"
+                    : "text-gray-700"
                 )}
               />
             )}
@@ -562,33 +431,47 @@ export function MapControls() {
 
           {/* Measurement Type Dropdown */}
           {showMeasurementMenu && !measurementActive && (
-            <div className="absolute right-full top-0 mr-2 bg-white rounded-lg shadow-xl border border-gray-200 p-2 w-52 z-50">
-              <div className="text-xs font-semibold text-gray-500 px-2 mb-2">
-                MEASUREMENT TYPE
-              </div>
-              {measurementOptions.map((option) => {
-                const Icon = option.icon;
-                return (
-                  <button
-                    key={option.id}
-                    onClick={() =>
-                      handleMeasurementTypeSelect(option.id as any)
-                    }
-                    className="w-full text-left px-3 py-2.5 rounded-md transition-colors hover:bg-gray-100 text-gray-700"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon className="w-4 h-4 text-gray-600" />
-                      <div>
-                        <div className="text-sm font-medium">{option.name}</div>
-                        <div className="text-xs text-gray-500">
-                          {option.description}
+            <>
+              <div className="absolute right-full top-0 mr-2 bg-white rounded-lg shadow-xl border border-gray-200 p-2 w-52 z-50">
+                <div className="text-xs font-semibold text-gray-500 px-2 mb-2">
+                  MEASUREMENT TYPE
+                </div>
+                {measurementOptions.map((option) => {
+                  const Icon = option.icon;
+                  return (
+                    <button
+                      key={option.id}
+                      onClick={() =>
+                        handleMeasurementTypeSelect(option.id as any)
+                      }
+                      className="w-full text-left px-3 py-2.5 rounded-md transition-colors hover:bg-gray-100 text-gray-700"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon className="w-4 h-4 text-gray-600" />
+                        <div>
+                          <div className="text-sm font-medium">
+                            {option.name}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {option.description}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Click outside to close menu */}
+              {showMeasurementMenu && (
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => {
+                    setShowMeasurementMenu(false);
+                  }}
+                />
+              )}
+            </>
           )}
         </div>
 
@@ -615,74 +498,70 @@ export function MapControls() {
             </div>
           </button>
 
-          <div className="h-px bg-gray-200 my-1" />
-
-          {/* Attribute Table Toggle */}
-          <button
-            onClick={() => setShowAttributeTable(!showAttributeTable)}
-            className={cn(
-              "size-10 flex items-center justify-center rounded-md transition-colors group relative",
-              showAttributeTable ? "bg-blue-100" : "hover:bg-gray-100"
-            )}
-            title="Attribute Table"
-          >
-            <Table
-              className={cn(
-                "size-5",
-                showAttributeTable ? "text-blue-600" : "text-gray-700"
-              )}
-            />
-            <div className="absolute right-full mr-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity">
-              {showAttributeTable ? "Close Table" : "Attribute Table"}
-            </div>
-          </button>
-
           {/* Base Layer Dropdown */}
           {showBaseLayerMenu && (
-            <div className="absolute right-full top-0 mr-2 bg-white rounded-lg shadow-xl border border-gray-200 p-2 w-48 z-50">
-              <div className="text-xs font-semibold text-gray-500 px-2 mb-2">
-                BASE LAYER
-              </div>
-              {baseLayerOptions.map((option) => (
-                <button
-                  key={option.id}
-                  onClick={() => handleBaseLayerChange(option.id as any)}
-                  className={`
-                    w-full text-left px-3 py-2 rounded-md transition-colors
-                    ${
-                      baseLayer === option.id
-                        ? "bg-blue-50 text-blue-700 font-medium"
-                        : "hover:bg-gray-100 text-gray-700"
-                    }
-                  `}
-                >
-                  <div className="flex items-center gap-2">
-                    {baseLayer === option.id && (
-                      <div className="w-1.5 h-1.5 bg-blue-600 rounded-full" />
-                    )}
-                    <div>
-                      <div className="text-sm font-medium">{option.name}</div>
-                      <div className="text-xs text-gray-500">
-                        {option.description}
+            <>
+              <div className="absolute right-full top-0 mr-2 bg-white rounded-lg shadow-xl border border-gray-200 p-2 w-48 z-50">
+                <div className="text-xs font-semibold text-gray-500 px-2 mb-2">
+                  BASE LAYER
+                </div>
+                {baseLayerOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => handleBaseLayerChange(option.id as any)}
+                    className={`
+                      w-full text-left px-3 py-2 rounded-md transition-colors
+                      ${
+                        baseLayer === option.id
+                          ? "bg-blue-50 text-blue-700 font-medium"
+                          : "hover:bg-gray-100 text-gray-700"
+                      }
+                    `}
+                  >
+                    <div className="flex items-center gap-2">
+                      {baseLayer === option.id && (
+                        <div className="w-1.5 h-1.5 bg-blue-600 rounded-full" />
+                      )}
+                      <div>
+                        <div className="text-sm font-medium">{option.name}</div>
+                        <div className="text-xs text-gray-500">
+                          {option.description}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+                  </button>
+                ))}
+              </div>
 
-          {/* Click outside to close menu */}
-          {(showBaseLayerMenu || showMeasurementMenu) && (
-            <div
-              className="fixed inset-0 z-40"
-              onClick={() => {
-                setShowBaseLayerMenu(false);
-                setShowMeasurementMenu(false);
-              }}
-            />
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowBaseLayerMenu(false)}
+              />
+            </>
           )}
         </div>
+
+        <div className="h-px bg-gray-200" />
+
+        {/* Attribute Table Toggle */}
+        <button
+          onClick={() => setShowAttributeTable(!showAttributeTable)}
+          className={cn(
+            "size-10 flex items-center justify-center rounded-md transition-colors group relative",
+            showAttributeTable ? "bg-blue-100" : "hover:bg-gray-100"
+          )}
+          title="Attribute Table"
+        >
+          <Table
+            className={cn(
+              "size-5",
+              showAttributeTable ? "text-blue-600" : "text-gray-700"
+            )}
+          />
+          <div className="absolute right-full mr-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity">
+            {showAttributeTable ? "Close Table" : "Attribute Table"}
+          </div>
+        </button>
       </div>
 
       {/* Active Tool Indicator */}
