@@ -31,6 +31,8 @@ export function KeyboardShortcutsModal({
         { key: "-", description: "Zoom out" },
         { key: "H", description: "Fit to extent (Home)" },
         { key: "R", description: "Toggle measurement tool" },
+        { key: "L", description: "Toggle Base Layer" },
+        { key: "T", description: "Toggle Attribute table" },
         { key: "Ctrl+F", description: "Focus location search" },
       ],
     },
