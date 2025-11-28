@@ -1,40 +1,60 @@
 "use client";
+
+import { FileUp, Network, Play } from "lucide-react";
 import dynamic from "next/dynamic";
+
+import ImportPage from "@/components/import/ImportFile";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { FileUp, Play } from "lucide-react";
-// import { MapContainer } from "@/components/map/MapContainer";
+import { cn } from "@/lib/utils";
+import { useUIStore } from "@/store/uiStore";
 
 const MapContainer = dynamic(
   () => import("@/components/map/MapContainer").then((mod) => mod.MapContainer),
-  {
-    ssr: false,
-  }
+  { ssr: false }
 );
 
+const tabs = [
+  { id: "network-editor", label: "Network Editor", icon: Network },
+  { id: "import", label: "Import", icon: FileUp },
+  { id: "simulation", label: "Simulation", icon: Play },
+];
+
 export default function HomePage() {
+  const { activeTab, setActiveTab } = useUIStore();
+
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="h-screen flex flex-col overflow-auto">
       <Header />
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-auto">
         <Sidebar />
         <main className="flex-1 flex flex-col">
           {/* Tabs */}
           <div className="border-b bg-white dark:bg-gray-900 flex items-center px-4">
-            <button className="px-4 py-3 text-sm font-medium border-b-2 border-primary text-primary">
-              Network Editor
-            </button>
-            <button className="px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900">
-              <FileUp className="inline h-4 w-4 mr-1" />
-              Import
-            </button>
-            <button className="px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900">
-              <Play className="inline h-4 w-4 mr-1" />
-              Simulation
-            </button>
+            {tabs.map((tab) => {
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    "px-4 py-3 text-sm font-medium",
+                    activeTab === tab.id
+                      ? "border-b-2 border-primary text-primary"
+                      : "text-gray-600 hover:text-gray-900"
+                  )}
+                >
+                  <tab.icon className="inline mr-2" size={18} />
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
           <div className="flex-1">
-            <MapContainer />
+            {activeTab === "network-editor" && <MapContainer />}
+            {activeTab === "import" && <ImportPage />}
+            {activeTab === "simulation" && (
+              <div className="p-4">Simulation under development</div>
+            )}
           </div>
         </main>
       </div>

@@ -58,7 +58,7 @@ export function MapContainer() {
     generateUniqueId,
   } = useNetworkStore();
 
-  const { coordinates, map, setMap, setCoordinates, setVectorSource } =
+  const { coordinates, setMap, setCoordinates, setVectorSource } =
     useMapStore();
 
   const {

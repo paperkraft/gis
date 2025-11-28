@@ -1,5 +1,5 @@
-import { Feature } from "ol";
-import { Geometry } from "ol/geom";
+import { Feature } from 'ol';
+import { Geometry } from 'ol/geom';
 
 export type NodeType = "junction" | "tank" | "reservoir";
 export type LinkType = "pipe" | "pump" | "valve";
@@ -27,12 +27,10 @@ export interface NetworkFeatureProperties {
     autoCreated?: boolean;
     [key: string]: any;
 }
-
 export interface NetworkFeature extends Feature<Geometry> {
     getProperties(): NetworkFeatureProperties;
     setProperties(properties: NetworkFeatureProperties): void;
 }
-
 export interface ComponentConfig {
     name: string;
     icon: string;
@@ -41,19 +39,16 @@ export interface ComponentConfig {
     defaultProperties: Record<string, any>;
     createsJunction?: boolean;
 }
-
 export interface NetworkValidation {
     isValid: boolean;
     errors: ValidationError[];
     warnings: ValidationWarning[];
 }
-
 export interface ValidationError {
     type: string;
     message: string;
     featureId?: string;
 }
-
 export interface ValidationWarning {
     type: string;
     message: string;
