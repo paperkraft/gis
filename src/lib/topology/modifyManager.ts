@@ -182,9 +182,9 @@ export class ModifyManager {
         // Update in store
         import('@/store/networkStore').then(({ useNetworkStore }) => {
             const store = useNetworkStore.getState();
-            // store.updateFeature(link);
-            // store.updateFeature(startJunction);
-            // store.updateFeature(endJunction);
+            store.updateFeature(linkId, link);
+            store.updateFeature(linkId, startJunction);
+            store.updateFeature(linkId, endJunction);
         });
     }
 

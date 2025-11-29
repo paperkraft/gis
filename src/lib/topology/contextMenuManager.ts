@@ -465,10 +465,6 @@ export class ContextMenuManager {
         this.addComponentMenuItem('reservoir', () => this.addComponentWhileDrawing('reservoir'));
 
         // LINKS
-        // this.addSectionHeader('Links');
-        // this.addComponentMenuItem('pump', () => this.addComponentWhileDrawing('pump'));
-        // this.addComponentMenuItem('valve', () => this.addComponentWhileDrawing('valve'));
-
         this.addSectionHeader('Links');
         this.addComponentMenuItem('pump', () => this.addLinkWhileDrawing('pump'));
         this.addComponentMenuItem('valve', () => this.addLinkWhileDrawing('valve'));
@@ -635,62 +631,6 @@ export class ContextMenuManager {
         store.addFeature(feature);
 
         return feature;
-    }
-
-    private createLinkWithJunctions(
-        linkType: 'pump' | 'valve',
-        existingPipe: Feature | null
-    ): Feature {
-        const store = useNetworkStore.getState();
-
-        if (existingPipe && this.pipeDrawingManager) {
-            // Insert on pipe - split and create link
-            const result = this.pipeDrawingManager.insertLinkOnPipe(
-                existingPipe,
-                this.currentCoordinate!,
-                linkType
-            );
-            return result.link;
-        } else {
-            // Standalone link with 2 junctions
-            const linkLength = 50;
-            const startCoord = [
-                this.currentCoordinate![0] - linkLength / 2,
-                this.currentCoordinate![1]
-            ];
-            const endCoord = [
-                this.currentCoordinate![0] + linkLength / 2,
-                this.currentCoordinate![1]
-            ];
-
-            // Create junctions
-            const startJunction = this.createComponent('junction', startCoord);
-            const endJunction = this.createComponent('junction', endCoord);
-
-            // Create link
-            const link = new Feature({
-                geometry: new Point(this.currentCoordinate!),
-            });
-            const linkId = store.generateUniqueId(linkType);
-            link.setId(linkId);
-            link.set('type', linkType);
-            link.set('isNew', true);
-            link.setProperties({
-                ...COMPONENT_TYPES[linkType].defaultProperties,
-                label: `${COMPONENT_TYPES[linkType].name}-${linkId}`,
-                startNodeId: startJunction.getId(),
-                endNodeId: endJunction.getId(),
-            });
-
-            this.vectorSource.addFeature(link);
-            store.addFeature(link);
-
-            store.updateNodeConnections(startJunction.getId() as string, linkId, 'add');
-            store.updateNodeConnections(endJunction.getId() as string, linkId, 'add');
-
-            // Return start junction for drawing continuation
-            return startJunction;
-        }
     }
 
     // ============================================

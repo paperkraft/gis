@@ -14,6 +14,7 @@ interface UIState {
 
     // Modal states
     deleteModalOpen: boolean;
+    importModalOpen: boolean;
     keyboardShortcutsModalOpen: boolean;
     componentSelectionModalOpen: boolean;
 
@@ -40,6 +41,7 @@ interface UIState {
     setComponentSelectionModalOpen: (open: boolean) => void;
     setKeyboardShortcutsModalOpen: (open: boolean) => void;
     setDeleteModalOpen: (open: boolean) => void;
+    setImportModalOpen: (open: boolean) => void;
     setSidebarCollapsed: (collapsed: boolean) => void;
     togglePropertyPanel: () => void;
 
@@ -73,6 +75,7 @@ const DEFAULT_STATE = {
     keyboardShortcutsModalOpen: false,
     propertyPanelOpen: false,
     deleteModalOpen: false,
+    importModalOpen: false,
     activeTool: 'select' as const,
     measurementActive: false,
     measurementType: 'distance' as const,
@@ -105,6 +108,10 @@ export const useUIStore = create<UIState>((set, get) => ({
 
     setDeleteModalOpen: (open) => {
         set({ deleteModalOpen: open });
+    },
+
+    setImportModalOpen: (open) => {
+        set({ importModalOpen: open });
     },
 
     setKeyboardShortcutsModalOpen: (open) => {

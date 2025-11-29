@@ -1,40 +1,39 @@
 "use client";
-import 'ol/ol.css';
+import "ol/ol.css";
 
-import { Feature, MapBrowserEvent } from 'ol';
-import { click } from 'ol/events/condition';
-import { Point } from 'ol/geom';
-import { Select } from 'ol/interaction';
-import TileLayer from 'ol/layer/Tile';
-import VectorLayer from 'ol/layer/Vector';
-import Map from 'ol/Map';
-import { fromLonLat, toLonLat } from 'ol/proj';
-import { XYZ } from 'ol/source';
-import OSM from 'ol/source/OSM';
-import VectorSource from 'ol/source/Vector';
-import { Circle as CircleStyle, Fill, RegularShape, Stroke, Style } from 'ol/style';
-import View from 'ol/View';
-import { useEffect, useRef } from 'react';
+import { Feature, MapBrowserEvent } from "ol";
+import { click } from "ol/events/condition";
+import { Point } from "ol/geom";
+import { Select } from "ol/interaction";
+import TileLayer from "ol/layer/Tile";
+import VectorLayer from "ol/layer/Vector";
+import Map from "ol/Map";
+import { fromLonLat, toLonLat } from "ol/proj";
+import { XYZ } from "ol/source";
+import OSM from "ol/source/OSM";
+import VectorSource from "ol/source/Vector";
+import View from "ol/View";
+import { useEffect, useRef } from "react";
 
-import { ComponentSelectionModal } from '@/components/modals/ComponentSelectionModal';
-import { COMPONENT_TYPES } from '@/constants/networkComponents';
-import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
-import { createSegmentArrows } from '@/lib/styles/pipeArrowStyles';
-import { ContextMenuManager } from '@/lib/topology/contextMenuManager';
-import { DeleteManager } from '@/lib/topology/deleteManager';
-import { ModifyManager } from '@/lib/topology/modifyManager';
-import { PipeDrawingManager } from '@/lib/topology/pipeDrawingManager';
-import { VertexLayerManager } from '@/lib/topology/vertexManager';
-import { useMapStore } from '@/store/mapStore';
-import { useNetworkStore } from '@/store/networkStore';
-import { useUIStore } from '@/store/uiStore';
-import { FeatureType } from '@/types/network';
+import { ComponentSelectionModal } from "@/components/modals/ComponentSelectionModal";
+import { COMPONENT_TYPES } from "@/constants/networkComponents";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { ContextMenuManager } from "@/lib/topology/contextMenuManager";
+import { DeleteManager } from "@/lib/topology/deleteManager";
+import { ModifyManager } from "@/lib/topology/modifyManager";
+import { PipeDrawingManager } from "@/lib/topology/pipeDrawingManager";
+import { VertexLayerManager } from "@/lib/topology/vertexManager";
+import { useMapStore } from "@/store/mapStore";
+import { useNetworkStore } from "@/store/networkStore";
+import { useUIStore } from "@/store/uiStore";
+import { FeatureType } from "@/types/network";
 
-import { DeleteConfirmationModal } from '../modals/DeleteConfirmationModal';
-import { AttributeTable } from './AttributeTable';
-import { LocationSearch } from './LocationSearch';
-import { MapControls } from './MapControls';
-import { PropertyPanel } from './PropertyPanel';
+import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
+import { AttributeTable } from "./AttributeTable";
+import { LocationSearch } from "./LocationSearch";
+import { MapControls } from "./MapControls";
+import { PropertyPanel } from "./PropertyPanel";
+import { getFeatureStyle, getSelectedStyle, isJunctionConnectedToLink } from "@/lib/styles/featureStyles";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -454,145 +453,6 @@ export function MapContainer() {
     // Use 'click' instead of 'singleclick'
     map.once("click", placementHandler);
   };
-
-  // ============================================
-  // STYLING
-  // ============================================
-
-  const getFeatureStyle = (feature: Feature): Style | Style[] => {
-    const featureType = feature.get("type") as FeatureType;
-
-    // Handle visual link lines
-    if (feature.get("isVisualLink")) {
-      const linkType = feature.get("linkType");
-      const color = linkType === "pump" ? "#F59E0B" : "#EC4899";
-
-      return new Style({
-        stroke: new Stroke({
-          color: color,
-          width: 4,
-          lineDash: [8, 4], // Dashed line
-        }),
-      });
-    }
-
-    if (feature.get("isPreview") || feature.get("isVertexMarker")) {
-      return feature.getStyle() as Style;
-    }
-
-    if (feature.get("hidden")) {
-      return new Style({});
-    }
-
-    const config = COMPONENT_TYPES[featureType];
-    if (!config) return new Style({});
-
-    // Special styling for junctions connected to pump/valve
-    if (featureType === "junction") {
-      const isLinkJunction = isJunctionConnectedToLink(feature);
-
-      if (isLinkJunction) {
-        // Style link junctions differently (locked appearance)
-        return new Style({
-          image: new CircleStyle({
-            radius: 6,
-            fill: new Fill({ color: "#9CA3AF" }), // Gray fill
-            stroke: new Stroke({
-              color: "#6B7280", // Darker gray border
-              width: 2,
-              lineDash: [4, 4], // Dashed border to indicate "locked"
-            }),
-          }),
-        });
-      }
-    }
-
-    if (featureType === "pipe") {
-      const diameter = feature.get("diameter") || 300;
-      const width = Math.max(2, Math.min(diameter / 100, 8));
-      const baseStyle = new Style({
-        stroke: new Stroke({
-          color: config.color,
-          width: width ?? 6,
-        }),
-      });
-
-      // Add arrows for pipes
-      const { showPipeArrows } = useUIStore.getState();
-      if (showPipeArrows) {
-        const arrowStyles = createSegmentArrows(feature);
-        // Return array with base style + arrow styles
-        return [baseStyle, ...arrowStyles];
-      }
-
-      return baseStyle;
-    }
-
-    if (["junction", "tank", "reservoir"].includes(featureType)) {
-      return new Style({
-        image: new CircleStyle({
-          radius: 10,
-          fill: new Fill({ color: config.color }),
-          stroke: new Stroke({ color: "#ffffff", width: 2 }),
-        }),
-        zIndex: 101,
-      });
-    }
-
-    if (["pump", "valve"].includes(featureType)) {
-      return new Style({
-        image: new RegularShape({
-          fill: new Fill({ color: config.color }),
-          stroke: new Stroke({ color: "#ffffff", width: 2 }),
-          points: 4,
-          radius: 10,
-        }),
-        zIndex: 101,
-      });
-    }
-
-    return new Style({});
-  };
-
-  const getSelectedStyle = (feature: Feature): Style => {
-    const featureType = feature.get("type");
-    const config = COMPONENT_TYPES[featureType];
-
-    if (featureType === "pipe") {
-      return new Style({
-        stroke: new Stroke({
-          // color: "rgba(31, 184, 205, 0.9)",
-          color: "rgba(255, 215, 0, 0.9)", // gold
-          width: 6,
-        }),
-      });
-    }
-
-    return new Style({
-      image: new CircleStyle({
-        radius: 12,
-        fill: new Fill({ color: config?.color || "#cccccc" }),
-        stroke: new Stroke({ color: "#1FB8CD", width: 3 }),
-      }),
-    });
-  };
-
-  function isJunctionConnectedToLink(junction: Feature): boolean {
-    const junctionId = junction.getId() as string;
-    const features = vectorSourceRef.current?.getFeatures() || [];
-
-    return features.some((feature) => {
-      const type = feature.get("type");
-      if (type !== "pump" && type !== "valve") {
-        return false;
-      }
-
-      const startNodeId = feature.get("startNodeId");
-      const endNodeId = feature.get("endNodeId");
-
-      return startNodeId === junctionId || endNodeId === junctionId;
-    });
-  }
 
   // ============================================
   // DELETE HANDLING

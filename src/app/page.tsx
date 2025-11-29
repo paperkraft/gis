@@ -1,9 +1,8 @@
 "use client";
 
-import { FileUp, Network, Play } from "lucide-react";
+import { Network, Play } from "lucide-react";
 import dynamic from "next/dynamic";
 
-import ImportPage from "@/components/import/ImportFile";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { cn } from "@/lib/utils";
@@ -16,7 +15,6 @@ const MapContainer = dynamic(
 
 const tabs = [
   { id: "network-editor", label: "Network Editor", icon: Network },
-  { id: "import", label: "Import", icon: FileUp },
   { id: "simulation", label: "Simulation", icon: Play },
 ];
 
@@ -51,7 +49,6 @@ export default function HomePage() {
           </div>
           <div className="flex-1">
             {activeTab === "network-editor" && <MapContainer />}
-            {activeTab === "import" && <ImportPage />}
             {activeTab === "simulation" && (
               <div className="p-4">Simulation under development</div>
             )}

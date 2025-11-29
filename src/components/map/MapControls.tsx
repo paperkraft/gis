@@ -1,13 +1,28 @@
 "use client";
 
-import { Home, Map as MapIcon, Ruler, Square, Table, ZoomIn, ZoomOut } from 'lucide-react';
-import { useEffect } from 'react';
+import {
+  FileUp,
+  Home,
+  Map as MapIcon,
+  Ruler,
+  Square,
+  Table,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
+import { useEffect } from "react";
 
-import { handleZoomIn, handleZoomOut, handleZoomToExtent } from '@/lib/interactions/map-controls';
-import { cn } from '@/lib/utils';
-import { useMapStore } from '@/store/mapStore';
-import { useUIStore } from '@/store/uiStore';
-import { layerType } from '@/types/components';
+import {
+  handleZoomIn,
+  handleZoomOut,
+  handleZoomToExtent,
+} from "@/lib/interactions/map-controls";
+import { cn } from "@/lib/utils";
+import { useMapStore } from "@/store/mapStore";
+import { useUIStore } from "@/store/uiStore";
+import { layerType } from "@/types/components";
+
+import { ImportModal } from "../modals/ImportModal";
 
 export function MapControls() {
   const { map } = useMapStore();
@@ -15,6 +30,7 @@ export function MapControls() {
     activeTool,
     baseLayer,
     measurementType,
+    importModalOpen,
     showBaseLayerMenu,
     measurementActive,
     showAttributeTable,
@@ -26,6 +42,7 @@ export function MapControls() {
     setShowBaseLayerMenu,
     setShowAttributeTable,
     setShowMeasurementMenu,
+    setImportModalOpen,
   } = useUIStore();
 
   const baseLayerOptions = [
@@ -562,6 +579,20 @@ export function MapControls() {
             {showAttributeTable ? "Close Table" : "Attribute Table"}
           </div>
         </button>
+
+        <div className="h-px bg-gray-200" />
+
+        {/* Import Button */}
+        <button
+          onClick={() => setImportModalOpen(true)}
+          className="size-10 flex items-center justify-center rounded-md transition-colors group relative hover:bg-gray-100"
+          title="Import Network"
+        >
+          <FileUp className="w-5 h-5 text-gray-700" />
+          <div className="absolute right-full mr-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity">
+            {importModalOpen ? "Close" : "Import Network"}
+          </div>
+        </button>
       </div>
 
       {/* Active Tool Indicator */}
@@ -605,6 +636,12 @@ export function MapControls() {
           </button>
         </div>
       )}
+
+      {/* Import Modal */}
+      <ImportModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+      />
     </>
   );
 }

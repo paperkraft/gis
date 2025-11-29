@@ -120,6 +120,7 @@ export class PipeDrawingManager {
             this.helpMessageTimeout = null;
         }
 
+        console.log('cleanup');
         this.stopDrawing();
     }
 
@@ -1028,7 +1029,7 @@ export class PipeDrawingManager {
                 fill: new Fill({ color: "#1FB8CD" }),
                 stroke: new Stroke({ color: "#fff", width: 2 }),
             }),
-            zIndex: 100,
+            // zIndex: 100,
         }));
         marker.set("isVertexMarker", true);
         this.vectorSource.addFeature(marker);

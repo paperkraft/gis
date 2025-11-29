@@ -71,7 +71,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
         color: "#0066cc",
         description: "Water transmission line",
         defaultProperties: {
-            diameter: 12,
+            diameter: 100,
             material: "PVC",
             roughness: 130,
         },
