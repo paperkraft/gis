@@ -4,9 +4,9 @@ export const VertexStyles = {
     // Default vertex style (blue circle)
     default: new Style({
         image: new CircleStyle({
-            radius: 6,
+            radius: 4,
             fill: new Fill({ color: '#1FB8CD' }),
-            stroke: new Stroke({ color: '#FFFFFF', width: 2 }),
+            stroke: new Stroke({ color: '#FFFFFF', width: 1.5 }),
         }),
         zIndex: 99,
     }),
@@ -14,9 +14,9 @@ export const VertexStyles = {
     // Highlighted vertex (larger, orange)
     highlighted: new Style({
         image: new CircleStyle({
-            radius: 8,
+            radius: 6,
             fill: new Fill({ color: '#F59E0B' }),
-            stroke: new Stroke({ color: '#FFFFFF', width: 3 }),
+            stroke: new Stroke({ color: '#FFFFFF', width: 2 }),
         }),
         zIndex: 99,
     }),
@@ -24,9 +24,9 @@ export const VertexStyles = {
     // Selected vertex (green with pulse effect)
     selected: new Style({
         image: new CircleStyle({
-            radius: 7,
+            radius: 5,
             fill: new Fill({ color: '#10B981' }),
-            stroke: new Stroke({ color: '#FFFFFF', width: 2.5 }),
+            stroke: new Stroke({ color: '#FFFFFF', width: 2 }),
         }),
         zIndex: 99,
     }),
@@ -35,9 +35,9 @@ export const VertexStyles = {
     endpoint: new Style({
         image: new RegularShape({
             fill: new Fill({ color: '#EF4444' }),
-            stroke: new Stroke({ color: '#FFFFFF', width: 2 }),
+            stroke: new Stroke({ color: '#FFFFFF', width: 1.5 }),
             points: 4,
-            radius: 7,
+            radius: 5,
             angle: Math.PI / 4, // 45 degrees rotation for diamond
         }),
         zIndex: 99,
@@ -46,7 +46,7 @@ export const VertexStyles = {
     // Midpoint vertex (smaller, subtle)
     midpoint: new Style({
         image: new CircleStyle({
-            radius: 4,
+            radius: 3,
             fill: new Fill({ color: '#94A3B8' }),
             stroke: new Stroke({ color: '#FFFFFF', width: 1.5 }),
         }),
@@ -56,9 +56,9 @@ export const VertexStyles = {
     // Ghost vertex (semi-transparent, for preview)
     ghost: new Style({
         image: new CircleStyle({
-            radius: 5,
+            radius: 4,
             fill: new Fill({ color: 'rgba(31, 184, 205, 0.4)' }),
-            stroke: new Stroke({ color: 'rgba(255, 255, 255, 0.8)', width: 2, lineDash: [4, 4] }),
+            stroke: new Stroke({ color: 'rgba(255, 255, 255, 0.8)', width: 1.5, lineDash: [4, 4] }),
         }),
         zIndex: 99,
     }),
@@ -66,9 +66,9 @@ export const VertexStyles = {
     // Deletable vertex (red with X)
     deletable: new Style({
         image: new CircleStyle({
-            radius: 7,
+            radius: 5,
             fill: new Fill({ color: '#DC2626' }),
-            stroke: new Stroke({ color: '#FFFFFF', width: 2 }),
+            stroke: new Stroke({ color: '#FFFFFF', width: 1.5 }),
         }),
         zIndex: 99,
     }),
@@ -98,7 +98,7 @@ export function createPulseStyle(color: string = '#10B981'): Style[] {
         // Outer pulse
         new Style({
             image: new CircleStyle({
-                radius: 12,
+                radius: 10,
                 fill: new Fill({ color: `${color}33` }), // 20% opacity
                 stroke: new Stroke({ color: `${color}66`, width: 1 }), // 40% opacity
             }),
@@ -107,9 +107,9 @@ export function createPulseStyle(color: string = '#10B981'): Style[] {
         // Inner circle
         new Style({
             image: new CircleStyle({
-                radius: 7,
+                radius: 5,
                 fill: new Fill({ color }),
-                stroke: new Stroke({ color: '#FFFFFF', width: 2.5 }),
+                stroke: new Stroke({ color: '#FFFFFF', width: 2 }),
             }),
             zIndex: 101,
         }),

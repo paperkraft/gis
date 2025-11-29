@@ -49,6 +49,7 @@ export function MapContainer() {
   const deleteManagerRef = useRef<DeleteManager | null>(null);
 
   const {
+    features,
     addFeature,
     selectFeature,
     selectedFeature,
@@ -62,9 +63,10 @@ export function MapContainer() {
 
   const {
     activeTool,
-    showAttributeTable,
+    showPipeArrows,
     layerVisibility,
     deleteModalOpen,
+    showAttributeTable,
     componentSelectionModalOpen,
     setActiveTool,
     setDeleteModalOpen,
@@ -80,6 +82,14 @@ export function MapContainer() {
     if (!mapRef.current || mapInstanceRef.current) return;
 
     const vectorSource = new VectorSource();
+
+    // RESTORE DATA: Add existing features from store to the new source
+    if (features && features.size > 0) {
+      vectorSource.addFeatures(Array.from(features.values()));
+    }
+
+    // -----------------------------------------------------------------------
+
     vectorSourceRef.current = vectorSource;
 
     // Base layers
@@ -186,7 +196,7 @@ export function MapContainer() {
       // Show Web Mercator (EPSG:3857)
       // setCoordinates(`X: ${coord[0].toFixed(2)}, Y: ${coord[1].toFixed(2)}`);
       // Show Lat/Lon (EPSG:4326)
-      setCoordinates(`${lat.toFixed(6)}°N, ${lon.toFixed(6)}°E`);
+      setCoordinates(`${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`);
     });
 
     // ============================================
@@ -195,7 +205,6 @@ export function MapContainer() {
 
     const pipeDrawingManager = new PipeDrawingManager(map, vectorSource);
     const contextMenuManager = new ContextMenuManager(map, vectorSource);
-    // const vertexLayerManager = new VertexLayerManager(map, VectorSource);
     const modifyManager = new ModifyManager(map, vectorSource);
     const deleteManager = new DeleteManager(map, vectorSource);
 
@@ -203,7 +212,7 @@ export function MapContainer() {
     pipeDrawingManager.registerWithContextMenu(contextMenuManager);
     contextMenuManager.setPipeDrawingManager(pipeDrawingManager);
 
-    // CRITICAL: Sync drawing mode
+    // Sync drawing mode
     const originalStartDrawing =
       pipeDrawingManager.startDrawing.bind(pipeDrawingManager);
 
@@ -220,7 +229,6 @@ export function MapContainer() {
     };
 
     deleteManager.onDeleteRequest = (feature: Feature) => {
-      // setFeatureToDelete(feature);
       setSelectedFeature(feature);
       setDeleteModalOpen(true);
     };
@@ -230,9 +238,6 @@ export function MapContainer() {
     vertexLayerManagerRef.current = new VertexLayerManager(map, vectorSource);
     modifyManagerRef.current = modifyManager;
     deleteManagerRef.current = deleteManager;
-
-    // Load sample data
-    // loadSampleData(vectorSource);
 
     return () => {
       pipeDrawingManager.cleanup();
@@ -312,7 +317,7 @@ export function MapContainer() {
     });
 
     vectorLayerRef.current?.changed();
-  }, [layerVisibility]);
+  }, [layerVisibility, showPipeArrows]);
 
   // Add event listeners for custom events
   useEffect(() => {

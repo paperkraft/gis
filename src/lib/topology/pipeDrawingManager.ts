@@ -120,7 +120,6 @@ export class PipeDrawingManager {
             this.helpMessageTimeout = null;
         }
 
-        console.log('cleanup');
         this.stopDrawing();
     }
 
@@ -1027,9 +1026,8 @@ export class PipeDrawingManager {
             image: new CircleStyle({
                 radius: 4,
                 fill: new Fill({ color: "#1FB8CD" }),
-                stroke: new Stroke({ color: "#fff", width: 2 }),
+                stroke: new Stroke({ color: "#FFFFFF", width: 2 }),
             }),
-            // zIndex: 100,
         }));
         marker.set("isVertexMarker", true);
         this.vectorSource.addFeature(marker);

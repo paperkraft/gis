@@ -3,7 +3,7 @@ import VectorSource from 'ol/source/Vector';
 import VectorLayer from 'ol/layer/Vector';
 import { Feature } from 'ol';
 import { Point, LineString } from 'ol/geom';
-import { Style, Circle as CircleStyle, Fill, Stroke } from 'ol/style';
+import { getVertexStyle } from '../styles/vertexStyles';
 
 export class VertexLayerManager {
     private map: Map;
@@ -23,8 +23,12 @@ export class VertexLayerManager {
                 name: 'vertex-layer',
                 title: 'Pipe Vertices',
             },
-            style: this.getVertexStyle(),
-            zIndex: 150, // Above network layer but below selection
+            // Use the shared style function to ensure consistent sizing (radius: 4)
+            style: (feature) => {
+                return getVertexStyle({
+                    isEndpoint: feature.get('isEndpoint'),
+                });
+            },
             updateWhileAnimating: true,
             updateWhileInteracting: true,
         });
@@ -36,20 +40,6 @@ export class VertexLayerManager {
 
         // Listen for changes in network source
         this.setupListeners();
-    }
-
-    private getVertexStyle(): Style {
-        return new Style({
-            image: new CircleStyle({
-                radius: 4, // Small size
-                fill: new Fill({ color: '#FFFFFF' }), // White fill
-                stroke: new Stroke({
-                    color: '#3B82F6', // Blue border
-                    width: 2
-                }),
-            }),
-            zIndex: 150,
-        });
     }
 
     private setupListeners() {

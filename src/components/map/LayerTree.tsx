@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
+  ArrowRight,
 } from "lucide-react";
 import { useNetworkStore } from "@/store/networkStore";
 import { useUIStore } from "@/store/uiStore";
@@ -29,12 +30,17 @@ interface LayerItem {
   icon: React.ReactNode;
   color: string;
   visible: boolean;
-  count: number;
+  count?: number; // Made optional
 }
 
 export function LayerTree() {
   const { features } = useNetworkStore();
-  const { layerVisibility, setLayerVisibility } = useUIStore();
+  const {
+    layerVisibility,
+    setLayerVisibility,
+    showPipeArrows,
+    setShowPipeArrows,
+  } = useUIStore();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     new Set(["network-components", "network-pipes"])
   );
@@ -81,9 +87,13 @@ export function LayerTree() {
     });
   };
 
-  const toggleLayerVisibility = (layerId: string) => {
-    const newVisibility = !layerVisibility[layerId];
-    setLayerVisibility(layerId, newVisibility);
+  const handleLayerToggle = (layerId: string) => {
+    if (layerId === "flow-arrows") {
+      setShowPipeArrows(!showPipeArrows);
+    } else {
+      const newVisibility = !layerVisibility[layerId];
+      setLayerVisibility(layerId, newVisibility);
+    }
   };
 
   const layerGroups: LayerGroup[] = [
@@ -145,6 +155,14 @@ export function LayerTree() {
           visible: layerVisibility.pipe ?? true,
           count: layerCounts.pipe,
         },
+        {
+          id: "flow-arrows",
+          name: "Flow Arrows",
+          icon: <ArrowRight className="w-4 h-4" />,
+          color: "#6B7280", // Gray
+          visible: showPipeArrows ?? true,
+          // No count for arrows
+        },
       ],
     },
   ];
@@ -156,7 +174,7 @@ export function LayerTree() {
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <MapIcon className="w-4 h-4 text-primary" />
-            <span>Layers</span>
+            <span>Layers 555</span>
           </h3>
           <div className="text-xs text-gray-500 dark:text-gray-400">
             {Array.from(features.values()).length} features
@@ -213,13 +231,15 @@ export function LayerTree() {
                       </span>
 
                       {/* Feature Count */}
-                      <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-full">
-                        {layer.count}
-                      </span>
+                      {layer.count !== undefined && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                          {layer.count}
+                        </span>
+                      )}
 
                       {/* Visibility Toggle */}
                       <button
-                        onClick={() => toggleLayerVisibility(layer.id)}
+                        onClick={() => handleLayerToggle(layer.id)}
                         className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                         title={layer.visible ? "Hide layer" : "Show layer"}
                       >

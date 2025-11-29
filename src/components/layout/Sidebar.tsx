@@ -1,27 +1,26 @@
 "use client";
 
-import React, { useState } from "react";
 import {
   MousePointer2,
   Keyboard,
   Edit3,
   Network,
-  Droplet,
-  Container,
-  Waves,
-  Grid3x3,
-  Gauge,
-  Settings2,
   Eye,
   EyeOff,
   Layers,
-  Upload,
-  Download,
-  Trash2,
   HelpCircle,
+  ArrowRight,
+  Circle,
+  Square,
+  Hexagon,
+  Triangle,
+  SquareDot,
+  Minus,
 } from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
 import { KeyboardShortcutsModal } from "../modals/KeyboardShortcutsModal";
+import { LayerTree } from "../map/LayerTree";
+import { COMPONENT_TYPES } from "@/constants/networkComponents";
 
 export function Sidebar() {
   const {
@@ -42,6 +41,14 @@ export function Sidebar() {
       action();
     } else {
       setActiveTool(toolId as any);
+    }
+  };
+
+  const handleLayerToggle = (layerId: string) => {
+    if (layerId === "flow-arrows") {
+      setShowPipeArrows(!showPipeArrows);
+    } else {
+      toggleLayerVisibility(layerId);
     }
   };
 
@@ -73,12 +80,48 @@ export function Sidebar() {
   ];
 
   const layers = [
-    { id: "junction", name: "Junctions", icon: Droplet, color: "#3B82F6" },
-    { id: "tank", name: "Tanks", icon: Container, color: "#10B981" },
-    { id: "reservoir", name: "Reservoirs", icon: Waves, color: "#8B5CF6" },
-    { id: "pipe", name: "Pipes", icon: Grid3x3, color: "#EF4444" },
-    { id: "pump", name: "Pumps", icon: Gauge, color: "#F59E0B" },
-    { id: "valve", name: "Valves", icon: Settings2, color: "#EC4899" },
+    {
+      id: "junction",
+      name: "Junctions",
+      icon: Circle,
+      color: COMPONENT_TYPES.junction.color,
+    },
+    {
+      id: "tank",
+      name: "Tanks",
+      icon: Square,
+      color: COMPONENT_TYPES.tank.color,
+    },
+    {
+      id: "reservoir",
+      name: "Reservoirs",
+      icon: Hexagon,
+      color: COMPONENT_TYPES.reservoir.color,
+    },
+    {
+      id: "pipe",
+      name: "Pipes",
+      icon: Minus,
+      color: COMPONENT_TYPES.pipe.color,
+    },
+    {
+      id: "pump",
+      name: "Pumps",
+      icon: Triangle,
+      color: COMPONENT_TYPES.pump.color,
+    },
+    {
+      id: "valve",
+      name: "Valves",
+      icon: SquareDot,
+      color: COMPONENT_TYPES.valve.color,
+    },
+    {
+      id: "flow-arrows",
+      name: "Flow Arrows",
+      icon: ArrowRight,
+      color: "#6B7280",
+    },
   ];
 
   return (
@@ -140,18 +183,6 @@ export function Sidebar() {
           </div>
         </div>
 
-        <div className="mt-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showPipeArrows}
-              onChange={(e) => setShowPipeArrows(e.target.checked)}
-              className="w-4 h-4"
-            />
-            <span className="text-sm">Show Flow Arrows</span>
-          </label>
-        </div>
-
         {/* LAYERS SECTION */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center gap-2 mb-3">
@@ -164,12 +195,16 @@ export function Sidebar() {
           <div className="space-y-2">
             {layers.map((layer) => {
               const Icon = layer.icon;
-              const isVisible = layerVisibility[layer.id] !== false;
+              // Handle special case for flow arrows vs regular layers
+              const isVisible =
+                layer.id === "flow-arrows"
+                  ? showPipeArrows
+                  : layerVisibility[layer.id] !== false;
 
               return (
                 <button
                   key={layer.id}
-                  onClick={() => toggleLayerVisibility(layer.id)}
+                  onClick={() => handleLayerToggle(layer.id)}
                   className={`
                       w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-lg
                       transition-all duration-200 group relative
