@@ -2,13 +2,11 @@
 
 import {
   MousePointer2,
-  Keyboard,
   Edit3,
   Network,
   Eye,
   EyeOff,
   Layers,
-  HelpCircle,
   ArrowRight,
   Circle,
   Square,
@@ -16,10 +14,10 @@ import {
   Triangle,
   SquareDot,
   Minus,
+  Type,
 } from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
 import { KeyboardShortcutsModal } from "../modals/KeyboardShortcutsModal";
-import { LayerTree } from "../map/LayerTree";
 import { COMPONENT_TYPES } from "@/constants/networkComponents";
 
 export function Sidebar() {
@@ -28,9 +26,11 @@ export function Sidebar() {
     sidebarOpen,
     layerVisibility,
     showPipeArrows,
+    showLabels,
     keyboardShortcutsModalOpen,
     setActiveTool,
     setShowPipeArrows,
+    setShowLabels,
     toggleLayerVisibility,
     setComponentSelectionModalOpen,
     setKeyboardShortcutsModalOpen,
@@ -47,6 +47,8 @@ export function Sidebar() {
   const handleLayerToggle = (layerId: string) => {
     if (layerId === "flow-arrows") {
       setShowPipeArrows(!showPipeArrows);
+    } else if (layerId === "labels") {
+      setShowLabels(!showLabels);
     } else {
       toggleLayerVisibility(layerId);
     }
@@ -120,6 +122,12 @@ export function Sidebar() {
       id: "flow-arrows",
       name: "Flow Arrows",
       icon: ArrowRight,
+      color: "#6B7280",
+    },
+    {
+      id: "labels",
+      name: "Labels",
+      icon: Type,
       color: "#6B7280",
     },
   ];
@@ -199,6 +207,8 @@ export function Sidebar() {
               const isVisible =
                 layer.id === "flow-arrows"
                   ? showPipeArrows
+                  : layer.id === "labels"
+                  ? showLabels
                   : layerVisibility[layer.id] !== false;
 
               return (
@@ -233,48 +243,6 @@ export function Sidebar() {
                 </button>
               );
             })}
-          </div>
-        </div>
-
-        {/* Keyboard Shortcuts Section */}
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-100 dark:border-blue-800">
-          <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-            <Keyboard className="h-4 w-4" />
-            Keyboard Shortcuts
-            <HelpCircle
-              className="size-4"
-              onClick={() => setKeyboardShortcutsModalOpen(true)}
-            />
-          </h3>
-          <div className="space-y-1.5">
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-gray-600 dark:text-gray-400">
-                Select Tool
-              </span>
-              <kbd className="bg-white dark:bg-gray-800 px-2 py-0.5 rounded border border-gray-300 dark:border-gray-600 font-mono text-xs">
-                S
-              </kbd>
-            </div>
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-gray-600 dark:text-gray-400">Modify</span>
-              <kbd className="bg-white dark:bg-gray-800 px-2 py-0.5 rounded border border-gray-300 dark:border-gray-600 font-mono text-xs">
-                M
-              </kbd>
-            </div>
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-gray-600 dark:text-gray-400">Delete</span>
-              <kbd className="bg-white dark:bg-gray-800 px-2 py-0.5 rounded border border-gray-300 dark:border-gray-600 font-mono text-xs">
-                Del
-              </kbd>
-            </div>
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-gray-600 dark:text-gray-400">
-                Finish Drawing
-              </span>
-              <kbd className="bg-white dark:bg-gray-800 px-2 py-0.5 rounded border border-gray-300 dark:border-gray-600 font-mono text-xs">
-                Esc
-              </kbd>
-            </div>
           </div>
         </div>
 

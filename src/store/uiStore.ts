@@ -6,6 +6,7 @@ interface UIState {
     // Sidebar
     sidebarOpen: boolean;
     showPipeArrows: boolean;
+    showLabels: boolean;
     sidebarCollapsed: boolean;
     propertyPanelOpen: boolean;
 
@@ -35,7 +36,9 @@ interface UIState {
     // Search
     searchFocused: boolean;
 
+    // Actions - Sidebar
     setShowPipeArrows: (show: boolean) => void;
+    setShowLabels: (show: boolean) => void;
 
     // Actions - Modals
     setComponentSelectionModalOpen: (open: boolean) => void;
@@ -95,6 +98,7 @@ const DEFAULT_STATE = {
     searchFocused: false,
     sidebarOpen: true,
     showPipeArrows: true,
+    showLabels: true,
     activeTab: 'network-editor',
 };
 
@@ -120,6 +124,10 @@ export const useUIStore = create<UIState>((set, get) => ({
 
     setShowPipeArrows: (show) => {
         set({ showPipeArrows: show });
+    },
+
+    setShowLabels: (show) => {
+        set({ showLabels: show });
     },
 
     // Map control actions

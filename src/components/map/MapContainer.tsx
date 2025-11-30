@@ -18,6 +18,12 @@ import { useEffect, useRef } from "react";
 import { ComponentSelectionModal } from "@/components/modals/ComponentSelectionModal";
 import { COMPONENT_TYPES } from "@/constants/networkComponents";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { handleZoomToExtent } from "@/lib/interactions/map-controls";
+import {
+  getFeatureStyle,
+  getSelectedStyle,
+  isJunctionConnectedToLink,
+} from "@/lib/styles/featureStyles";
 import { ContextMenuManager } from "@/lib/topology/contextMenuManager";
 import { DeleteManager } from "@/lib/topology/deleteManager";
 import { ModifyManager } from "@/lib/topology/modifyManager";
@@ -33,7 +39,6 @@ import { AttributeTable } from "./AttributeTable";
 import { LocationSearch } from "./LocationSearch";
 import { MapControls } from "./MapControls";
 import { PropertyPanel } from "./PropertyPanel";
-import { getFeatureStyle, getSelectedStyle, isJunctionConnectedToLink } from "@/lib/styles/featureStyles";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -64,6 +69,7 @@ export function MapContainer() {
   const {
     activeTool,
     showPipeArrows,
+    showLabels,
     layerVisibility,
     deleteModalOpen,
     showAttributeTable,
@@ -156,6 +162,15 @@ export function MapContainer() {
     mapInstanceRef.current = map;
     setMap(map);
     setVectorSource(vectorSource);
+
+    // AUTOMATIC ZOOM TO EXTENT
+    // If there are features, zoom to them on load
+    if (features.size > 0) {
+      // Small delay to ensure map is rendered and size is calculated
+      setTimeout(() => {
+        handleZoomToExtent(map);
+      }, 100);
+    }
 
     // CRITICAL: Initialize Select interaction
     const selectInteraction = new Select({
@@ -303,10 +318,11 @@ export function MapContainer() {
     }
   }, [selectedFeatureId]);
 
-  // Handle layer visibility
+  // Handle layer visibility and arrow/label toggling
   useEffect(() => {
     if (!vectorSourceRef.current) return;
 
+    // Handle visibility
     vectorSourceRef.current.getFeatures().forEach((feature) => {
       const featureType = feature.get("type");
       if (layerVisibility[featureType] === false) {
@@ -316,8 +332,9 @@ export function MapContainer() {
       }
     });
 
+    // Force redraw for both visibility and toggle changes
     vectorLayerRef.current?.changed();
-  }, [layerVisibility, showPipeArrows]);
+  }, [layerVisibility, showPipeArrows, showLabels]);
 
   // Add event listeners for custom events
   useEffect(() => {

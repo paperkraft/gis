@@ -8,7 +8,7 @@ export const VertexStyles = {
             fill: new Fill({ color: '#1FB8CD' }),
             stroke: new Stroke({ color: '#FFFFFF', width: 1.5 }),
         }),
-        zIndex: 99,
+        zIndex: 100,
     }),
 
     // Highlighted vertex (larger, orange)
@@ -18,7 +18,7 @@ export const VertexStyles = {
             fill: new Fill({ color: '#F59E0B' }),
             stroke: new Stroke({ color: '#FFFFFF', width: 2 }),
         }),
-        zIndex: 99,
+        zIndex: 100,
     }),
 
     // Selected vertex (green with pulse effect)
@@ -28,7 +28,7 @@ export const VertexStyles = {
             fill: new Fill({ color: '#10B981' }),
             stroke: new Stroke({ color: '#FFFFFF', width: 2 }),
         }),
-        zIndex: 99,
+        zIndex: 100,
     }),
 
     // Start/End vertices (square shape)
@@ -40,7 +40,7 @@ export const VertexStyles = {
             radius: 5,
             angle: Math.PI / 4, // 45 degrees rotation for diamond
         }),
-        zIndex: 99,
+        zIndex: 100,
     }),
 
     // Midpoint vertex (smaller, subtle)
@@ -50,7 +50,7 @@ export const VertexStyles = {
             fill: new Fill({ color: '#94A3B8' }),
             stroke: new Stroke({ color: '#FFFFFF', width: 1.5 }),
         }),
-        zIndex: 99,
+        zIndex: 100,
     }),
 
     // Ghost vertex (semi-transparent, for preview)
@@ -60,7 +60,7 @@ export const VertexStyles = {
             fill: new Fill({ color: 'rgba(31, 184, 205, 0.4)' }),
             stroke: new Stroke({ color: 'rgba(255, 255, 255, 0.8)', width: 1.5, lineDash: [4, 4] }),
         }),
-        zIndex: 99,
+        zIndex: 100,
     }),
 
     // Deletable vertex (red with X)
@@ -70,7 +70,7 @@ export const VertexStyles = {
             fill: new Fill({ color: '#DC2626' }),
             stroke: new Stroke({ color: '#FFFFFF', width: 1.5 }),
         }),
-        zIndex: 99,
+        zIndex: 100,
     }),
 };
 

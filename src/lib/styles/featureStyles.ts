@@ -31,15 +31,18 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
     // Use gray color if inactive, otherwise component color
     const color = isInactive ? "#9CA3AF" : config.color;
 
+    // Check if labels are enabled
+    const { showPipeArrows, showLabels } = useUIStore.getState();
+
     // Text Style for Labels
-    const textStyle = new Text({
+    const textStyle = showLabels ? new Text({
         text: label?.toString(),
-        font: '12px "Inter", sans-serif',
+        font: '10px "Inter", sans-serif',
         fill: new Fill({ color: '#374151' }),
         stroke: new Stroke({ color: '#FFFFFF', width: 3 }),
         offsetY: featureType === 'pipe' ? 0 : 15,
         overflow: true,
-    });
+    }) : undefined
 
     // --- PIPE STYLING ---
     if (featureType === "pipe") {
@@ -58,7 +61,6 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
         });
 
         // Add Arrows if enabled
-        const { showPipeArrows } = useUIStore.getState();
         if (showPipeArrows && !isInactive) {
             // Use single arrow for short pipes or low zoom, segments for others
             // For now defaulting to segments as it's clearer
