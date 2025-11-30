@@ -29,6 +29,7 @@ export class VertexLayerManager {
                     isEndpoint: feature.get('isEndpoint'),
                 });
             },
+            zIndex: 150,
             updateWhileAnimating: true,
             updateWhileInteracting: true,
         });
@@ -54,7 +55,7 @@ export class VertexLayerManager {
         this.vertexSource.clear();
 
         const features = this.networkSource.getFeatures();
-        let vertexCount = 0;
+        // let vertexCount = 0;
 
         features.forEach((feature) => {
             // Only process pipes (LineString geometries)
@@ -67,8 +68,13 @@ export class VertexLayerManager {
             const lineGeometry = geometry as LineString;
             const coordinates = lineGeometry.getCoordinates();
 
-            // Create vertex feature for each coordinate
-            coordinates.forEach((coord, index) => {
+            // Skip if pipe is just a straight line (2 points) - no internal vertices
+            if (coordinates.length <= 2) return;
+
+            // Create vertex feature for internal coordinates only
+            // We skip index 0 (Start Node) and index length-1 (End Node)
+            for (let i = 1; i < coordinates.length - 1; i++) {
+                const coord = coordinates[i];
                 const vertexFeature = new Feature({
                     geometry: new Point(coord),
                 });
@@ -76,12 +82,11 @@ export class VertexLayerManager {
                 // Store metadata
                 vertexFeature.set('isVertex', true);
                 vertexFeature.set('parentPipeId', feature.getId());
-                vertexFeature.set('vertexIndex', index);
-                vertexFeature.set('isEndpoint', index === 0 || index === coordinates.length - 1);
+                vertexFeature.set('vertexIndex', i);
+                vertexFeature.set('isEndpoint', false); // Always false for internal vertices
 
                 this.vertexSource.addFeature(vertexFeature);
-                vertexCount++;
-            });
+            }
         });
     }
 

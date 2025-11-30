@@ -131,3 +131,9 @@
 .ol-attribution {
   display: none !important;
 }
+/* Added: Style for DragBox selection */
+.ol-dragbox {
+  background-color: rgba(59, 130, 246, 0.2);
+  border: 2px solid #3b82f6;
+  border-radius: 4px;
+}

@@ -19,6 +19,8 @@ import {
 import { useUIStore } from "@/store/uiStore";
 import { KeyboardShortcutsModal } from "../modals/KeyboardShortcutsModal";
 import { COMPONENT_TYPES } from "@/constants/networkComponents";
+import { useEffect, useState } from "react";
+import { useNetworkStore } from "@/store/networkStore";
 
 export function Sidebar() {
   const {
@@ -35,6 +37,38 @@ export function Sidebar() {
     setComponentSelectionModalOpen,
     setKeyboardShortcutsModalOpen,
   } = useUIStore();
+
+  const { features } = useNetworkStore();
+
+  // Calculate feature counts
+  const [layerCounts, setLayerCounts] = useState({
+    junction: 0,
+    tank: 0,
+    reservoir: 0,
+    pump: 0,
+    valve: 0,
+    pipe: 0,
+  });
+
+  useEffect(() => {
+    const counts = {
+      junction: 0,
+      tank: 0,
+      reservoir: 0,
+      pump: 0,
+      valve: 0,
+      pipe: 0,
+    };
+
+    Array.from(features.values()).forEach((feature) => {
+      const type = feature.get("type");
+      if (counts.hasOwnProperty(type)) {
+        counts[type as keyof typeof counts]++;
+      }
+    });
+
+    setLayerCounts(counts);
+  }, [features]);
 
   const handleToolClick = (toolId: string, action?: () => void) => {
     if (action) {
@@ -87,36 +121,42 @@ export function Sidebar() {
       name: "Junctions",
       icon: Circle,
       color: COMPONENT_TYPES.junction.color,
+      count: layerCounts.junction,
     },
     {
       id: "tank",
       name: "Tanks",
       icon: Square,
       color: COMPONENT_TYPES.tank.color,
+      count: layerCounts.tank,
     },
     {
       id: "reservoir",
       name: "Reservoirs",
       icon: Hexagon,
       color: COMPONENT_TYPES.reservoir.color,
+      count: layerCounts.reservoir,
     },
     {
       id: "pipe",
       name: "Pipes",
       icon: Minus,
       color: COMPONENT_TYPES.pipe.color,
+      count: layerCounts.pipe,
     },
     {
       id: "pump",
       name: "Pumps",
       icon: Triangle,
       color: COMPONENT_TYPES.pump.color,
+      count: layerCounts.pump,
     },
     {
       id: "valve",
       name: "Valves",
       icon: SquareDot,
       color: COMPONENT_TYPES.valve.color,
+      count: layerCounts.valve,
     },
     {
       id: "flow-arrows",
@@ -226,15 +266,15 @@ export function Sidebar() {
                     `}
                   title={layer.name}
                 >
-                  <div
-                    className="w-3 h-3 rounded-full ring-2 ring-white shadow-sm shrink-0"
-                    style={{ backgroundColor: layer.color }}
-                  />
-
-                  <Icon className="size-4 text-gray-600" />
+                  <Icon className="size-4" style={{ color: layer.color }} />
                   <span className="text-sm font-medium text-gray-700 flex-1 text-left">
                     {layer.name}
                   </span>
+                  {layer.count !== undefined && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                      {layer.count}
+                    </span>
+                  )}
                   {isVisible ? (
                     <Eye className="size-4 text-gray-500" />
                   ) : (
