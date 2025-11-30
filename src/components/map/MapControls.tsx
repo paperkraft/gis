@@ -1,16 +1,20 @@
 "use client";
 
 import {
+  BoxSelect,
+  ChevronRight,
   FileUp,
   Home,
   Map as MapIcon,
+  MousePointer2,
+  Pentagon,
   Ruler,
   Square,
   Table,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import {
   handleZoomIn,
@@ -44,6 +48,33 @@ export function MapControls() {
     setShowMeasurementMenu,
     setImportModalOpen,
   } = useUIStore();
+
+  const [showSelectMenu, setShowSelectMenu] = useState(false);
+
+  const selectOptions = [
+    {
+      id: "select",
+      name: "Select",
+      icon: MousePointer2,
+      description: "Single click selection",
+    },
+    {
+      id: "select-box",
+      name: "Box Select",
+      icon: BoxSelect,
+      description: "Drag box to select",
+    },
+    {
+      id: "select-polygon",
+      name: "Region Select",
+      icon: Pentagon,
+      description: "Draw polygon to select",
+    },
+  ];
+
+  const activeSelectTool =
+    selectOptions.find((t) => t.id === activeTool) || selectOptions[0];
+  const SelectIcon = activeSelectTool.icon;
 
   const baseLayerOptions = [
     { id: "osm", name: "OpenStreetMap", description: "Standard map view" },
@@ -410,6 +441,74 @@ export function MapControls() {
 
         <div className="h-px bg-gray-200" />
 
+        {/* SELECTION TOOLS DROPDOWN */}
+        <div className="relative">
+          <button
+            onClick={() => setShowSelectMenu(!showSelectMenu)}
+            className={cn(
+              "size-10 flex items-center justify-center rounded-md transition-colors group relative",
+              ["select", "select-box", "select-polygon"].includes(
+                activeTool || ""
+              )
+                ? "bg-blue-100"
+                : "hover:bg-gray-100"
+            )}
+            title="Select Tools"
+          >
+            <SelectIcon
+              className={cn(
+                "size-5",
+                ["select", "select-box", "select-polygon"].includes(
+                  activeTool || ""
+                )
+                  ? "text-blue-600"
+                  : "text-gray-700"
+              )}
+            />
+            <ChevronRight className="absolute bottom-0.5 right-0.5 w-2 h-2 text-gray-500 transform rotate-90" />
+          </button>
+
+          {showSelectMenu && (
+            <>
+              <div className="absolute right-full top-0 mr-2 bg-white rounded-lg shadow-xl border border-gray-200 p-2 w-48 z-50">
+                <div className="text-xs font-semibold text-gray-500 px-2 mb-2">
+                  SELECTION TOOLS
+                </div>
+                {selectOptions.map((option) => {
+                  const Icon = option.icon;
+                  return (
+                    <button
+                      key={option.id}
+                      onClick={() => {
+                        setActiveTool(option.id as any);
+                        setShowSelectMenu(false);
+                      }}
+                      className={cn(
+                        "w-full text-left px-3 py-2 rounded-md transition-colors flex items-center gap-3",
+                        activeTool === option.id
+                          ? "bg-blue-50 text-blue-700"
+                          : "hover:bg-gray-100 text-gray-700"
+                      )}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <div>
+                        <div className="text-sm font-medium">{option.name}</div>
+                        <div className="text-xs opacity-70">
+                          {option.description}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowSelectMenu(false)}
+              />
+            </>
+          )}
+        </div>
+
         {/* Measurement Tool */}
         <div className="relative">
           <button
@@ -602,6 +701,8 @@ export function MapControls() {
           <span className="text-sm font-medium">
             {activeTool === "draw" && "Drawing Mode"}
             {activeTool === "modify" && "Modify Mode"}
+            {activeTool === "select-box" && "Box Select Mode"}
+            {activeTool === "select-polygon" && "Region Select Mode"}
           </span>
           <button
             onClick={() => setActiveTool("select")}

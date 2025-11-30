@@ -12,7 +12,6 @@ import { ContextMenuManager } from '@/lib/topology/contextMenuManager';
 import { DeleteManager } from '@/lib/topology/deleteManager';
 import { ModifyManager } from '@/lib/topology/modifyManager';
 import { PipeDrawingManager } from '@/lib/topology/pipeDrawingManager';
-import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
 import { useUIStore } from '@/store/uiStore';
 
@@ -317,19 +316,13 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsOpti
         return newNode;
     };
 
-    /**
-     * Enable/disable context menu
-     */
-    const setContextMenuEnabled = useCallback((enabled: boolean) => {
-        contextMenuManagerRef.current?.setEnabled(enabled);
-    }, []);
+
 
     return {
         pipeDrawingManager: pipeDrawingManagerRef.current,
         modifyManager: modifyManagerRef.current,
         deleteManager: deleteManagerRef.current,
         contextMenuManager: contextMenuManagerRef.current,
-        setContextMenuEnabled,
         cleanupInteractions,
     };
 }

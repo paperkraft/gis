@@ -82,7 +82,8 @@ export function createAnimatedFlowStyle(
     else strokeWidth = 3;
 
     // Bright color with good contrast - semi-transparent
-    const strokeColor = 'rgba(96, 165, 250, 0.7)'; // Light blue with 70% opacity
+    // const strokeColor = 'rgba(0, 200, 255, 0.4)'; // Light blue with 70% opacity
+    const strokeColor = '#FFFFFF';
 
     // Create animated dash pattern
     const dashLength = 15;
@@ -95,7 +96,7 @@ export function createAnimatedFlowStyle(
             lineDash: [dashLength, gapLength],
             lineDashOffset: -animationOffset, // Negative for forward flow
         }),
-        zIndex: 15, // Higher than base pipe (10) but lower than arrows (100)
+        zIndex: 100, // Higher than base pipe (100) but lower than arrows (101)
     });
 }
 
@@ -117,7 +118,7 @@ export function createFlowParticleStyles(
     const reversed = feature.get('reversed') || false;
     const flowRate = feature.get('flow') || 1; // Flow rate (affects speed)
     const diameter = feature.get('diameter') || 300;
-    
+
     // Adjust particle density based on pipe length
     const pipeLength = geometry.getLength();
     const numParticles = Math.max(2, Math.min(5, Math.floor(pipeLength / 150))); // 2-5 particles

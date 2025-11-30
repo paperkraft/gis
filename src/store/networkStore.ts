@@ -6,6 +6,7 @@ interface NetworkState {
     features: Map<string, Feature>;
     selectedFeature: Feature | null;
     selectedFeatureId: string | null;
+    selectedFeatureIds: string[];
     nextIdCounter: Record<FeatureType, number>;
 
     // Actions
@@ -14,12 +15,12 @@ interface NetworkState {
     removeFeature: (id: string) => void;
     updateFeature: (id: string, properties: Partial<NetworkFeatureProperties>) => void;
     selectFeature: (id: string | null) => void;
+    selectFeatures: (ids: string[]) => void;
     clearFeatures: () => void;
     getFeatureById: (id: string) => Feature | undefined;
     getFeaturesByType: (type: FeatureType) => Feature[];
     generateUniqueId: (type: FeatureType) => string;
 
-    // Node-Link relationships
     updateNodeConnections: (nodeId: string, linkId: string, action: "add" | "remove") => void;
     getConnectedLinks: (nodeId: string) => string[];
     findNodeById: (nodeId: string) => Feature | undefined;
@@ -29,6 +30,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     features: new Map(),
     selectedFeatureId: null,
     selectedFeature: null,
+    selectedFeatureIds: [],
 
     nextIdCounter: {
         junction: 100,
@@ -70,7 +72,22 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         }
     },
 
-    selectFeature: (id) => set({ selectedFeatureId: id }),
+    selectFeature: (id) => set((state) => ({
+        selectedFeatureId: id,
+        selectedFeatureIds: id ? [id] : [],
+        // FIX: If clearing selection (id is null), also clear the object immediately
+        // This ensures UI components checking selectedFeature (like PropertyPanel) unmount instantly
+        selectedFeature: id === null ? null : state.selectedFeature
+    })),
+
+    selectFeatures: (ids) => {
+        set({
+            selectedFeatureIds: ids,
+            selectedFeatureId: ids.length > 0 ? ids[ids.length - 1] : null,
+            // If multiple selection is cleared, clear object too
+            selectedFeature: ids.length === 0 ? null : get().selectedFeature
+        });
+    },
 
     clearFeatures: () => set({ features: new Map() }),
 

@@ -13,12 +13,14 @@ import { XYZ } from "ol/source";
 import OSM from "ol/source/OSM";
 import VectorSource from "ol/source/Vector";
 import View from "ol/View";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ComponentSelectionModal } from "@/components/modals/ComponentSelectionModal";
 import { COMPONENT_TYPES } from "@/constants/networkComponents";
+import { useFlowAnimation } from "@/hooks/useFlowAnimation";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { handleZoomToExtent } from "@/lib/interactions/map-controls";
+import { createCombinedFlowStyles } from "@/lib/styles/animatedFlowStyles";
 import {
   getFeatureStyle,
   getSelectedStyle,
@@ -36,6 +38,7 @@ import { FeatureType } from "@/types/network";
 
 import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 import { AttributeTable } from "./AttributeTable";
+import { FlowAnimationControls } from "./FlowAnimationControls";
 import { LocationSearch } from "./LocationSearch";
 import { MapControls } from "./MapControls";
 import { PropertyPanel } from "./PropertyPanel";
@@ -52,6 +55,8 @@ export function MapContainer() {
   const vertexLayerManagerRef = useRef<VertexLayerManager | null>(null);
   const modifyManagerRef = useRef<ModifyManager | null>(null);
   const deleteManagerRef = useRef<DeleteManager | null>(null);
+
+  const [vectorLayer, setVectorLayer] = useState<VectorLayer<any> | null>(null);
 
   const {
     features,
@@ -83,20 +88,24 @@ export function MapContainer() {
 
   useKeyboardShortcuts();
 
+  // Hook: Flow Animation
+  const flowAnimation = useFlowAnimation(vectorLayer, {
+    enabled: false,
+    speed: 1,
+    style: "dashes",
+  });
+
   // Initialize map
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
 
     const vectorSource = new VectorSource();
+    vectorSourceRef.current = vectorSource;
 
     // RESTORE DATA: Add existing features from store to the new source
     if (features && features.size > 0) {
       vectorSource.addFeatures(Array.from(features.values()));
     }
-
-    // -----------------------------------------------------------------------
-
-    vectorSourceRef.current = vectorSource;
 
     // Base layers
     const osmLayer = new TileLayer({
@@ -142,6 +151,7 @@ export function MapContainer() {
     });
 
     vectorLayerRef.current = vectorLayer;
+    setVectorLayer(vectorLayer);
 
     const map = new Map({
       target: mapRef.current,
@@ -207,10 +217,6 @@ export function MapContainer() {
     map.on("pointermove", (event) => {
       const coord = event.coordinate;
       const [lat, lon] = toLonLat(coord);
-
-      // Show Web Mercator (EPSG:3857)
-      // setCoordinates(`X: ${coord[0].toFixed(2)}, Y: ${coord[1].toFixed(2)}`);
-      // Show Lat/Lon (EPSG:4326)
       setCoordinates(`${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`);
     });
 
@@ -220,6 +226,7 @@ export function MapContainer() {
 
     const pipeDrawingManager = new PipeDrawingManager(map, vectorSource);
     const contextMenuManager = new ContextMenuManager(map, vectorSource);
+    const vertexLayerManager = new VertexLayerManager(map, vectorSource);
     const modifyManager = new ModifyManager(map, vectorSource);
     const deleteManager = new DeleteManager(map, vectorSource);
 
@@ -250,14 +257,14 @@ export function MapContainer() {
 
     pipeDrawingManagerRef.current = pipeDrawingManager;
     contextMenuManagerRef.current = contextMenuManager;
-    vertexLayerManagerRef.current = new VertexLayerManager(map, vectorSource);
+    vertexLayerManagerRef.current = vertexLayerManager;
     modifyManagerRef.current = modifyManager;
     deleteManagerRef.current = deleteManager;
 
     return () => {
       pipeDrawingManager.cleanup();
       contextMenuManager.cleanup();
-      vertexLayerManagerRef.current?.cleanup();
+      vertexLayerManager.cleanup();
       modifyManager.cleanup();
       deleteManager.cleanup();
       map.setTarget(undefined);
@@ -320,21 +327,57 @@ export function MapContainer() {
 
   // Handle layer visibility and arrow/label toggling
   useEffect(() => {
-    if (!vectorSourceRef.current) return;
+    if (!vectorLayer) return;
 
-    // Handle visibility
-    vectorSourceRef.current.getFeatures().forEach((feature) => {
-      const featureType = feature.get("type");
-      if (layerVisibility[featureType] === false) {
-        feature.set("hidden", true);
-      } else {
-        feature.set("hidden", false);
+    vectorLayer
+      .getSource()
+      ?.getFeatures()
+      .forEach((feature: any) => {
+        const featureType = feature.get("type");
+        feature.set("hidden", layerVisibility[featureType] === false);
+      });
+
+    vectorLayer?.setStyle((feature) => {
+      const styles = [];
+      const baseStyles = getFeatureStyle(feature as Feature);
+      if (Array.isArray(baseStyles)) styles.push(...baseStyles);
+      else styles.push(baseStyles);
+
+      if (
+        feature.get("type") === "pipe" &&
+        flowAnimation.isAnimating &&
+        !feature.get("hidden")
+      ) {
+        const animStyles = createCombinedFlowStyles(
+          feature as Feature,
+          flowAnimation.animationTime,
+          {
+            showDashes: ["dashes", "combined"].includes(
+              flowAnimation.options.style
+            ),
+            showParticles: ["particles", "combined"].includes(
+              flowAnimation.options.style
+            ),
+            showGlow: ["glow", "combined"].includes(
+              flowAnimation.options.style
+            ),
+          }
+        );
+        styles.push(...animStyles);
       }
+      return styles;
     });
 
     // Force redraw for both visibility and toggle changes
-    vectorLayerRef.current?.changed();
-  }, [layerVisibility, showPipeArrows, showLabels]);
+    if (flowAnimation.isAnimating) vectorLayer?.changed();
+  }, [
+    layerVisibility,
+    showPipeArrows,
+    showLabels,
+    flowAnimation.isAnimating,
+    flowAnimation.animationTime,
+    flowAnimation.options.style,
+  ]);
 
   // Add event listeners for custom events
   useEffect(() => {
@@ -514,6 +557,15 @@ export function MapContainer() {
 
       <MapControls />
       <LocationSearch />
+
+      <FlowAnimationControls
+        isAnimating={flowAnimation.isAnimating}
+        speed={flowAnimation.options.speed}
+        style={flowAnimation.options.style}
+        onToggle={flowAnimation.toggleAnimation}
+        onSpeedChange={flowAnimation.setSpeed}
+        onStyleChange={flowAnimation.setStyle}
+      />
 
       <AttributeTable
         isOpen={showAttributeTable}

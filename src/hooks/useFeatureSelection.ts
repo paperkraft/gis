@@ -1,12 +1,14 @@
 "use client";
 import { useEffect, useCallback, useRef } from "react";
 import { Feature } from "ol";
-import { Select } from "ol/interaction";
-import { click, pointerMove } from "ol/events/condition";
+import { Select, DragBox, Draw } from "ol/interaction";
+import { click, pointerMove, shiftKeyOnly, platformModifierKeyOnly, always, never } from "ol/events/condition";
 import Map from "ol/Map";
 import VectorLayer from "ol/layer/Vector";
+import VectorSource from "ol/source/Vector";
 import { useNetworkStore } from "@/store/networkStore";
 import { useUIStore } from "@/store/uiStore";
+import { getSelectedStyle } from "@/lib/styles/featureStyles";
 
 interface UseFeatureSelectionOptions {
     map: Map | null;
@@ -23,54 +25,43 @@ export function useFeatureSelection({
     onFeatureHover,
     enableHover = true,
 }: UseFeatureSelectionOptions) {
-    const { selectFeature, selectedFeatureId } = useNetworkStore();
+    const { selectFeature, selectFeatures, selectedFeatureId } = useNetworkStore();
     const { activeTool } = useUIStore();
 
     const selectInteractionRef = useRef<Select | null>(null);
+    const dragBoxInteractionRef = useRef<DragBox | null>(null);
+    const drawPolygonInteractionRef = useRef<Draw | null>(null);
     const hoverInteractionRef = useRef<Select | null>(null);
     const selectedFeatureRef = useRef<Feature | null>(null);
 
-    /**
-     * Get currently selected feature
-     */
-    const getSelectedFeature = useCallback((): Feature | null => {
-        return selectedFeatureRef.current;
-    }, []);
-
-    /**
-     * Select a feature by ID
-     */
+    // Helper: Select feature by ID programmatically
     const selectFeatureById = useCallback(
         (featureId: string | null) => {
-            if (!selectInteractionRef.current) return;
+            if (!selectInteractionRef.current || !vectorLayer) return;
 
             const features = selectInteractionRef.current.getFeatures();
-            features.clear();
 
-            if (featureId && vectorLayer) {
-                const feature = vectorLayer
-                    .getSource()
-                    ?.getFeatures()
-                    .find((f: any) => f.getId() === featureId);
-
+            if (featureId) {
+                const feature = vectorLayer.getSource()?.getFeatures().find((f: any) => f.getId() === featureId);
                 if (feature) {
-                    features.push(feature);
+                    // Avoid clearing if already selected (preserves multi-select state if needed)
+                    if (!features.getArray().includes(feature)) {
+                        features.clear();
+                        features.push(feature);
+                    }
                     selectedFeatureRef.current = feature;
-                    selectFeature(featureId);
                     onFeatureSelect?.(feature);
                 }
             } else {
+                features.clear();
                 selectedFeatureRef.current = null;
-                selectFeature(null);
                 onFeatureSelect?.(null);
             }
         },
-        [vectorLayer, selectFeature, onFeatureSelect]
+        [vectorLayer, onFeatureSelect]
     );
 
-    /**
-     * Clear selection
-     */
+    // Helper: Clear all selection
     const clearSelection = useCallback(() => {
         if (selectInteractionRef.current) {
             selectInteractionRef.current.getFeatures().clear();
@@ -80,49 +71,45 @@ export function useFeatureSelection({
         onFeatureSelect?.(null);
     }, [selectFeature, onFeatureSelect]);
 
-    /**
-     * Get all selected features (for multi-select)
-     */
-    const getSelectedFeatures = useCallback((): Feature[] => {
-        if (!selectInteractionRef.current) return [];
-        return selectInteractionRef.current.getFeatures().getArray();
-    }, []);
-
-    /**
-     * Initialize select interaction
-     */
+    // 1. MAIN SELECTION LOGIC
     useEffect(() => {
         if (!map || !vectorLayer) return;
 
-        // Only enable select interaction when in select mode
-        if (activeTool !== "select") {
-            if (selectInteractionRef.current) {
-                map.removeInteraction(selectInteractionRef.current);
-                selectInteractionRef.current = null;
-            }
+        // Cleanup previous interactions
+        if (selectInteractionRef.current) map.removeInteraction(selectInteractionRef.current);
+        if (dragBoxInteractionRef.current) map.removeInteraction(dragBoxInteractionRef.current);
+        if (drawPolygonInteractionRef.current) map.removeInteraction(drawPolygonInteractionRef.current);
+
+        const isSelectionMode = ['select', 'select-box', 'select-polygon'].includes(activeTool || '');
+
+        if (!isSelectionMode) {
+            selectInteractionRef.current = null;
             return;
         }
 
-        // Create select interaction
+        // --- Standard Click Selection ---
         const selectInteraction = new Select({
             layers: [vectorLayer],
-            condition: click,
-            filter: (feature) => !feature.get("isPreview"),
-            multi: false, // Single selection
-            hitTolerance: 5,
+            // Disable click selection while drawing polygon to prevent conflicts
+            condition: activeTool === 'select-polygon' ? never : (e) => click(e) || (click(e) && (shiftKeyOnly(e) || platformModifierKeyOnly(e))),
+            style: (feature) => getSelectedStyle(feature as Feature),
+            filter: (feature) => !feature.get("isPreview") && !feature.get("isVertexMarker") && !feature.get("isVisualLink"),
+            multi: true,
         });
 
-        // Handle selection change
         selectInteraction.on("select", (event) => {
-            if (event.selected.length > 0) {
-                const feature = event.selected[0];
-                const featureId = feature.getId() as string;
+            const selectedFeatures = event.target.getFeatures().getArray();
+            const ids = selectedFeatures.map((f: Feature) => f.getId() as string);
+
+            selectFeatures(ids);
+
+            // Update primary selection (last selected)
+            if (selectedFeatures.length > 0) {
+                const feature = selectedFeatures[selectedFeatures.length - 1];
                 selectedFeatureRef.current = feature;
-                selectFeature(featureId);
                 onFeatureSelect?.(feature);
             } else {
                 selectedFeatureRef.current = null;
-                selectFeature(null);
                 onFeatureSelect?.(null);
             }
         });
@@ -130,18 +117,88 @@ export function useFeatureSelection({
         map.addInteraction(selectInteraction);
         selectInteractionRef.current = selectInteraction;
 
-        return () => {
-            if (selectInteraction) {
-                map.removeInteraction(selectInteraction);
-            }
-        };
-    }, [map, vectorLayer, activeTool, selectFeature, onFeatureSelect]);
+        // --- Box Selection ---
+        if (activeTool === 'select-box') {
+            const dragBox = new DragBox({
+                condition: always, // Active immediately without modifiers
+                className: 'ol-dragbox', // Requires CSS
+            });
 
-    /**
-     * Initialize hover interaction (optional)
-     */
+            dragBox.on('boxend', () => {
+                const extent = dragBox.getGeometry().getExtent();
+                const source = vectorLayer.getSource();
+                if (!source) return;
+
+                const selectedFeatures: Feature[] = [];
+                source.forEachFeatureIntersectingExtent(extent, (feature: any) => {
+                    if (feature.get("isPreview") || feature.get("isVertexMarker") || feature.get("isVisualLink")) return;
+                    selectedFeatures.push(feature as Feature);
+                });
+
+                if (selectedFeatures.length > 0) {
+                    const currentSelection = selectInteraction.getFeatures();
+                    currentSelection.clear(); // Replace selection
+                    selectedFeatures.forEach(f => currentSelection.push(f));
+                    selectFeatures(selectedFeatures.map(f => f.getId() as string));
+                }
+            });
+
+            map.addInteraction(dragBox);
+            dragBoxInteractionRef.current = dragBox;
+            map.getViewport().style.cursor = "crosshair";
+        }
+
+        // --- Polygon Selection ---
+        if (activeTool === 'select-polygon') {
+            const draw = new Draw({
+                source: new VectorSource(), // Temporary source
+                type: 'Polygon',
+            });
+
+            draw.on('drawend', (evt) => {
+                const polygonGeometry = evt.feature.getGeometry();
+                if (!polygonGeometry) return;
+
+                const source = vectorLayer.getSource();
+                const selectedFeatures: Feature[] = [];
+
+                if (source) {
+                    source.getFeatures().forEach((feature: any) => {
+                        if (feature.get("isPreview") || feature.get("isVertexMarker") || feature.get("isVisualLink")) return;
+
+                        const geometry = feature.getGeometry();
+                        if (geometry && geometry.intersectsExtent(polygonGeometry.getExtent())) {
+                            // Simple extent check for performance. For strict polygon containment, usage of JSTS or Turf is required.
+                            selectedFeatures.push(feature as Feature);
+                        }
+                    });
+                }
+
+                if (selectedFeatures.length > 0) {
+                    const currentSelection = selectInteraction.getFeatures();
+                    currentSelection.clear();
+                    selectedFeatures.forEach(f => currentSelection.push(f));
+                    selectFeatures(selectedFeatures.map(f => f.getId() as string));
+                }
+            });
+
+            map.addInteraction(draw);
+            drawPolygonInteractionRef.current = draw;
+            map.getViewport().style.cursor = "crosshair";
+        }
+
+        return () => {
+            if (selectInteractionRef.current) map.removeInteraction(selectInteractionRef.current);
+            if (dragBoxInteractionRef.current) map.removeInteraction(dragBoxInteractionRef.current);
+            if (drawPolygonInteractionRef.current) map.removeInteraction(drawPolygonInteractionRef.current);
+            map.getViewport().style.cursor = "default";
+        };
+    }, [map, vectorLayer, activeTool, selectFeature, selectFeatures, onFeatureSelect]);
+
+    // 2. HOVER INTERACTION
     useEffect(() => {
         if (!map || !vectorLayer || !enableHover) return;
+        if (activeTool === 'select-polygon' || activeTool === 'select-box') return;
 
         let hoveredFeature: Feature | null = null;
 
@@ -152,11 +209,9 @@ export function useFeatureSelection({
         });
 
         hoverInteraction.on("select", (event) => {
-            // Clear previous hover
             if (hoveredFeature && hoveredFeature !== selectedFeatureRef.current) {
                 hoveredFeature.set("isHovered", false);
             }
-
             if (event.selected.length > 0) {
                 const feature = event.selected[0];
                 if (feature !== selectedFeatureRef.current) {
@@ -168,7 +223,7 @@ export function useFeatureSelection({
             } else {
                 hoveredFeature = null;
                 onFeatureHover?.(null);
-                map.getViewport().style.cursor = activeTool === "select" ? "default" : "crosshair";
+                map.getViewport().style.cursor = activeTool === 'select' ? "default" : "crosshair";
             }
         });
 
@@ -176,21 +231,19 @@ export function useFeatureSelection({
         hoverInteractionRef.current = hoverInteraction;
 
         return () => {
-            if (hoverInteraction) {
-                map.removeInteraction(hoverInteraction);
-            }
-            map.getViewport().style.cursor = "default";
+            if (hoverInteraction) map.removeInteraction(hoverInteraction);
         };
     }, [map, vectorLayer, enableHover, activeTool, onFeatureHover]);
 
-    /**
-     * Sync with external selection changes
-     */
+    // 3. EXTERNAL SYNC
     useEffect(() => {
         if (selectedFeatureId && selectedFeatureId !== selectedFeatureRef.current?.getId()) {
             selectFeatureById(selectedFeatureId);
         } else if (!selectedFeatureId && selectedFeatureRef.current) {
-            clearSelection();
+            // Check if store is truly empty before clearing
+            if (useNetworkStore.getState().selectedFeatureIds.length === 0) {
+                clearSelection();
+            }
         }
     }, [selectedFeatureId, selectFeatureById, clearSelection]);
 
@@ -198,7 +251,5 @@ export function useFeatureSelection({
         selectedFeature: selectedFeatureRef.current,
         selectFeatureById,
         clearSelection,
-        getSelectedFeature,
-        getSelectedFeatures,
     };
 }

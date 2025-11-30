@@ -20,7 +20,7 @@ interface UIState {
     componentSelectionModalOpen: boolean;
 
     // Map control states
-    activeTool: 'select' | 'modify' | 'draw' | null;
+    activeTool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | null;
     measurementType: 'distance' | 'area';
     showBaseLayerMenu: boolean;
     measurementActive: boolean;
@@ -49,7 +49,7 @@ interface UIState {
     togglePropertyPanel: () => void;
 
     // Actions - Map Controls
-    setActiveTool: (tool: 'select' | 'modify' | 'draw' | null) => void;
+    setActiveTool: (tool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | null) => void;
     setMeasurementType: (type: 'distance' | 'area') => void;
     setShowBaseLayerMenu: (open: boolean) => void;
     setShowAttributeTable: (open: boolean) => void;
