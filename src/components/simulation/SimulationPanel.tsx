@@ -12,11 +12,13 @@ import {
 import { useSimulationStore } from "@/store/simulationStore";
 import { useNetworkStore } from "@/store/networkStore";
 import { Button } from "@/components/ui/button";
+import { useUIStore } from "@/store/uiStore";
 
 export function SimulationPanel() {
   const { features } = useNetworkStore();
   const { status, results, error, runSimulation, resetSimulation } =
     useSimulationStore();
+  const { setSimulationReportModalOpen } = useUIStore();
 
   const handleRun = () => {
     const featureList = Array.from(features.values());
@@ -164,7 +166,10 @@ export function SimulationPanel() {
           </div>
 
           <div className="px-4 pb-4">
-            <button className="w-full py-2 text-xs text-center text-gray-500 hover:text-gray-800 hover:underline">
+            <button
+              onClick={() => setSimulationReportModalOpen(true)}
+              className="w-full py-2 text-xs text-center text-gray-500 hover:text-gray-800 hover:underline"
+            >
               View Detailed Report
             </button>
           </div>

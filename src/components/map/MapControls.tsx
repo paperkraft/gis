@@ -44,6 +44,7 @@ export function MapControls() {
     measurementActive,
     showAttributeTable,
     showMeasurementMenu,
+    
     setBaseLayer,
     setActiveTool,
     setMeasurementType,

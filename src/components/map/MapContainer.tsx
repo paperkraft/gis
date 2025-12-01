@@ -29,6 +29,7 @@ import { ComponentSelectionModal } from "@/components/modals/ComponentSelectionM
 import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 import { Cordinates } from "./Cordinates";
 import { useHistoryManager } from "@/hooks/useHistoryManager";
+import { SimulationReportModal } from "../modals/SimulationReportModal";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -41,6 +42,8 @@ export function MapContainer() {
     showAttributeTable,
     setShowAttributeTable,
     componentSelectionModalOpen,
+    simulationReportModalOpen,
+    setSimulationReportModalOpen,
     setComponentSelectionModalOpen,
     deleteModalOpen,
     setDeleteModalOpen,
@@ -150,6 +153,11 @@ export function MapContainer() {
         featureType={selectedFeature?.get("type") || "Feature"}
         featureId={selectedFeature?.getId()?.toString() || "Unknown"}
         cascadeInfo={cascadeInfo}
+      />
+
+      <SimulationReportModal
+        isOpen={simulationReportModalOpen}
+        onClose={() => setSimulationReportModalOpen(false)}
       />
 
       {/* Coordinate Display */}
