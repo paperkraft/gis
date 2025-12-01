@@ -47,21 +47,6 @@ export function useKeyboardShortcuts() {
 
             // --- Global Shortcuts ---
 
-            // FILE OPERATIONS
-            // Ctrl+S - Save/Export
-            if (key === "s" && ctrl) {
-                event.preventDefault();
-                setExportModalOpen(true); // Open modal instead of dispatching event
-                return;
-            }
-
-            // Ctrl+O - Open/Import
-            if (key === "o" && ctrl) {
-                event.preventDefault();
-                setImportModalOpen(true); // Direct call for consistency
-                return;
-            }
-
             // ESC - Exit current tool / Clear selection
             if (key === "escape") {
                 setActiveTool("select");
@@ -157,13 +142,19 @@ export function useKeyboardShortcuts() {
             }
 
             // FILE OPERATIONS
+            // Ctrl+S - Save/Export
             if (key === "s" && ctrl) {
-                window.dispatchEvent(new CustomEvent("exportNetwork"));
+                // window.dispatchEvent(new CustomEvent("exportNetwork"));
+                event.preventDefault();
+                setExportModalOpen(true);
                 return;
             }
 
+            // Ctrl+O - Open/Import
             if (key === "o" && ctrl) {
-                window.dispatchEvent(new CustomEvent("importNetwork"));
+                // window.dispatchEvent(new CustomEvent("importNetwork"));
+                event.preventDefault();
+                setImportModalOpen(true);
                 return;
             }
 
@@ -195,7 +186,6 @@ export function useKeyboardShortcuts() {
             }
         };
 
-        // KEY CHANGE: Use 'document' instead of 'window' and use 'capture: true'
         // This ensures our shortcuts run before OpenLayers consumes the events.
         document.addEventListener("keydown", handleKeyDown, { capture: true });
 

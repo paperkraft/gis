@@ -90,6 +90,8 @@ export class LinkModifyManager {
             if (!this.draggedLink) return;
 
             if (!this.isDragging && event.dragging) {
+                window.dispatchEvent(new CustomEvent('takeSnapshot'));
+
                 this.isDragging = true;
                 this.map.getViewport().style.cursor = 'grabbing';
             }

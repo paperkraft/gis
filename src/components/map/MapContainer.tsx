@@ -28,6 +28,7 @@ import { PropertyPanel } from "./PropertyPanel";
 import { ComponentSelectionModal } from "@/components/modals/ComponentSelectionModal";
 import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 import { Cordinates } from "./Cordinates";
+import { useHistoryManager } from "@/hooks/useHistoryManager";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -85,6 +86,9 @@ export function MapContainer() {
 
   // 9. Export Handling (New)
   useNetworkExport();
+
+  // 10. History Manager (Undo/Redo)
+  useHistoryManager();
 
   // --- Handlers ---
 

@@ -63,6 +63,8 @@ export class ModifyManager {
 
         // Track original positions when modification starts
         this.modifyInteraction.on('modifystart', (event) => {
+            // Take a snapshot before modification begins
+            window.dispatchEvent(new CustomEvent('takeSnapshot'));
             this.modifyStartCoordinates = {};
 
             const features = event.features.getArray();

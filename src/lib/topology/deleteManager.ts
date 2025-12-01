@@ -85,6 +85,7 @@ export class DeleteManager {
      * Execute deletion (called after confirmation)
      */
     public executeDelete(feature: Feature) {
+        window.dispatchEvent(new CustomEvent('takeSnapshot'));
         const featureType = feature.get("type");
         const featureId = feature.getId() as string;
 

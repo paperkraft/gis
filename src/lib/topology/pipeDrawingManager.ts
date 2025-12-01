@@ -512,6 +512,7 @@ export class PipeDrawingManager {
 
     private createPipeSegment() {
         if (!this.startNode || !this.endNode) return;
+        window.dispatchEvent(new CustomEvent('takeSnapshot'));
 
         // Validate pipe length
         const pipeLength = this.calculatePipeLength(new LineString(this.drawingCoordinates));

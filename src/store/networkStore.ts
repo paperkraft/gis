@@ -9,6 +9,10 @@ interface NetworkState {
     selectedFeatureIds: string[];
     nextIdCounter: Record<FeatureType, number>;
 
+    // History
+    past: Feature[][];
+    future: Feature[][];
+
     // Actions
     setSelectedFeature: (feature: Feature | null) => void;
     addFeature: (feature: Feature) => void;
@@ -24,6 +28,11 @@ interface NetworkState {
     updateNodeConnections: (nodeId: string, linkId: string, action: "add" | "remove") => void;
     getConnectedLinks: (nodeId: string) => string[];
     findNodeById: (nodeId: string) => Feature | undefined;
+
+    // History Actions
+    snapshot: () => void;
+    undo: () => Feature[] | null;
+    redo: () => Feature[] | null;
 }
 
 export const useNetworkStore = create<NetworkState>((set, get) => ({
@@ -31,6 +40,9 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     selectedFeatureId: null,
     selectedFeature: null,
     selectedFeatureIds: [],
+
+    past: [],
+    future: [],
 
     nextIdCounter: {
         junction: 100,
@@ -138,4 +150,81 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
                 f.getId() === nodeId
         );
     },
+
+    // --- History Implementation ---
+
+    snapshot: () => {
+        const currentFeatures = Array.from(get().features.values());
+        // Clone features to preserve their state at this moment
+        const clonedFeatures = currentFeatures.map(f => {
+            const clone = f.clone();
+            clone.setId(f.getId()); // Clone doesn't always copy ID automatically
+            return clone;
+        });
+
+        set((state) => ({
+            past: [...state.past, clonedFeatures],
+            future: [] // Clear future on new action
+        }));
+
+        console.log("📸 Snapshot taken. History size:", get().past.length);
+    },
+
+    undo: () => {
+        const { past, future, features } = get();
+        if (past.length === 0) return null;
+
+        const previousState = past[past.length - 1];
+        const newPast = past.slice(0, past.length - 1);
+
+        // Save current state to future
+        const currentSnapshot = Array.from(features.values()).map(f => {
+            const c = f.clone();
+            c.setId(f.getId());
+            return c;
+        });
+
+        // Rebuild map
+        const newFeaturesMap = new Map();
+        previousState.forEach(f => newFeaturesMap.set(f.getId(), f));
+
+        set({
+            past: newPast,
+            future: [currentSnapshot, ...future],
+            features: newFeaturesMap,
+            selectedFeature: null, // Clear selection to avoid ghost references
+            selectedFeatureId: null
+        });
+
+        return previousState;
+    },
+
+    redo: () => {
+        const { past, future, features } = get();
+        if (future.length === 0) return null;
+
+        const nextState = future[0];
+        const newFuture = future.slice(1);
+
+        // Save current to past
+        const currentSnapshot = Array.from(features.values()).map(f => {
+            const c = f.clone();
+            c.setId(f.getId());
+            return c;
+        });
+
+        // Rebuild map
+        const newFeaturesMap = new Map();
+        nextState.forEach(f => newFeaturesMap.set(f.getId(), f));
+
+        set({
+            past: [...past, currentSnapshot],
+            future: newFuture,
+            features: newFeaturesMap,
+            selectedFeature: null,
+            selectedFeatureId: null
+        });
+
+        return nextState;
+    }
 }));

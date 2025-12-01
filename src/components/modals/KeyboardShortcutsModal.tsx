@@ -51,8 +51,8 @@ export function KeyboardShortcutsModal({
       category: "Edit",
       items: [
         { key: "Delete", description: "Delete selected feature" },
-        { key: "Ctrl+Z", description: "Undo (coming soon)" },
-        { key: "Ctrl+Y", description: "Redo (coming soon)" },
+        { key: "Ctrl+Z", description: "Undo action" },
+        { key: "Ctrl+Y", description: "Redo action" },
       ],
     },
     {

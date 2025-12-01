@@ -36,6 +36,7 @@ export function PropertyPanel({
 
   const handleSave = () => {
     if (selectedFeatureId) {
+      window.dispatchEvent(new CustomEvent("takeSnapshot"));
       updateFeature(selectedFeatureId, editedProperties);
       setHasChanges(false);
       console.log("Properties saved successfully");
