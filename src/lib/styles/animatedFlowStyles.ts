@@ -9,7 +9,7 @@ import { Fill, Stroke, Style, Circle as CircleStyle } from 'ol/style';
 export class AnimatedFlowRenderer {
     private animationFrame: number | null = null;
     private offset = 0;
-    private speed = 10; // pixels per frame
+    private speed = 20; // pixels per frame
     private dashLength = 40;
     private gapLength = 20;
 
@@ -86,8 +86,8 @@ export function createAnimatedFlowStyle(
     const strokeColor = '#FFFFFF';
 
     // Create animated dash pattern
-    const dashLength = 15;
-    const gapLength = 10;
+    const dashLength = 12;
+    const gapLength = 15;
 
     return new Style({
         stroke: new Stroke({
@@ -96,7 +96,7 @@ export function createAnimatedFlowStyle(
             lineDash: [dashLength, gapLength],
             lineDashOffset: -animationOffset, // Negative for forward flow
         }),
-        zIndex: 100, // Higher than base pipe (100) but lower than arrows (101)
+        zIndex: 100, // Higher than base pipe 
     });
 }
 
@@ -168,7 +168,7 @@ export function createFlowParticleStyles(
                     fill: new Fill({ color: 'rgba(59, 130, 246, 0.9)' }), // More opaque
                     stroke: new Stroke({ color: '#FFFFFF', width: 1.5 }),
                 }),
-                zIndex: 105, // Above everything else
+                zIndex: 99, // Above everything else
             });
 
             styles.push(particleStyle);

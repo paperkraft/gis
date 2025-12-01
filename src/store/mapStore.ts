@@ -17,7 +17,7 @@ interface MapState {
 
 export const useMapStore = create<MapState>((set) => ({
     map: null,
-    coordinates: "",
+    coordinates: "--.---- --.----",
     vectorSource: null,
     isDrawingPipe: false,
 

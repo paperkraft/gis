@@ -1,4 +1,4 @@
-import { Feature, Overlay } from 'ol';
+import { Feature } from 'ol';
 import { LineString, Point } from 'ol/geom';
 import Map from 'ol/Map';
 import VectorSource from 'ol/source/Vector';
@@ -7,6 +7,7 @@ import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style';
 import { COMPONENT_TYPES, SNAPPING_TOLERANCE } from '@/constants/networkComponents';
 import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
+import { useUIStore } from '@/store/uiStore'; // Added Import
 import { FeatureType } from '@/types/network';
 
 export class PipeDrawingManager {
@@ -17,14 +18,17 @@ export class PipeDrawingManager {
     private previewLine: Feature | null = null;
     private startNode: Feature | null = null;
     private endNode: Feature | null = null;
-    private helpOverlay: Overlay | null = null;
+
+    // Changed from Overlay to HTMLElement for direct DOM control
+    private helpTooltipElement: HTMLElement | null = null;
+
     private vertexMarkers: Feature[] = [];
 
     private clickHandler: ((event: any) => void) | null = null;
     private pointerMoveHandler: ((event: any) => void) | null = null;
     private doubleClickHandler: ((event: any) => void) | null = null;
     private escKeyHandler: ((event: any) => void) | null = null;
-    private clickTimeout: any = null;
+
     private helpMessageTimeout: any = null;
 
     private readonly MAX_VERTICES = 100;
@@ -74,7 +78,11 @@ export class PipeDrawingManager {
         this.hideHelpMessage();
         this.removeEventHandlers();
         this.map.getViewport().style.cursor = "default";
+
         useMapStore.getState().setIsDrawingPipe(false);
+
+        // FIX: Explicitly switch tool back to 'select' to update UI state
+        useUIStore.getState().setActiveTool('select');
     }
 
     public continueDrawingFromNode(node: Feature) {
@@ -96,10 +104,27 @@ export class PipeDrawingManager {
             return;
         } else {
             // Ending current pipe segment
+
+            // Check if the last drawn vertex is very close to this new node.
+            // If so, replace the last vertex with this node to avoid tiny pipe segments.
+            const lastCoord = this.drawingCoordinates[this.drawingCoordinates.length - 1];
+            const distance = this.distance(lastCoord, coordinate);
+
+            // We only remove the vertex if we have more than 1 point (don't remove the start node)
+            if (distance < this.MIN_PIPE_LENGTH && this.drawingCoordinates.length > 1) {
+                // Remove the last coordinate
+                this.drawingCoordinates.pop();
+
+                // Remove the corresponding vertex marker
+                const lastMarker = this.vertexMarkers.pop();
+                if (lastMarker) {
+                    this.vectorSource.removeFeature(lastMarker);
+                }
+            }
+
             this.drawingCoordinates.push(coordinate);
             this.endNode = node;
-            // Don't add vertex marker here - createPipeSegment will clear all markers
-            // and resetForNextSegment will add the marker for the next segment
+
             this.createPipeSegment();
             this.resetForNextSegment(node);
         }
@@ -110,16 +135,11 @@ export class PipeDrawingManager {
     }
 
     public cleanup() {
-        if (this.clickTimeout) {
-            clearTimeout(this.clickTimeout);
-            this.clickTimeout = null;
-        }
-
         if (this.helpMessageTimeout) {
             clearTimeout(this.helpMessageTimeout);
             this.helpMessageTimeout = null;
         }
-
+        this.hideHelpMessage();
         this.stopDrawing();
     }
 
@@ -132,9 +152,9 @@ export class PipeDrawingManager {
     }
 
     // ============================================
-    // NODE/LINK INSERTION
+    // NODE/LINK INSERTION (Unchanged)
     // ============================================
-
+    // ... [Previous insertion methods remain identical] ...
     public insertNodeOnPipe(
         pipe: Feature,
         coordinate: number[],
@@ -780,7 +800,7 @@ export class PipeDrawingManager {
         this.pointerMoveHandler = this.handlePointerMove.bind(this);
         this.doubleClickHandler = this.handleDoubleClick.bind(this);
 
-        this.map.on("singleclick", this.clickHandler);
+        this.map.on("click", this.clickHandler);
         this.map.on("pointermove", this.pointerMoveHandler);
         this.map.on("dblclick", this.doubleClickHandler);
 
@@ -800,7 +820,7 @@ export class PipeDrawingManager {
     }
 
     private removeEventHandlers() {
-        if (this.clickHandler) this.map.un("singleclick", this.clickHandler);
+        if (this.clickHandler) this.map.un("click", this.clickHandler);
         if (this.pointerMoveHandler) this.map.un("pointermove", this.pointerMoveHandler);
         if (this.doubleClickHandler) this.map.un("dblclick", this.doubleClickHandler);
         if (this.escKeyHandler) document.removeEventListener("keydown", this.escKeyHandler);
@@ -819,14 +839,7 @@ export class PipeDrawingManager {
 
     private handleClick(event: any) {
         if (!this.isDrawingMode) return;
-
-        if (this.clickTimeout) {
-            clearTimeout(this.clickTimeout);
-        }
-
-        this.clickTimeout = setTimeout(() => {
-            this.processClick(event);
-        }, 250);
+        this.processClick(event);
     }
 
     private processClick(event: any) {
@@ -919,16 +932,13 @@ export class PipeDrawingManager {
     private handleDoubleClick(event: any) {
         if (!this.isDrawingMode) return;
 
-        if (this.clickTimeout) {
-            clearTimeout(this.clickTimeout);
-            this.clickTimeout = null;
-        }
-
         event.preventDefault();
         event.stopPropagation();
 
-        if (this.drawingCoordinates.length < 2) {
-            this.showHelpMessage("⚠️ Need at least 2 points");
+        // Allow finishing even if only 1 point is drawn (start node + dbl click location)
+        // because we will add the end point if it's new
+        if (this.drawingCoordinates.length < 1) {
+            this.showHelpMessage("⚠️ Need at least start node");
             return;
         }
 
@@ -938,17 +948,43 @@ export class PipeDrawingManager {
     }
 
     private finishCurrentPipe() {
+        // Filter out duplicate coordinates that occur from double-click event
+        const uniqueCoords = this.drawingCoordinates.filter((coord, index, self) => {
+            if (index === 0) return true;
+            return this.distance(coord, self[index - 1]) > 0.01;
+        });
+
+        if (uniqueCoords.length < 2) {
+            this.showHelpMessage("⚠️ Need at least 2 points");
+            return;
+        }
+
+        // Auto-create end node if missing (double-click on empty space)
+        let autoCreatedEndNode = false;
+        if (this.startNode && !this.endNode) {
+            const lastCoord = uniqueCoords[uniqueCoords.length - 1];
+            this.endNode = this.createJunction(lastCoord);
+            autoCreatedEndNode = true;
+        }
+
         if (!this.startNode || !this.endNode) {
             this.showHelpMessage("⚠️ Pipe must connect two nodes");
             return;
         }
 
         const totalLength = this.calculatePipeLength(
-            new LineString(this.drawingCoordinates)
+            new LineString(uniqueCoords)
         );
 
         if (totalLength < this.MIN_PIPE_LENGTH) {
             this.showHelpMessage(`⚠️ Pipe too short (${totalLength.toFixed(2)}m). Minimum ${this.MIN_PIPE_LENGTH}m.`);
+
+            // Cleanup if we just created the node
+            if (autoCreatedEndNode && this.endNode) {
+                this.vectorSource.removeFeature(this.endNode);
+                useNetworkStore.getState().removeFeature(this.endNode.getId() as string);
+                this.endNode = null;
+            }
             return;
         }
 
@@ -960,7 +996,8 @@ export class PipeDrawingManager {
         this.vertexMarkers.forEach(m => this.vectorSource.removeFeature(m));
         this.vertexMarkers = [];
 
-        this.createPipe(this.drawingCoordinates, this.startNode, this.endNode);
+        // Use uniqueCoords instead of this.drawingCoordinates
+        this.createPipe(uniqueCoords, this.startNode, this.endNode);
 
         this.drawingCoordinates = [];
         this.startNode = null;
@@ -984,7 +1021,7 @@ export class PipeDrawingManager {
     }
 
     // ============================================
-    // UTILITIES
+    // UTILITIES (Unchanged)
     // ============================================
 
     private distance(p1: number[], p2: number[]): number {
@@ -1052,11 +1089,11 @@ export class PipeDrawingManager {
         `;
         el.textContent = message;
         document.body.appendChild(el);
-        this.helpOverlay = new Overlay({ element: el, stopEvent: false });
+        this.helpTooltipElement = el;
 
         this.helpMessageTimeout = setTimeout(() => {
             if (el) {
-                el.style.opacity = '0';
+                el.style.dopacity = '0';
                 setTimeout(() => this.hideHelpMessage(), 300);
             }
         }, 3000);
@@ -1068,9 +1105,9 @@ export class PipeDrawingManager {
             this.helpMessageTimeout = null;
         }
 
-        if (this.helpOverlay?.getElement()) {
-            this.helpOverlay.getElement()?.remove();
-            this.helpOverlay = null;
+        if (this.helpTooltipElement) {
+            this.helpTooltipElement.remove();
+            this.helpTooltipElement = null;
         }
     }
 }
