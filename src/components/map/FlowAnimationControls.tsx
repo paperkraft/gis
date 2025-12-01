@@ -2,6 +2,7 @@
 
 import { Play, Pause, Droplets, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useUIStore } from "@/store/uiStore";
 
 interface FlowAnimationControlsProps {
   isAnimating: boolean;
@@ -20,6 +21,9 @@ export function FlowAnimationControls({
   onSpeedChange,
   onStyleChange,
 }: FlowAnimationControlsProps) {
+  const { activeTab } = useUIStore();
+
+  if (activeTab !== "network-editor") return null;
   return (
     <div className="absolute top-4 right-20 bg-white rounded-lg shadow-lg p-3 space-y-3 z-10">
       {/* Animation Toggle */}

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Search, MapPin, X, Loader2 } from "lucide-react";
 import { useMapStore } from "@/store/mapStore";
 import { fromLonLat } from "ol/proj";
+import { useUIStore } from "@/store/uiStore";
 
 interface SearchResult {
   place_id: number;
@@ -227,6 +228,9 @@ export function LocationSearch() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  const { activeTab } = useUIStore();
+  if (activeTab !== "network-editor") return null;
 
   return (
     <div className="absolute top-4 left-4 z-20 w-96" ref={inputRef}>

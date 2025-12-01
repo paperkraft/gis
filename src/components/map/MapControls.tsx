@@ -34,6 +34,7 @@ import { ExportModal } from "../modals/ExportModal";
 export function MapControls() {
   const { map } = useMapStore();
   const {
+    activeTab,
     activeTool,
     baseLayer,
     measurementType,
@@ -150,6 +151,8 @@ export function MapControls() {
       setShowMeasurementMenu(!showMeasurementMenu);
     }
   };
+
+  if (activeTab !== "network-editor") return null;
 
   return (
     <>

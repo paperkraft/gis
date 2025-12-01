@@ -7,10 +7,13 @@ import { useUIStore } from '@/store/uiStore';
 import { FeatureType } from '@/types/network';
 
 import { createSegmentArrows } from './pipeArrowStyles';
+import { useSimulationStore } from '@/store/simulationStore';
+import { getColorForValue, PRESSURE_COLORS, VELOCITY_COLORS } from './styleUtils';
 
 export const getFeatureStyle = (feature: Feature): Style | Style[] => {
     const featureType = feature.get("type") as FeatureType;
     const isHidden = feature.get("hidden");
+    const featureId = feature.getId() as string;
 
     // 1. Handle hidden state
     if (isHidden) return new Style({});
@@ -24,19 +27,41 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
     const config = COMPONENT_TYPES[featureType];
     if (!config) return new Style({});
 
-    const label = feature.get("label") || feature.getId();
+    let label = feature.get("label") || feature.getId();
     const status = feature.get("status");
     const isInactive = status === "closed" || status === "inactive" || status === "stopped";
 
+    // --- NEW: FETCH SIMULATION RESULTS ---
+    const { results } = useSimulationStore.getState(); // Access store directly without hook rules
+
     // Use gray color if inactive, otherwise component color
-    const color = isInactive ? "#9CA3AF" : config.color;
+    let color = isInactive ? "#9CA3AF" : config.color;
+
+    // Apply Simulation Styling if results exist
+    if (results && !isInactive) {
+        if (['junction'].includes(featureType)) {
+            const nodeResult = results.nodes[featureId];
+            if (nodeResult) {
+                // Color by Pressure
+                color = getColorForValue(nodeResult.pressure, PRESSURE_COLORS);
+                // Optional: Append pressure to label
+                label += `\n${nodeResult.pressure.toFixed(1)} psi`;
+            }
+        } else if (featureType === 'pipe') {
+            const linkResult = results.links[featureId];
+            if (linkResult) {
+                // Color by Velocity
+                color = getColorForValue(linkResult.velocity, VELOCITY_COLORS);
+            }
+        }
+    }
 
     // Check if labels are enabled
     const { showPipeArrows, showLabels } = useUIStore.getState();
 
     // Text Style for Labels
     const textStyle = showLabels ? new Text({
-        text: label?.toString(),
+        text: label,
         font: '10px "Inter", sans-serif',
         fill: new Fill({ color: '#374151' }),
         stroke: new Stroke({ color: '#FFFFFF', width: 3 }),
@@ -62,7 +87,6 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
 
         // Add Arrows if enabled
         if (showPipeArrows && !isInactive) {
-            // Use single arrow for short pipes or low zoom, segments for others
             // For now defaulting to segments as it's clearer
             const arrowStyles = createSegmentArrows(feature);
             return [baseStyle, ...arrowStyles];

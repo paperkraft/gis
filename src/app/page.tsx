@@ -7,6 +7,7 @@ import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/store/uiStore";
+import { SimulationPanel } from "@/components/simulation/SimulationPanel";
 
 const MapContainer = dynamic(
   () => import("@/components/map/MapContainer").then((mod) => mod.MapContainer),
@@ -47,10 +48,18 @@ export default function HomePage() {
               );
             })}
           </div>
-          <div className="flex-1">
-            {activeTab === "network-editor" && <MapContainer />}
+          <div className="flex-1 relative">
+            {/* {activeTab === "network-editor" && <MapContainer />} */}
+            {/* {activeTab === "simulation" && <SimulationPanel />} */}
+            <MapContainer />
+            {/* Conditionally render panels based on tab */}
             {activeTab === "simulation" && (
-              <div className="p-4">Simulation under development</div>
+              <div className="absolute inset-0 pointer-events-none z-10">
+                {/* Pointer events auto so we can click the panel */}
+                <div className="pointer-events-auto">
+                  <SimulationPanel />
+                </div>
+              </div>
             )}
           </div>
         </main>

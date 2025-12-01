@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 
 import { createCombinedFlowStyles } from '@/lib/styles/animatedFlowStyles';
 import { getFeatureStyle } from '@/lib/styles/featureStyles';
+import { useSimulationStore } from '@/store/simulationStore';
 import { useUIStore } from '@/store/uiStore';
 
 interface UseLayerManagerProps {
@@ -17,6 +18,7 @@ interface UseLayerManagerProps {
 
 export function useLayerManager({ vectorLayer, flowAnimation }: UseLayerManagerProps) {
     const { layerVisibility, showPipeArrows, showLabels } = useUIStore();
+    const { results } = useSimulationStore(); // Listen to results
 
     useEffect(() => {
         if (!vectorLayer) return;
@@ -64,11 +66,8 @@ export function useLayerManager({ vectorLayer, flowAnimation }: UseLayerManagerP
             return styles;
         });
 
-        // Force redraw if animating to keep frames updating
-        if (flowAnimation.isAnimating) {
-            vectorLayer.changed();
-        }
-
+        // FORCE REDRAW when results change
+        vectorLayer.changed();
     }, [
         vectorLayer,
         layerVisibility,
@@ -76,6 +75,7 @@ export function useLayerManager({ vectorLayer, flowAnimation }: UseLayerManagerP
         showLabels,
         flowAnimation.isAnimating,
         flowAnimation.animationTime,
-        flowAnimation.options.style
+        flowAnimation.options.style,
+        results
     ]);
 }
