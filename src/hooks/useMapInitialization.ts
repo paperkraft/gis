@@ -1,19 +1,15 @@
-import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import Map from 'ol/Map';
 import { fromLonLat } from 'ol/proj';
-import { XYZ } from 'ol/source';
-import OSM from 'ol/source/OSM';
 import VectorSource from 'ol/source/Vector';
 import View from 'ol/View';
 import { useEffect, useRef, useState } from 'react';
 
-import { mapbox_token } from '@/constants/map';
 import { handleZoomToExtent } from '@/lib/interactions/map-controls';
+import { createBaseLayers } from '@/lib/map/baseLayers';
 import { getFeatureStyle } from '@/lib/styles/featureStyles';
 import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
-import { createBaseLayers } from '@/lib/map/baseLayers';
 
 export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElement | null>) {
 

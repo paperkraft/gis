@@ -1,35 +1,20 @@
 "use client";
 
 import {
-  BoxSelect,
-  ChevronRight,
-  FileUp,
-  Home,
-  Map as MapIcon,
-  MousePointer2,
-  Pentagon,
-  Ruler,
-  Square,
-  Table,
-  ZoomIn,
-  ZoomOut,
-} from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+    BoxSelect, ChevronRight, FileUp, Home, Map as MapIcon, MousePointer2, Pentagon, Ruler, Square,
+    Table, ZoomIn, ZoomOut
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
-import {
-  handleZoomIn,
-  handleZoomOut,
-  handleZoomToExtent,
-} from "@/lib/interactions/map-controls";
-import { cn } from "@/lib/utils";
-import { useMapStore } from "@/store/mapStore";
-import { useUIStore } from "@/store/uiStore";
-import { layerType } from "@/constants/map";
+import { layerType } from '@/constants/map';
+import { handleZoomIn, handleZoomOut, handleZoomToExtent } from '@/lib/interactions/map-controls';
+import { switchBaseLayer } from '@/lib/map/baseLayers';
+import { MeasurementManager } from '@/lib/topology/measurementManager';
+import { cn } from '@/lib/utils';
+import { useMapStore } from '@/store/mapStore';
+import { useUIStore } from '@/store/uiStore';
 
-import { ImportModal } from "../modals/ImportModal";
-import { mapbox_token } from "@/constants/map";
-import { switchBaseLayer } from "@/lib/map/baseLayers";
-import { MeasurementManager } from "@/lib/topology/measurementManager";
+import { ImportModal } from '../modals/ImportModal';
 
 export function MapControls() {
   const { map } = useMapStore();
