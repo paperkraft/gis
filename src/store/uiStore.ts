@@ -1,4 +1,4 @@
-import { layerType } from "@/types/components";
+import { layerType } from "@/constants/map";
 import { create } from "zustand";
 
 interface UIState {
@@ -16,6 +16,7 @@ interface UIState {
     // Modal states
     deleteModalOpen: boolean;
     importModalOpen: boolean;
+    exportModalOpen: boolean;
     keyboardShortcutsModalOpen: boolean;
     componentSelectionModalOpen: boolean;
 
@@ -45,6 +46,7 @@ interface UIState {
     setKeyboardShortcutsModalOpen: (open: boolean) => void;
     setDeleteModalOpen: (open: boolean) => void;
     setImportModalOpen: (open: boolean) => void;
+    setExportModalOpen: (open: boolean) => void;
     setSidebarCollapsed: (collapsed: boolean) => void;
     togglePropertyPanel: () => void;
 
@@ -79,6 +81,7 @@ const DEFAULT_STATE = {
     propertyPanelOpen: false,
     deleteModalOpen: false,
     importModalOpen: false,
+    exportModalOpen: false,
     activeTool: 'select' as const,
     measurementActive: false,
     measurementType: 'distance' as const,
@@ -116,6 +119,10 @@ export const useUIStore = create<UIState>((set, get) => ({
 
     setImportModalOpen: (open) => {
         set({ importModalOpen: open });
+    },
+
+    setExportModalOpen: (open) => {
+        set({ exportModalOpen: open });
     },
 
     setKeyboardShortcutsModalOpen: (open) => {

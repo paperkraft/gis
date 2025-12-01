@@ -1,20 +1,35 @@
 "use client";
 
 import {
-    BoxSelect, ChevronRight, FileUp, Home, Map as MapIcon, MousePointer2, Pentagon, Ruler, Square,
-    Table, ZoomIn, ZoomOut
-} from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+  BoxSelect,
+  ChevronRight,
+  FileUp,
+  Home,
+  Map as MapIcon,
+  MousePointer2,
+  Pentagon,
+  Ruler,
+  Square,
+  Table,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
-import { layerType } from '@/constants/map';
-import { handleZoomIn, handleZoomOut, handleZoomToExtent } from '@/lib/interactions/map-controls';
-import { switchBaseLayer } from '@/lib/map/baseLayers';
-import { MeasurementManager } from '@/lib/topology/measurementManager';
-import { cn } from '@/lib/utils';
-import { useMapStore } from '@/store/mapStore';
-import { useUIStore } from '@/store/uiStore';
+import { layerType } from "@/constants/map";
+import {
+  handleZoomIn,
+  handleZoomOut,
+  handleZoomToExtent,
+} from "@/lib/interactions/map-controls";
+import { switchBaseLayer } from "@/lib/map/baseLayers";
+import { MeasurementManager } from "@/lib/topology/measurementManager";
+import { cn } from "@/lib/utils";
+import { useMapStore } from "@/store/mapStore";
+import { useUIStore } from "@/store/uiStore";
 
-import { ImportModal } from '../modals/ImportModal';
+import { ImportModal } from "../modals/ImportModal";
+import { ExportModal } from "../modals/ExportModal";
 
 export function MapControls() {
   const { map } = useMapStore();
@@ -23,6 +38,7 @@ export function MapControls() {
     baseLayer,
     measurementType,
     importModalOpen,
+    exportModalOpen,
     showBaseLayerMenu,
     measurementActive,
     showAttributeTable,
@@ -35,6 +51,7 @@ export function MapControls() {
     setShowAttributeTable,
     setShowMeasurementMenu,
     setImportModalOpen,
+    setExportModalOpen,
   } = useUIStore();
 
   const [showSelectMenu, setShowSelectMenu] = useState(false);
@@ -469,6 +486,11 @@ export function MapControls() {
       <ImportModal
         isOpen={importModalOpen}
         onClose={() => setImportModalOpen(false)}
+      />
+
+      <ExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
       />
     </>
   );

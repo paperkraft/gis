@@ -11,6 +11,7 @@ import { useFlowAnimation } from "@/hooks/useFlowAnimation";
 import { useFeatureSelection } from "@/hooks/useFeatureSelection";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useDeleteHandler } from "@/hooks/useDeleteHandler";
+import { useNetworkExport } from "@/hooks/useNetworkExport";
 
 // Stores & Types
 import { useMapStore } from "@/store/mapStore";
@@ -81,6 +82,9 @@ export function MapContainer() {
   // 8. Delete Handling
   const { handleDeleteRequestFromPanel, handleDeleteConfirm, cascadeInfo } =
     useDeleteHandler();
+
+  // 9. Export Handling (New)
+  useNetworkExport();
 
   // --- Handlers ---
 

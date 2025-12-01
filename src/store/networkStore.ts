@@ -45,6 +45,12 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
     addFeature: (feature) => {
         const id = feature.getId() as string;
+
+        // FIX: Explicitly set 'id' in properties to match TypeScript interface and ensure availability
+        if (id) {
+            feature.set('id', id);
+        }
+
         set((state) => {
             const newFeatures = new Map(state.features);
             newFeatures.set(id, feature);
@@ -75,8 +81,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     selectFeature: (id) => set((state) => ({
         selectedFeatureId: id,
         selectedFeatureIds: id ? [id] : [],
-        // FIX: If clearing selection (id is null), also clear the object immediately
-        // This ensures UI components checking selectedFeature (like PropertyPanel) unmount instantly
         selectedFeature: id === null ? null : state.selectedFeature
     })),
 
@@ -84,7 +88,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         set({
             selectedFeatureIds: ids,
             selectedFeatureId: ids.length > 0 ? ids[ids.length - 1] : null,
-            // If multiple selection is cleared, clear object too
             selectedFeature: ids.length === 0 ? null : get().selectedFeature
         });
     },

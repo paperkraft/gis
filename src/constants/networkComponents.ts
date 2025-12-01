@@ -60,7 +60,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
         defaultProperties: {
             diameter: 8,
             status: "open",
-            valveType: "Gate",
+            valveType: "PRV",
             setting: 100,
         },
         createsJunction: false,
