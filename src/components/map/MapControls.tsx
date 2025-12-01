@@ -14,7 +14,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   handleZoomIn,
@@ -28,6 +28,8 @@ import { layerType } from "@/constants/map";
 
 import { ImportModal } from "../modals/ImportModal";
 import { mapbox_token } from "@/constants/map";
+import { switchBaseLayer } from "@/lib/map/baseLayers";
+import { MeasurementManager } from "@/lib/topology/measurementManager";
 
 export function MapControls() {
   const { map } = useMapStore();
@@ -51,6 +53,28 @@ export function MapControls() {
   } = useUIStore();
 
   const [showSelectMenu, setShowSelectMenu] = useState(false);
+  const measurementManagerRef = useRef<MeasurementManager | null>(null);
+
+  // Initialize MeasurementManager
+  useEffect(() => {
+    if (map) {
+      measurementManagerRef.current = new MeasurementManager(map);
+    }
+    return () => {
+      measurementManagerRef.current?.stopMeasurement();
+    };
+  }, [map]);
+
+  // Handle Measurement State Changes
+  useEffect(() => {
+    if (!measurementManagerRef.current) return;
+
+    if (measurementActive) {
+      measurementManagerRef.current.startMeasurement(measurementType);
+    } else {
+      measurementManagerRef.current.stopMeasurement();
+    }
+  }, [measurementActive, measurementType]);
 
   const selectOptions = [
     {
@@ -79,9 +103,9 @@ export function MapControls() {
 
   const baseLayerOptions = [
     { id: "osm", name: "OpenStreetMap", description: "Standard map view" },
-    { id: "mapbox", name: "Mapbox", description: "Mapbox Streets" },
     { id: "satellite", name: "Satellite", description: "Aerial imagery" },
-    { id: "terrain", name: "Streets", description: "Aerial streets" },
+    { id: "terrain", name: "Terrain", description: "Terrain view" },
+    { id: "mapbox", name: "Mapbox", description: "Mapbox Streets" },
   ];
 
   const measurementOptions = [
@@ -102,319 +126,28 @@ export function MapControls() {
   const handleBaseLayerChange = (layerType: layerType) => {
     if (!map) return;
 
-    // Get all layers
-    const layers = map.getLayers().getArray();
+    // Use shared utility to toggle visibility instantly
+    switchBaseLayer(map, layerType);
 
-    // Find and remove old base layer
-    const oldBaseLayer = layers.find(
-      (layer) =>
-        layer.get("name") === "osm" ||
-        layer.get("name") === "satellite" ||
-        layer.get("name") === "terrain"
-    );
-
-    if (oldBaseLayer) {
-      map.removeLayer(oldBaseLayer);
-    }
-
-    // Import OpenLayers dynamically
-    import("ol/source/OSM").then(({ default: OSM }) => {
-      import("ol/source/XYZ").then(({ default: XYZ }) => {
-        import("ol/layer/Tile").then(({ default: TileLayer }) => {
-          let newSource;
-
-          switch (layerType) {
-            case "osm":
-              newSource = new OSM();
-              break;
-            case "mapbox":
-              // Using Mapbox Streets
-              newSource = new XYZ({
-                url: `https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=${mapbox_token}`,
-                crossOrigin: "anonymous",
-                attributions: "Tiles © Mapbox",
-              });
-              break;
-            case "satellite":
-              // Using ESRI World Imagery
-              newSource = new XYZ({
-                url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                attributions: "Tiles © Esri",
-              });
-              break;
-            case "terrain":
-              // Using ESRI World Street
-              newSource = new XYZ({
-                url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-                attributions: "Tiles © Esri",
-              });
-              break;
-          }
-
-          const newBaseLayer = new TileLayer({
-            source: newSource,
-            properties: { name: layerType },
-            zIndex: 0,
-          });
-
-          // Add new base layer (it will go to bottom because of zIndex)
-          map.addLayer(newBaseLayer);
-
-          // Move to bottom (ensure it's below network layer)
-          const allLayers = map.getLayers();
-          allLayers.remove(newBaseLayer);
-          allLayers.insertAt(0, newBaseLayer);
-
-          setBaseLayer(layerType);
-          setShowBaseLayerMenu(false);
-        });
-      });
-    });
+    setBaseLayer(layerType);
+    setShowBaseLayerMenu(false);
   };
 
   const handleMeasurementTypeSelect = (type: "distance" | "area") => {
-    // If measurement is already active, deactivate and reactivate with new type
-    if (measurementActive) {
-      removeMeasurementInteraction();
-    }
-
     setMeasurementType(type);
     setShowMeasurementMenu(false);
-
-    // Activate with new type
-    addMeasurementInteraction(type);
-    setMeasurementActive(true);
+    setMeasurementActive(true); // This triggers the useEffect above
   };
 
   const handleToggleMeasurement = () => {
     if (!map) return;
 
     if (measurementActive) {
-      // Deactivate measurement
-      removeMeasurementInteraction();
       setMeasurementActive(false);
     } else {
-      // Activate measurement
       setShowMeasurementMenu(!showMeasurementMenu);
     }
   };
-
-  const addMeasurementInteraction = (type: "distance" | "area") => {
-    if (!map) return;
-
-    import("ol/interaction/Draw").then(({ default: Draw }) => {
-      import("ol/source/Vector").then(({ default: VectorSource }) => {
-        import("ol/layer/Vector").then(({ default: VectorLayer }) => {
-          import("ol/style/Style").then(({ default: Style }) => {
-            import("ol/style/Stroke").then(({ default: Stroke }) => {
-              import("ol/style/Fill").then(({ default: Fill }) => {
-                import("ol/style/Circle").then(({ default: CircleStyle }) => {
-                  import("ol/Observable").then(({ unByKey }) => {
-                    import("ol/sphere").then(({ getLength, getArea }) => {
-                      // Create source and layer for measurements
-                      const measureSource = new VectorSource();
-                      const measureLayer = new VectorLayer({
-                        source: measureSource,
-                        properties: { name: "measurement-layer" },
-                        zIndex: 1000,
-                        style: new Style({
-                          fill: new Fill({
-                            color: "rgba(31, 184, 205, 0.2)",
-                          }),
-                          stroke: new Stroke({
-                            color: "#1FB8CD",
-                            width: 3,
-                          }),
-                          image: new CircleStyle({
-                            radius: 5,
-                            fill: new Fill({
-                              color: "#1FB8CD",
-                            }),
-                            stroke: new Stroke({
-                              color: "#fff",
-                              width: 2,
-                            }),
-                          }),
-                        }),
-                      });
-
-                      map.addLayer(measureLayer);
-
-                      // Create draw interaction
-                      const draw = new Draw({
-                        source: measureSource,
-                        type: type === "distance" ? "LineString" : "Polygon",
-                        style: new Style({
-                          fill: new Fill({
-                            color: "rgba(31, 184, 205, 0.2)",
-                          }),
-                          stroke: new Stroke({
-                            color: "#1FB8CD",
-                            lineDash: [10, 10],
-                            width: 3,
-                          }),
-                          image: new CircleStyle({
-                            radius: 5,
-                            stroke: new Stroke({
-                              color: "#1FB8CD",
-                              width: 2,
-                            }),
-                            fill: new Fill({
-                              color: "rgba(255, 255, 255, 0.8)",
-                            }),
-                          }),
-                        }),
-                      });
-
-                      let sketch: any;
-                      let helpTooltipElement: HTMLElement | null;
-                      let measureTooltipElement: HTMLElement | null;
-                      let measureTooltip: any;
-
-                      const formatLength = (line: any) => {
-                        const length = getLength(line);
-                        let output;
-                        if (length > 1000) {
-                          output =
-                            Math.round((length / 1000) * 100) / 100 + " km";
-                        } else {
-                          output = Math.round(length * 100) / 100 + " m";
-                        }
-                        return output;
-                      };
-
-                      const formatArea = (polygon: any) => {
-                        const area = getArea(polygon);
-                        let output;
-                        if (area > 10000) {
-                          output =
-                            Math.round((area / 1000000) * 100) / 100 + " km²";
-                        } else {
-                          output = Math.round(area * 100) / 100 + " m²";
-                        }
-                        return output;
-                      };
-
-                      const createMeasureTooltip = () => {
-                        if (measureTooltipElement) {
-                          measureTooltipElement.parentNode?.removeChild(
-                            measureTooltipElement
-                          );
-                        }
-                        measureTooltipElement = document.createElement("div");
-                        measureTooltipElement.className =
-                          "ol-tooltip ol-tooltip-measure";
-                        measureTooltipElement.style.cssText = `
-                          position: absolute;
-                          background-color: rgba(0, 0, 0, 0.8);
-                          color: white;
-                          padding: 6px 12px;
-                          border-radius: 6px;
-                          font-size: 12px;
-                          font-weight: 600;
-                          white-space: nowrap;
-                          pointer-events: none;
-                          z-index: 10000;
-                        `;
-
-                        import("ol/Overlay").then(({ default: Overlay }) => {
-                          measureTooltip = new Overlay({
-                            element: measureTooltipElement!,
-                            offset: [0, -15],
-                            positioning: "bottom-center",
-                            stopEvent: false,
-                          });
-                          map.addOverlay(measureTooltip);
-                        });
-                      };
-
-                      draw.on("drawstart", (evt: any) => {
-                        sketch = evt.feature;
-                        createMeasureTooltip();
-
-                        let tooltipCoord = evt.coordinate;
-
-                        sketch.getGeometry().on("change", (evt: any) => {
-                          const geom = evt.target;
-                          let output;
-                          if (geom.getType() === "Polygon") {
-                            output = formatArea(geom);
-                            tooltipCoord = geom
-                              .getInteriorPoint()
-                              .getCoordinates();
-                          } else if (geom.getType() === "LineString") {
-                            output = formatLength(geom);
-                            tooltipCoord = geom.getLastCoordinate();
-                          }
-                          if (measureTooltipElement) {
-                            measureTooltipElement.innerHTML = output || "";
-                          }
-                          measureTooltip.setPosition(tooltipCoord);
-                        });
-                      });
-
-                      draw.on("drawend", () => {
-                        if (measureTooltipElement) {
-                          measureTooltipElement.className =
-                            "ol-tooltip ol-tooltip-static";
-                        }
-                        measureTooltip.setOffset([0, -7]);
-                        sketch = null;
-                        measureTooltipElement = null;
-                        createMeasureTooltip();
-                      });
-
-                      map.addInteraction(draw);
-                      map.set("measurementDraw", draw);
-                      map.set("measurementLayer", measureLayer);
-                    });
-                  });
-                });
-              });
-            });
-          });
-        });
-      });
-    });
-  };
-
-  const removeMeasurementInteraction = () => {
-    if (!map) return;
-
-    const draw = map.get("measurementDraw");
-    const layer = map.get("measurementLayer");
-
-    if (draw) {
-      map.removeInteraction(draw);
-      map.unset("measurementDraw");
-    }
-
-    if (layer) {
-      map.removeLayer(layer);
-      map.unset("measurementLayer");
-    }
-
-    // Remove tooltips
-    map
-      .getOverlays()
-      .getArray()
-      .slice()
-      .forEach((overlay) => {
-        const element = overlay.getElement();
-        if (element?.className.includes("ol-tooltip")) {
-          map.removeOverlay(overlay);
-        }
-      });
-  };
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (measurementActive) {
-        removeMeasurementInteraction();
-      }
-    };
-  }, [measurementActive]);
 
   return (
     <>

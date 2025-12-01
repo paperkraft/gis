@@ -13,6 +13,7 @@ import { handleZoomToExtent } from '@/lib/interactions/map-controls';
 import { getFeatureStyle } from '@/lib/styles/featureStyles';
 import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
+import { createBaseLayers } from '@/lib/map/baseLayers';
 
 export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElement | null>) {
 
@@ -41,47 +42,13 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
             zIndex: 100,
         });
 
-        // 2. Initialize Base Layers (All hidden except default)
-        // OSM (Default)
-        const osmLayer = new TileLayer({
-            source: new OSM(),
-            visible: true,
-            properties: { name: 'osm', title: 'OpenStreetMap', type: 'base' },
-        });
-
-        // Satellite (Esri World Imagery)
-        const satelliteLayer = new TileLayer({
-            source: new XYZ({
-                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-            }),
-            visible: false,
-            properties: { name: 'satellite', title: 'Satellite', type: 'base' },
-        });
-
-        // Terrain (Esri World Topo)
-        const terrainLayer = new TileLayer({
-            source: new XYZ({
-                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
-                // url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-            }),
-            visible: false,
-            properties: { name: 'terrain', title: 'Terrain', type: 'base' },
-        });
-
-        // Mapbox
-        const mapboxLayer = new TileLayer({
-            source: new XYZ({
-                url: `https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=${mapbox_token}`,
-                crossOrigin: 'anonymous',
-            }),
-            visible: false,
-            properties: { name: 'mapbox', title: 'Mapbox Streets', type: 'base' },
-        });
+        // 2. Initialize Base Layers
+        const baseLayers = createBaseLayers();
 
         // 3. Create Map
         const map = new Map({
             target: mapTargetRef.current,
-            layers: [osmLayer, satelliteLayer, mapboxLayer, terrainLayer, vecLayer],
+            layers: [...baseLayers, vecLayer],
             view: new View({
                 center: fromLonLat([74.2381, 16.7012]),
                 zoom: 16,
