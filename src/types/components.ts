@@ -1,1 +1,0 @@
-export type layerType = "osm" | "satellite" | "terrain";

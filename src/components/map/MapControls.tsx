@@ -24,9 +24,10 @@ import {
 import { cn } from "@/lib/utils";
 import { useMapStore } from "@/store/mapStore";
 import { useUIStore } from "@/store/uiStore";
-import { layerType } from "@/types/components";
+import { layerType } from "@/constants/map";
 
 import { ImportModal } from "../modals/ImportModal";
+import { mapbox_token } from "@/constants/map";
 
 export function MapControls() {
   const { map } = useMapStore();
@@ -78,8 +79,9 @@ export function MapControls() {
 
   const baseLayerOptions = [
     { id: "osm", name: "OpenStreetMap", description: "Standard map view" },
+    { id: "mapbox", name: "Mapbox", description: "Mapbox Streets" },
     { id: "satellite", name: "Satellite", description: "Aerial imagery" },
-    { id: "terrain", name: "Terrain", description: "Topographic map" },
+    { id: "terrain", name: "Streets", description: "Aerial streets" },
   ];
 
   const measurementOptions = [
@@ -125,6 +127,14 @@ export function MapControls() {
             case "osm":
               newSource = new OSM();
               break;
+            case "mapbox":
+              // Using Mapbox Streets
+              newSource = new XYZ({
+                url: `https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=${mapbox_token}`,
+                crossOrigin: "anonymous",
+                attributions: "Tiles © Mapbox",
+              });
+              break;
             case "satellite":
               // Using ESRI World Imagery
               newSource = new XYZ({
@@ -133,11 +143,10 @@ export function MapControls() {
               });
               break;
             case "terrain":
-              // Using Stamen Terrain
+              // Using ESRI World Street
               newSource = new XYZ({
-                url: "https://stamen-tiles.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png",
-                attributions:
-                  'Map tiles by <a href="http://stamen.com">Stamen Design</a>',
+                url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+                attributions: "Tiles © Esri",
               });
               break;
           }

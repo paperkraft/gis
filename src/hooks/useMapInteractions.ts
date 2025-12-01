@@ -1,328 +1,148 @@
-"use client";
-import { Feature } from 'ol';
-import { LineString, Point } from 'ol/geom';
-import { Draw, Modify, Snap } from 'ol/interaction';
-import Map from 'ol/Map';
+import { useEffect, useRef, useCallback } from 'react';
+import { Feature, MapBrowserEvent } from 'ol';
+import { Point } from 'ol/geom';
 import VectorSource from 'ol/source/Vector';
-import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style';
-import { useCallback, useEffect, useRef } from 'react';
+import Map from 'ol/Map';
 
-import { COMPONENT_TYPES, SNAPPING_TOLERANCE } from '@/constants/networkComponents';
-import { ContextMenuManager } from '@/lib/topology/contextMenuManager';
-import { DeleteManager } from '@/lib/topology/deleteManager';
-import { ModifyManager } from '@/lib/topology/modifyManager';
-import { PipeDrawingManager } from '@/lib/topology/pipeDrawingManager';
-import { useNetworkStore } from '@/store/networkStore';
 import { useUIStore } from '@/store/uiStore';
+import { useNetworkStore } from '@/store/networkStore';
+import { useMapStore } from '@/store/mapStore';
+import { PipeDrawingManager } from '@/lib/topology/pipeDrawingManager';
+import { ModifyManager } from '@/lib/topology/modifyManager';
+import { ContextMenuManager } from '@/lib/topology/contextMenuManager';
+import { VertexLayerManager } from '@/lib/topology/vertexManager';
+import { COMPONENT_TYPES } from '@/constants/networkComponents';
+import { FeatureType } from '@/types/network';
 
-interface UseMapInteractionsOptions {
+interface UseMapInteractionsProps {
     map: Map | null;
     vectorSource: VectorSource | null;
 }
 
-export function useMapInteractions({ map, vectorSource }: UseMapInteractionsOptions) {
-    const { activeTool } = useUIStore();
+export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProps) {
+    const { activeTool, setActiveTool } = useUIStore();
     const { addFeature, generateUniqueId } = useNetworkStore();
 
-    // Manager instances
     const pipeDrawingManagerRef = useRef<PipeDrawingManager | null>(null);
     const modifyManagerRef = useRef<ModifyManager | null>(null);
-    const deleteManagerRef = useRef<DeleteManager | null>(null);
     const contextMenuManagerRef = useRef<ContextMenuManager | null>(null);
+    const vertexLayerManagerRef = useRef<VertexLayerManager | null>(null);
 
-    // Interaction instances
-    const drawInteractionRef = useRef<Draw | null>(null);
-    const modifyInteractionRef = useRef<Modify | null>(null);
-    const snapInteractionRef = useRef<Snap | null>(null);
-
-    /**
-     * Initialize all managers
-     */
+    // Initialize Managers
     useEffect(() => {
         if (!map || !vectorSource) return;
 
-        // Initialize managers
-        pipeDrawingManagerRef.current = new PipeDrawingManager(map, vectorSource);
-        modifyManagerRef.current = new ModifyManager(map, vectorSource);
-        deleteManagerRef.current = new DeleteManager(map, vectorSource);
-        contextMenuManagerRef.current = new ContextMenuManager(map, vectorSource);
+        const pipeManager = new PipeDrawingManager(map, vectorSource);
+        const modManager = new ModifyManager(map, vectorSource);
+        const menuManager = new ContextMenuManager(map, vectorSource);
+        const vertexManager = new VertexLayerManager(map, vectorSource);
 
-        // Connect pipe drawing manager to context menu
-        contextMenuManagerRef.current.setPipeDrawingManager(pipeDrawingManagerRef.current);
+        // Wiring
+        pipeManager.registerWithContextMenu(menuManager);
+        menuManager.setPipeDrawingManager(pipeManager);
 
+        // Sync drawing mode with Context Menu state
+        const originalStart = pipeManager.startDrawing.bind(pipeManager);
+        pipeManager.startDrawing = () => {
+            originalStart();
+            menuManager.setDrawingMode(true);
+        };
+
+        const originalStop = pipeManager.stopDrawing.bind(pipeManager);
+        pipeManager.stopDrawing = () => {
+            originalStop();
+            menuManager.setDrawingMode(false);
+        };
+
+        pipeDrawingManagerRef.current = pipeManager;
+        modifyManagerRef.current = modManager;
+        contextMenuManagerRef.current = menuManager;
+        vertexLayerManagerRef.current = vertexManager;
 
         return () => {
-            // Cleanup managers
-            pipeDrawingManagerRef.current?.cleanup?.();
-            modifyManagerRef.current?.cleanup();
-            deleteManagerRef.current?.cleanup();
-            contextMenuManagerRef.current?.cleanup();
+            pipeManager.cleanup();
+            modManager.cleanup();
+            menuManager.cleanup();
+            vertexManager.cleanup();
         };
     }, [map, vectorSource]);
 
-    /**
-     * Setup snap interaction (always active for better UX)
-     */
+    // Handle Tool Switching
     useEffect(() => {
-        if (!map || !vectorSource) return;
+        if (!map || !pipeDrawingManagerRef.current || !modifyManagerRef.current) return;
 
-        const snapInteraction = new Snap({
-            source: vectorSource,
-            pixelTolerance: SNAPPING_TOLERANCE,
-        });
+        // Reset
+        modifyManagerRef.current.cleanup();
 
-        map.addInteraction(snapInteraction);
-        snapInteractionRef.current = snapInteraction;
-
-        return () => {
-            if (snapInteraction) {
-                map.removeInteraction(snapInteraction);
-            }
-        };
-    }, [map, vectorSource]);
-
-    /**
-     * Handle tool changes and setup appropriate interactions
-     */
-    useEffect(() => {
-        if (!map || !vectorSource) return;
-
-        // Cleanup previous interactions
-        cleanupInteractions();
-
-        // Setup new interactions based on active tool
         switch (activeTool) {
-            case "select":
-                setupSelectMode();
+            case 'select':
+                map.getViewport().style.cursor = 'default';
                 break;
-            case "modify":
-                setupModifyMode();
+            case 'modify':
+                modifyManagerRef.current.startModifying();
                 break;
-            default:
+            case 'draw':
+                pipeDrawingManagerRef.current.startDrawing();
                 break;
         }
+    }, [activeTool, map]);
 
-        return () => {
-            cleanupInteractions();
+    // Handle ESC key to reset tools
+    useEffect(() => {
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                useUIStore.getState().resetAllTools();
+            }
         };
-    }, [activeTool, map, vectorSource]);
+        window.addEventListener('keydown', handleEscape);
+        return () => window.removeEventListener('keydown', handleEscape);
+    }, []);
 
-    /**
-     * Cleanup all active interactions
-     */
-    const cleanupInteractions = useCallback(() => {
-        if (!map) return;
+    // Placement Logic (Exposed Helper)
+    const startComponentPlacement = useCallback((componentType: FeatureType) => {
+        if (!map || !vectorSource || !pipeDrawingManagerRef.current) return;
 
-        // Remove ALL OpenLayers interactions that might interfere
-        const interactions = map.getInteractions().getArray();
-        interactions.forEach((interaction) => {
-            // Don't remove Snap interaction
-            if (!(interaction instanceof Snap)) {
-                map.removeInteraction(interaction);
-            }
-        });
+        map.getViewport().style.cursor = 'crosshair';
 
-        // Remove draw interaction
-        if (drawInteractionRef.current) {
-            map.removeInteraction(drawInteractionRef.current);
-            drawInteractionRef.current = null;
-        }
+        const placementHandler = (event: MapBrowserEvent<any>) => {
+            const coordinate = map.getCoordinateFromPixel(event.pixel);
 
-        // Remove modify interaction
-        if (modifyInteractionRef.current) {
-            map.removeInteraction(modifyInteractionRef.current);
-            modifyInteractionRef.current = null;
-        }
-
-        // Stop managers
-        pipeDrawingManagerRef.current?.stopDrawing?.();
-        modifyManagerRef.current?.cleanup();
-
-        // Reset cursor
-        map.getViewport().style.cursor = "default";
-    }, [map]);
-
-    /**
-     * Setup select mode (handled by useFeatureSelection hook)
-     */
-    const setupSelectMode = () => {
-        if (!map) return;
-        map.getViewport().style.cursor = "default";
-    };
-
-    /**
-     * Setup modify mode
-     */
-    const setupModifyMode = () => {
-        if (!modifyManagerRef.current) return;
-        modifyManagerRef.current.startModifying();
-    };
-
-    /**
-     * Setup pipe drawing
-     */
-    const setupPipeDrawing = () => {
-        if (!pipeDrawingManagerRef.current) return;
-        pipeDrawingManagerRef.current.startDrawing();
-    };
-
-    /**
-     * Setup node drawing (Junction, Tank, Reservoir)
-     */
-    const setupNodeDrawing = (nodeType: string) => {
-        if (!map || !vectorSource) return;
-
-        const drawInteraction = new Draw({
-            source: vectorSource,
-            type: "Point",
-            style: new Style({
-                image: new CircleStyle({
-                    radius: 8,
-                    fill: new Fill({ color: COMPONENT_TYPES[nodeType]?.color || "#28a745" }),
-                    stroke: new Stroke({ color: "#ffffff", width: 2 }),
-                }),
-            }),
-        });
-
-        drawInteraction.on("drawend", (event) => {
-            const feature = event.feature;
-            const id = generateUniqueId(nodeType as any);
+            // Create Feature
+            const feature = new Feature({ geometry: new Point(coordinate) });
+            const id = generateUniqueId(componentType);
 
             feature.setId(id);
-            feature.set("type", nodeType);
-            feature.set("isNew", true);
+            feature.set('type', componentType);
+            feature.set('isNew', true);
             feature.setProperties({
-                ...COMPONENT_TYPES[nodeType].defaultProperties,
-                label: `${COMPONENT_TYPES[nodeType].name}-${id}`,
+                ...COMPONENT_TYPES[componentType].defaultProperties,
+                label: `${COMPONENT_TYPES[componentType].name}-${id}`,
             });
-            feature.set("connectedLinks", []);
+            feature.set('connectedLinks', []);
 
+            vectorSource.addFeature(feature);
             addFeature(feature);
-            console.log(`${COMPONENT_TYPES[nodeType].name} added: ${id}`);
-        });
 
-        map.addInteraction(drawInteraction);
-        drawInteractionRef.current = drawInteraction;
-        map.getViewport().style.cursor = "crosshair";
-    };
+            map.un('click', placementHandler);
 
-    /**
-     * Setup link drawing (Pump, Valve)
-     */
-    const setupLinkDrawing = (linkType: string) => {
-        if (!map || !vectorSource) return;
-
-        const drawInteraction = new Draw({
-            source: vectorSource,
-            type: "LineString",
-            maxPoints: 2, // Links are always straight lines between two nodes
-            style: new Style({
-                stroke: new Stroke({
-                    color: COMPONENT_TYPES[linkType]?.color || "#ef4444",
-                    width: 3,
-                    lineDash: [8, 4],
-                }),
-            }),
-        });
-
-        drawInteraction.on("drawend", (event) => {
-            const feature = event.feature;
-            const geometry = feature.getGeometry() as LineString;
-            const coordinates = geometry.getCoordinates();
-
-            if (coordinates.length !== 2) {
-                console.error("Link must connect exactly two points");
-                vectorSource.removeFeature(feature);
-                return;
-            }
-
-            // Find or create nodes at endpoints
-            const startNode = findOrCreateNodeAt(coordinates[0], "junction");
-            const endNode = findOrCreateNodeAt(coordinates[1], "junction");
-
-            const id = generateUniqueId(linkType as any);
-
-            feature.setId(id);
-            feature.set("type", linkType);
-            feature.set("isNew", true);
-            feature.setProperties({
-                ...COMPONENT_TYPES[linkType].defaultProperties,
-                label: `${COMPONENT_TYPES[linkType].name}-${id}`,
-                startNodeId: startNode.getId(),
-                endNodeId: endNode.getId(),
+            // Auto-start drawing pipe from this node
+            requestAnimationFrame(() => {
+                const pipeManager = pipeDrawingManagerRef.current;
+                if (pipeManager) {
+                    pipeManager.startDrawing();
+                    requestAnimationFrame(() => {
+                        pipeManager.continueDrawingFromNode(feature);
+                        setActiveTool('draw');
+                    });
+                }
             });
+        };
 
-            // Update node connections
-            useNetworkStore.getState().updateNodeConnections(startNode.getId() as string, id, "add");
-            useNetworkStore.getState().updateNodeConnections(endNode.getId() as string, id, "add");
-
-            addFeature(feature);
-            console.log(`${COMPONENT_TYPES[linkType].name} added: ${id}`);
-        });
-
-        map.addInteraction(drawInteraction);
-        drawInteractionRef.current = drawInteraction;
-        map.getViewport().style.cursor = "crosshair";
-    };
-
-    /**
-     * Find existing node at coordinate or create new one
-     */
-    const findOrCreateNodeAt = (coordinate: number[], nodeType: string): Feature => {
-        if (!vectorSource) throw new Error("Vector source not available");
-
-        const tolerance = SNAPPING_TOLERANCE;
-        const features = vectorSource.getFeatures();
-
-        // Search for existing node
-        const existingNode = features.find((f) => {
-            if (!["junction", "tank", "reservoir"].includes(f.get("type"))) return false;
-
-            const geometry = f.getGeometry();
-            if (geometry instanceof Point) {
-                const nodeCoord = geometry.getCoordinates();
-                const distance = Math.sqrt(
-                    Math.pow(nodeCoord[0] - coordinate[0], 2) +
-                    Math.pow(nodeCoord[1] - coordinate[1], 2)
-                );
-                return distance < tolerance;
-            }
-            return false;
-        });
-
-        if (existingNode) {
-            return existingNode as Feature;
-        }
-
-        // Create new node
-        const newNode = new Feature({
-            geometry: new Point(coordinate),
-        });
-
-        const id = useNetworkStore.getState().generateUniqueId(nodeType as any);
-        newNode.setId(id);
-        newNode.set("type", nodeType);
-        newNode.set("isNew", true);
-        newNode.set("autoCreated", true);
-        newNode.setProperties({
-            ...COMPONENT_TYPES[nodeType].defaultProperties,
-            label: `Auto-${COMPONENT_TYPES[nodeType].name}-${id}`,
-        });
-        newNode.set("connectedLinks", []);
-
-        vectorSource.addFeature(newNode);
-        useNetworkStore.getState().addFeature(newNode);
-
-        return newNode;
-    };
-
-
+        map.once('click', placementHandler);
+    }, [map, vectorSource, addFeature, generateUniqueId, setActiveTool]);
 
     return {
         pipeDrawingManager: pipeDrawingManagerRef.current,
-        modifyManager: modifyManagerRef.current,
-        deleteManager: deleteManagerRef.current,
-        contextMenuManager: contextMenuManagerRef.current,
-        cleanupInteractions,
+        startComponentPlacement,
     };
 }
