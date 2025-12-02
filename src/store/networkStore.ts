@@ -18,6 +18,7 @@ interface NetworkState {
     addFeature: (feature: Feature) => void;
     removeFeature: (id: string) => void;
     updateFeature: (id: string, properties: Partial<NetworkFeatureProperties>) => void;
+    updateFeatures: (updates: Record<string, Partial<NetworkFeatureProperties>>) => void;
     selectFeature: (id: string | null) => void;
     selectFeatures: (ids: string[]) => void;
     clearFeatures: () => void;
@@ -88,6 +89,24 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
                 return { features: newFeatures };
             });
         }
+    },
+
+    // NEW: Batch update function
+    updateFeatures: (updates) => {
+        set((state) => {
+            const newFeatures = new Map(state.features);
+            let hasChanges = false;
+
+            Object.entries(updates).forEach(([id, props]) => {
+                const feature = newFeatures.get(id);
+                if (feature) {
+                    feature.setProperties({ ...feature.getProperties(), ...props });
+                    hasChanges = true;
+                }
+            });
+
+            return hasChanges ? { features: newFeatures } : {};
+        });
     },
 
     selectFeature: (id) => set((state) => ({

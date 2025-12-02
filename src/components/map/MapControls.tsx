@@ -6,6 +6,7 @@ import {
   FileUp,
   Home,
   Map as MapIcon,
+  Mountain,
   MousePointer2,
   Pentagon,
   Ruler,
@@ -30,6 +31,7 @@ import { useUIStore } from "@/store/uiStore";
 
 import { ImportModal } from "../modals/ImportModal";
 import { ExportModal } from "../modals/ExportModal";
+import { AutoElevationModal } from "../modals/AutoElevationModal";
 
 export function MapControls() {
   const { map } = useMapStore();
@@ -44,7 +46,7 @@ export function MapControls() {
     measurementActive,
     showAttributeTable,
     showMeasurementMenu,
-    
+
     setBaseLayer,
     setActiveTool,
     setMeasurementType,
@@ -57,6 +59,7 @@ export function MapControls() {
   } = useUIStore();
 
   const [showSelectMenu, setShowSelectMenu] = useState(false);
+  const [showAutoElevation, setShowAutoElevation] = useState(false);
   const measurementManagerRef = useRef<MeasurementManager | null>(null);
 
   // Initialize MeasurementManager
@@ -185,6 +188,17 @@ export function MapControls() {
           title="Zoom to Extent"
         >
           <Home className="w-5 h-5 text-gray-700" />
+        </button>
+
+        <div className="h-px bg-gray-200" />
+
+        {/* Auto Elevation Button */}
+        <button
+          onClick={() => setShowAutoElevation(true)}
+          className="w-10 h-10 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors group relative"
+          title="Auto-Elevation Tool"
+        >
+          <Mountain className="w-5 h-5 text-gray-700" />
         </button>
 
         <div className="h-px bg-gray-200" />
@@ -495,6 +509,11 @@ export function MapControls() {
       <ExportModal
         isOpen={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
+      />
+
+      <AutoElevationModal
+        isOpen={showAutoElevation}
+        onClose={() => setShowAutoElevation(false)}
       />
     </>
   );

@@ -1,22 +1,26 @@
 "use client";
-import { Info, Link, Save, Trash2, X } from "lucide-react";
+import { Info, Link, Mountain, RefreshCw, Save, Trash2, X } from "lucide-react";
 import React, { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { COMPONENT_TYPES } from "@/constants/networkComponents";
 import { useNetworkStore } from "@/store/networkStore";
 import { NetworkFeatureProperties } from "@/types/network";
+import { ElevationService } from "@/lib/services/ElevationService";
+import { Point } from "ol/geom";
 
 interface PropertyPanelProps {
   properties: NetworkFeatureProperties;
-  onDeleteRequest?: () => void; // Add callback for delete request feature.getProperties()
+  onDeleteRequest?: () => void;
 }
 
 export function PropertyPanel({
   properties,
   onDeleteRequest,
 }: PropertyPanelProps) {
-  const { selectedFeatureId, updateFeature } = useNetworkStore();
+  const { selectedFeatureId, selectedFeature, updateFeature } =
+    useNetworkStore();
+  const [isFetchingElevation, setIsFetchingElevation] = useState(false);
   const [editedProperties, setEditedProperties] =
     useState<NetworkFeatureProperties>(properties);
   const [hasChanges, setHasChanges] = useState(false);
@@ -25,6 +29,30 @@ export function PropertyPanel({
     setEditedProperties(properties);
     setHasChanges(false);
   }, [properties]);
+
+  const handleAutoElevate = async () => {
+    if (!selectedFeature) return;
+
+    setIsFetchingElevation(true);
+    try {
+      const geometry = selectedFeature.getGeometry();
+      if (geometry instanceof Point) {
+        const elevation = await ElevationService.getElevation(
+          geometry.getCoordinates()
+        );
+        if (elevation !== null) {
+          handlePropertyChange("elevation", elevation);
+        } else {
+          alert("Could not fetch elevation data.");
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error fetching elevation.");
+    } finally {
+      setIsFetchingElevation(false);
+    }
+  };
 
   const handlePropertyChange = (key: string, value: any) => {
     setEditedProperties((prev) => ({
@@ -125,6 +153,35 @@ export function PropertyPanel({
           <option value="running">Running</option>
           <option value="stopped">Stopped</option>
         </select>
+      );
+    }
+
+    // Special render for Elevation
+    if (key === "elevation") {
+      return (
+        <div className="flex gap-2">
+          <input
+            type="number"
+            value={editedProperties[key] ?? ""}
+            onChange={(e) =>
+              handlePropertyChange(key, parseFloat(e.target.value) || 0)
+            }
+            className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            step="0.1"
+          />
+          <button
+            onClick={handleAutoElevate}
+            disabled={isFetchingElevation}
+            className="p-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md text-gray-600 dark:text-gray-300 transition-colors"
+            title="Auto-fetch elevation"
+          >
+            {isFetchingElevation ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Mountain className="w-4 h-4" />
+            )}
+          </button>
+        </div>
       );
     }
 
