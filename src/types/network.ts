@@ -5,6 +5,9 @@ export type NodeType = "junction" | "tank" | "reservoir";
 export type LinkType = "pipe" | "pump" | "valve";
 export type FeatureType = NodeType | LinkType;
 
+export type FlowUnit = 'CFS' | 'GPM' | 'MGD' | 'IMGD' | 'AFD' | 'LPS' | 'LPM' | 'MLD' | 'CMH' | 'CMD';
+export type HeadlossFormula = 'H-W' | 'D-W' | 'C-M';
+
 export interface NetworkFeatureProperties {
     id: string;
     type: FeatureType;
@@ -53,4 +56,25 @@ export interface ValidationWarning {
     type: string;
     message: string;
     featureId?: string;
+}
+export interface ProjectSettings {
+    title: string;
+    units: FlowUnit;
+    headloss: HeadlossFormula;
+    specificGravity: number;
+    viscosity: number;
+    trials: number;
+    accuracy: number;
+    demandMultiplier: number;
+}
+export interface TimePattern {
+    id: string;
+    description?: string;
+    multipliers: number[]; // Array of 24 multipliers
+}
+export interface PumpCurve {
+    id: string;
+    description?: string;
+    type: 'PUMP' | 'VOLUME' | 'HEADLOSS';
+    points: { x: number; y: number }[];
 }

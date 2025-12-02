@@ -1,13 +1,18 @@
 import { create } from "zustand";
 import { Feature } from "ol";
-import { FeatureType, NetworkFeatureProperties } from "@/types/network";
+import { FeatureType, NetworkFeatureProperties, ProjectSettings, PumpCurve, TimePattern } from "@/types/network";
 
 interface NetworkState {
     features: Map<string, Feature>;
+    settings: ProjectSettings;
     selectedFeature: Feature | null;
     selectedFeatureId: string | null;
     selectedFeatureIds: string[];
     nextIdCounter: Record<FeatureType, number>;
+
+    // Data Tables
+    patterns: TimePattern[];
+    curves: PumpCurve[];
 
     // History
     past: Feature[][];
@@ -15,6 +20,7 @@ interface NetworkState {
 
     // Actions
     setSelectedFeature: (feature: Feature | null) => void;
+    updateSettings: (settings: Partial<ProjectSettings>) => void;
     addFeature: (feature: Feature) => void;
     removeFeature: (id: string) => void;
     updateFeature: (id: string, properties: Partial<NetworkFeatureProperties>) => void;
@@ -26,6 +32,14 @@ interface NetworkState {
     getFeaturesByType: (type: FeatureType) => Feature[];
     generateUniqueId: (type: FeatureType) => string;
 
+    addPattern: (pattern: TimePattern) => void;
+    updatePattern: (id: string, pattern: TimePattern) => void;
+    deletePattern: (id: string) => void;
+
+    addCurve: (curve: PumpCurve) => void;
+    updateCurve: (id: string, curve: PumpCurve) => void;
+    deleteCurve: (id: string) => void;
+
     updateNodeConnections: (nodeId: string, linkId: string, action: "add" | "remove") => void;
     getConnectedLinks: (nodeId: string) => string[];
     findNodeById: (nodeId: string) => Feature | undefined;
@@ -36,11 +50,34 @@ interface NetworkState {
     redo: () => Feature[] | null;
 }
 
+const DEFAULT_PATTERNS: TimePattern[] = [
+    {
+        id: "1",
+        description: "Default Diurnal",
+        multipliers: [0.5, 0.5, 0.6, 0.7, 0.9, 1.2, 1.5, 1.3, 1.1, 1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.5, 0.6, 0.8, 1.1, 1.4, 1.2, 1.0, 0.8, 0.6]
+    }
+];
+
+const DEFAULT_SETTINGS: ProjectSettings = {
+    title: "Untitled Project",
+    units: "GPM",
+    headloss: "H-W",
+    specificGravity: 1.0,
+    viscosity: 1.0,
+    trials: 40,
+    accuracy: 0.001,
+    demandMultiplier: 1.0,
+};
+
 export const useNetworkStore = create<NetworkState>((set, get) => ({
     features: new Map(),
+    settings: DEFAULT_SETTINGS,
     selectedFeatureId: null,
     selectedFeature: null,
     selectedFeatureIds: [],
+
+    patterns: DEFAULT_PATTERNS,
+    curves: [],
 
     past: [],
     future: [],
@@ -53,6 +90,41 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         valve: 100,
         pipe: 100,
     },
+
+    updateSettings: (newSettings) => {
+        set((state) => ({
+            settings: { ...state.settings, ...newSettings }
+        }));
+    },
+
+    addPattern: (pattern) => set((state) => ({ patterns: [...state.patterns, pattern] })),
+
+    updatePattern: (id, updated) => set((state) => ({
+        patterns: state.patterns.map(p => p.id === id ? updated : p)
+    })),
+
+    deletePattern: (id) => set((state) => ({
+        patterns: state.patterns.filter(p => p.id !== id)
+    })),
+
+    addCurve: (curve) => set((state) => ({ curves: [...state.curves, curve] })),
+
+    updateCurve: (id, updated) => set((state) => ({
+        curves: state.curves.map(c => c.id === id ? updated : c)
+    })),
+
+    deleteCurve: (id) => set((state) => ({
+        curves: state.curves.filter(c => c.id !== id)
+    })),
+
+    clearFeatures: () => set({
+        features: new Map(),
+        past: [],
+        future: [],
+        settings: DEFAULT_SETTINGS,
+        patterns: DEFAULT_PATTERNS,
+        curves: []
+    }),
 
     setSelectedFeature: (feature) => set({ selectedFeature: feature }),
 
@@ -123,7 +195,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         });
     },
 
-    clearFeatures: () => set({ features: new Map() }),
 
     getFeatureById: (id) => get().features.get(id),
 

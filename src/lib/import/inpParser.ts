@@ -2,46 +2,61 @@ import { Feature } from 'ol';
 import { Point, LineString } from 'ol/geom';
 import { ImportResult } from './fileImporter';
 import { COMPONENT_TYPES } from '@/constants/networkComponents';
+import { NetworkFeatureProperties } from '@/types/network';
+import { useNetworkStore } from '@/store/networkStore';
 
 interface INPSection {
     [key: string]: string[];
 }
 
 export function parseINP(fileContent: string): ImportResult {
-    console.log('📄 Parsing INP file...');
-
     try {
         const sections = parseINPSections(fileContent);
         const features: Feature[] = [];
 
-        // Parse coordinates first (needed for spatial data)
-        const coordinates = parseCoordinates(sections['COORDINATES'] || []);
+        // 1. Parse Reference Data (Patterns, Curves)
+        const patterns = parsePatterns(sections['PATTERNS'] || []);
+        const curves = parseCurves(sections['CURVES'] || []);
+        const options = parseOptions(sections['OPTIONS'] || []);
+        const times = parseTimes(sections['TIMES'] || []);
 
-        // Parse junctions
+        // UPDATE STORE WITH PARSED SETTINGS
+        const store = useNetworkStore.getState();
+
+        store.updateSettings({
+            units: (options['Units'] as any) || 'GPM',
+            headloss: (options['Headloss'] as any) || 'H-W',
+            specificGravity: parseFloat(options['Specific'] || '1.0'),
+            viscosity: parseFloat(options['Viscosity'] || '1.0'),
+            trials: parseInt(options['Trials'] || '40'),
+            accuracy: parseFloat(options['Accuracy'] || '0.001'),
+        });
+
+        // 2. Parse Geometry
+        const coordinates = parseCoordinates(sections['COORDINATES'] || []);
+        const vertices = parseVertices(sections['VERTICES'] || []);
+
+        // 3. Parse Nodes
         const junctions = parseJunctions(sections['JUNCTIONS'] || [], coordinates);
         features.push(...junctions);
 
-        // Parse tanks
         const tanks = parseTanks(sections['TANKS'] || [], coordinates);
         features.push(...tanks);
 
-        // Parse reservoirs
         const reservoirs = parseReservoirs(sections['RESERVOIRS'] || [], coordinates);
         features.push(...reservoirs);
 
-        // Parse pipes
-        const pipes = parsePipes(sections['PIPES'] || [], junctions, tanks, reservoirs);
+        // 4. Parse Links
+        const pipes = parsePipes(sections['PIPES'] || [], junctions, tanks, reservoirs, vertices);
         features.push(...pipes);
 
-        // Parse pumps
-        const pumps = parsePumps(sections['PUMPS'] || [], junctions, tanks, reservoirs);
+        const pumps = parsePumps(sections['PUMPS'] || [], junctions, tanks, reservoirs, vertices);
         features.push(...pumps);
 
-        // Parse valves
-        const valves = parseValves(sections['VALVES'] || [], junctions, tanks, reservoirs);
+        const valves = parseValves(sections['VALVES'] || [], junctions, tanks, reservoirs, vertices);
         features.push(...valves);
 
-        // Calculate stats
+        // Stats
         const stats = {
             junctions: junctions.length,
             tanks: tanks.length,
@@ -62,314 +77,237 @@ export function parseINP(fileContent: string): ImportResult {
     }
 }
 
-/**
- * Parse INP file into sections
- */
+// --- HELPER PARSERS ---
+
 function parseINPSections(content: string): INPSection {
     const sections: INPSection = {};
     let currentSection = '';
 
-    const lines = content.split('\n');
+    const lines = content.split(/\r?\n/); // Handle both \n and \r\n
 
     for (const line of lines) {
-        const trimmed = line.trim();
+        // Remove comments (everything after ;)
+        const cleanLine = line.split(';')[0].trim();
 
-        // Skip empty lines and comments
-        if (!trimmed || trimmed.startsWith(';')) continue;
+        if (!cleanLine) continue;
 
-        // Check for section header
-        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-            currentSection = trimmed.slice(1, -1).toUpperCase();
+        if (cleanLine.startsWith('[') && cleanLine.endsWith(']')) {
+            currentSection = cleanLine.slice(1, -1).toUpperCase();
             sections[currentSection] = [];
             continue;
         }
 
-        // Add line to current section
         if (currentSection) {
-            sections[currentSection].push(trimmed);
+            sections[currentSection].push(cleanLine);
         }
     }
 
     return sections;
 }
 
-/**
- * Parse coordinates section
- */
 function parseCoordinates(lines: string[]): Map<string, number[]> {
     const coords = new Map<string, number[]>();
+    for (const line of lines) {
+        const parts = line.split(/\s+/);
+        if (parts.length >= 3) {
+            coords.set(parts[0], [parseFloat(parts[1]), parseFloat(parts[2])]);
+        }
+    }
+    return coords;
+}
 
+function parseVertices(lines: string[]): Map<string, number[][]> {
+    const verts = new Map<string, number[][]>();
     for (const line of lines) {
         const parts = line.split(/\s+/);
         if (parts.length >= 3) {
             const id = parts[0];
             const x = parseFloat(parts[1]);
             const y = parseFloat(parts[2]);
-            coords.set(id, [x, y]);
+
+            if (!verts.has(id)) verts.set(id, []);
+            verts.get(id)?.push([x, y]);
         }
     }
-
-    return coords;
+    return verts;
 }
 
-/**
- * Parse junctions
- */
-function parseJunctions(lines: string[], coordinates: Map<string, number[]>): Feature[] {
-    const junctions: Feature[] = [];
+// --- NODE PARSERS ---
 
-    for (const line of lines) {
-        const parts = line.split(/\s+/);
-        if (parts.length < 2) continue;
+function createNode(
+    id: string,
+    type: string,
+    coordinates: Map<string, number[]>,
+    props: Partial<NetworkFeatureProperties>
+): Feature | null {
+    const coord = coordinates.get(id);
+    if (!coord) return null;
 
-        const id = parts[0];
-        const elevation = parseFloat(parts[1]);
-        const demand = parts.length >= 3 ? parseFloat(parts[2]) : 0;
-
-        const coord = coordinates.get(id);
-        if (!coord) continue;
-
-        const feature = new Feature({
-            geometry: new Point(coord),
-        });
-
-        feature.setId(id);
-        feature.set('type', 'junction');
-        feature.setProperties({
-            ...COMPONENT_TYPES.junction.defaultProperties,
-            label: id,
-            elevation,
-            demand,
-        });
-
-        junctions.push(feature);
-    }
-
-    console.log(`  ✓ Parsed ${junctions.length} junctions`);
-    return junctions;
+    const feature = new Feature({ geometry: new Point(coord) });
+    feature.setId(id);
+    feature.set('type', type);
+    // Merge defaults with parsed props
+    feature.setProperties({
+        ...COMPONENT_TYPES[type].defaultProperties,
+        ...props,
+        label: id,
+        id: id // Explicit ID property
+    });
+    return feature;
 }
 
-/**
- * Parse tanks
- */
-function parseTanks(lines: string[], coordinates: Map<string, number[]>): Feature[] {
-    const tanks: Feature[] = [];
-
-    for (const line of lines) {
-        const parts = line.split(/\s+/);
-        if (parts.length < 6) continue;
-
-        const id = parts[0];
-        const elevation = parseFloat(parts[1]);
-        const initLevel = parseFloat(parts[2]);
-        const minLevel = parseFloat(parts[3]);
-        const maxLevel = parseFloat(parts[4]);
-        const diameter = parseFloat(parts[5]);
-
-        const coord = coordinates.get(id);
-        if (!coord) continue;
-
-        const feature = new Feature({
-            geometry: new Point(coord),
+function parseJunctions(lines: string[], coords: Map<string, number[]>): Feature[] {
+    return lines.map(line => {
+        const p = line.split(/\s+/);
+        // ID, Elev, Demand, Pattern
+        return createNode(p[0], 'junction', coords, {
+            elevation: parseFloat(p[1]),
+            demand: p.length > 2 ? parseFloat(p[2]) : 0,
+            // pattern: p[3] // Store pattern if we had a field for it
         });
-
-        feature.setId(id);
-        feature.set('type', 'tank');
-        feature.setProperties({
-            ...COMPONENT_TYPES.tank.defaultProperties,
-            label: id,
-            elevation,
-            initLevel,
-            minLevel,
-            maxLevel,
-            diameter,
-        });
-
-        tanks.push(feature);
-    }
-
-    console.log(`  ✓ Parsed ${tanks.length} tanks`);
-    return tanks;
+    }).filter((f): f is Feature => !!f);
 }
 
-/**
- * Parse reservoirs
- */
-function parseReservoirs(lines: string[], coordinates: Map<string, number[]>): Feature[] {
-    const reservoirs: Feature[] = [];
-
-    for (const line of lines) {
-        const parts = line.split(/\s+/);
-        if (parts.length < 2) continue;
-
-        const id = parts[0];
-        const head = parseFloat(parts[1]);
-
-        const coord = coordinates.get(id);
-        if (!coord) continue;
-
-        const feature = new Feature({
-            geometry: new Point(coord),
+function parseReservoirs(lines: string[], coords: Map<string, number[]>): Feature[] {
+    return lines.map(line => {
+        const p = line.split(/\s+/);
+        // ID, Head, Pattern
+        return createNode(p[0], 'reservoir', coords, {
+            head: parseFloat(p[1]),
+            elevation: parseFloat(p[1]) // Reservoir head is essentially elevation
         });
-
-        feature.setId(id);
-        feature.set('type', 'reservoir');
-        feature.setProperties({
-            ...COMPONENT_TYPES.reservoir.defaultProperties,
-            label: id,
-            head,
-        });
-
-        reservoirs.push(feature);
-    }
-
-    console.log(`  ✓ Parsed ${reservoirs.length} reservoirs`);
-    return reservoirs;
+    }).filter((f): f is Feature => !!f);
 }
 
-/**
- * Parse pipes
- */
-function parsePipes(lines: string[], junctions: Feature[], tanks: Feature[], reservoirs: Feature[]): Feature[] {
-    const pipes: Feature[] = [];
-    const allNodes = [...junctions, ...tanks, ...reservoirs];
-
-    for (const line of lines) {
-        const parts = line.split(/\s+/);
-        if (parts.length < 6) continue;
-
-        const id = parts[0];
-        const node1Id = parts[1];
-        const node2Id = parts[2];
-        const length = parseFloat(parts[3]);
-        const diameter = parseFloat(parts[4]);
-        const roughness = parseFloat(parts[5]);
-
-        // Find nodes
-        const node1 = allNodes.find(n => n.getId() === node1Id);
-        const node2 = allNodes.find(n => n.getId() === node2Id);
-
-        if (!node1 || !node2) continue;
-
-        const coord1 = (node1.getGeometry() as Point).getCoordinates();
-        const coord2 = (node2.getGeometry() as Point).getCoordinates();
-
-        const feature = new Feature({
-            geometry: new LineString([coord1, coord2]),
+function parseTanks(lines: string[], coords: Map<string, number[]>): Feature[] {
+    return lines.map(line => {
+        const p = line.split(/\s+/);
+        // ID, Elev, InitLvl, MinLvl, MaxLvl, Dia, MinVol, VolCurve
+        return createNode(p[0], 'tank', coords, {
+            elevation: parseFloat(p[1]),
+            initLevel: parseFloat(p[2]),
+            minLevel: parseFloat(p[3]),
+            maxLevel: parseFloat(p[4]),
+            diameter: parseFloat(p[5])
         });
-
-        feature.setId(id);
-        feature.set('type', 'pipe');
-        feature.setProperties({
-            ...COMPONENT_TYPES.pipe.defaultProperties,
-            label: id,
-            startNodeId: node1Id,
-            endNodeId: node2Id,
-            length,
-            diameter,
-            roughness,
-        });
-
-        pipes.push(feature);
-    }
-
-    console.log(`  ✓ Parsed ${pipes.length} pipes`);
-    return pipes;
+    }).filter((f): f is Feature => !!f);
 }
 
-/**
- * Parse pumps
- */
-function parsePumps(lines: string[], junctions: Feature[], tanks: Feature[], reservoirs: Feature[]): Feature[] {
-    const pumps: Feature[] = [];
-    const allNodes = [...junctions, ...tanks, ...reservoirs];
+// --- LINK PARSERS ---
 
-    for (const line of lines) {
-        const parts = line.split(/\s+/);
-        if (parts.length < 3) continue;
+function createLink(
+    id: string,
+    type: string,
+    node1Id: string,
+    node2Id: string,
+    allNodes: Feature[],
+    vertices: Map<string, number[][]>,
+    props: Partial<NetworkFeatureProperties>
+): Feature | null {
+    const n1 = allNodes.find(n => n.getId() === node1Id);
+    const n2 = allNodes.find(n => n.getId() === node2Id);
 
-        const id = parts[0];
-        const node1Id = parts[1];
-        const node2Id = parts[2];
+    if (!n1 || !n2) return null;
 
-        const node1 = allNodes.find(n => n.getId() === node1Id);
-        const node2 = allNodes.find(n => n.getId() === node2Id);
+    const c1 = (n1.getGeometry() as Point).getCoordinates();
+    const c2 = (n2.getGeometry() as Point).getCoordinates();
 
-        if (!node1 || !node2) continue;
-
-        const coord1 = (node1.getGeometry() as Point).getCoordinates();
-        const coord2 = (node2.getGeometry() as Point).getCoordinates();
-
-        // Pump at midpoint
-        const midX = (coord1[0] + coord2[0]) / 2;
-        const midY = (coord1[1] + coord2[1]) / 2;
-
-        const feature = new Feature({
-            geometry: new Point([midX, midY]),
-        });
-
-        feature.setId(id);
-        feature.set('type', 'pump');
-        feature.setProperties({
-            ...COMPONENT_TYPES.pump.defaultProperties,
-            label: id,
-            startNodeId: node1Id,
-            endNodeId: node2Id,
-        });
-
-        pumps.push(feature);
+    // Construct geometry with vertices
+    let path = [c1];
+    if (vertices.has(id)) {
+        path = path.concat(vertices.get(id)!);
     }
+    path.push(c2);
 
-    console.log(`  ✓ Parsed ${pumps.length} pumps`);
-    return pumps;
+    const feature = new Feature({ geometry: new LineString(path) });
+    feature.setId(id);
+    feature.set('type', type);
+    feature.setProperties({
+        ...COMPONENT_TYPES[type].defaultProperties,
+        ...props,
+        label: id,
+        id: id,
+        startNodeId: node1Id,
+        endNodeId: node2Id
+    });
+
+    return feature;
 }
 
-/**
- * Parse valves
- */
-function parseValves(lines: string[], junctions: Feature[], tanks: Feature[], reservoirs: Feature[]): Feature[] {
-    const valves: Feature[] = [];
-    const allNodes = [...junctions, ...tanks, ...reservoirs];
-
-    for (const line of lines) {
-        const parts = line.split(/\s+/);
-        if (parts.length < 5) continue;
-
-        const id = parts[0];
-        const node1Id = parts[1];
-        const node2Id = parts[2];
-        const diameter = parseFloat(parts[3]);
-        const setting = parseFloat(parts[4]);
-
-        const node1 = allNodes.find(n => n.getId() === node1Id);
-        const node2 = allNodes.find(n => n.getId() === node2Id);
-
-        if (!node1 || !node2) continue;
-
-        const coord1 = (node1.getGeometry() as Point).getCoordinates();
-        const coord2 = (node2.getGeometry() as Point).getCoordinates();
-
-        const midX = (coord1[0] + coord2[0]) / 2;
-        const midY = (coord1[1] + coord2[1]) / 2;
-
-        const feature = new Feature({
-            geometry: new Point([midX, midY]),
+function parsePipes(lines: string[], j: Feature[], t: Feature[], r: Feature[], v: Map<string, number[][]>): Feature[] {
+    const nodes = [...j, ...t, ...r];
+    return lines.map(line => {
+        const p = line.split(/\s+/);
+        // ID, Node1, Node2, Len, Dia, Rough, MinorLoss, Status
+        return createLink(p[0], 'pipe', p[1], p[2], nodes, v, {
+            length: parseFloat(p[3]),
+            diameter: parseFloat(p[4]),
+            roughness: parseFloat(p[5]),
+            status: p.length > 7 ? p[7] : 'Open'
         });
+    }).filter((f): f is Feature => !!f);
+}
 
-        feature.setId(id);
-        feature.set('type', 'valve');
-        feature.setProperties({
-            ...COMPONENT_TYPES.valve.defaultProperties,
-            label: id,
-            startNodeId: node1Id,
-            endNodeId: node2Id,
-            diameter,
-            setting,
+function parsePumps(lines: string[], j: Feature[], t: Feature[], r: Feature[], v: Map<string, number[][]>): Feature[] {
+    const nodes = [...j, ...t, ...r];
+    return lines.map(line => {
+        const p = line.split(/\s+/);
+        // ID, Node1, Node2, Parameters (KEY VALUE)
+        // Pump parsing is tricky, usually just grab power or curve
+        // Simply storing as is for now
+        return createLink(p[0], 'pump', p[1], p[2], nodes, v, {
+            status: 'Open' // Pumps default open
         });
+    }).filter((f): f is Feature => !!f);
+}
 
-        valves.push(feature);
-    }
+function parseValves(lines: string[], j: Feature[], t: Feature[], r: Feature[], v: Map<string, number[][]>): Feature[] {
+    const nodes = [...j, ...t, ...r];
+    return lines.map(line => {
+        const p = line.split(/\s+/);
+        // ID, Node1, Node2, Dia, Type, Setting, MinorLoss
+        return createLink(p[0], 'valve', p[1], p[2], nodes, v, {
+            diameter: parseFloat(p[3]),
+            valveType: p[4],
+            setting: parseFloat(p[5]),
+            status: 'Active'
+        });
+    }).filter((f): f is Feature => !!f);
+}
 
-    console.log(`  ✓ Parsed ${valves.length} valves`);
-    return valves;
+// --- METADATA PARSERS (For future use in Project Settings) ---
+
+function parsePatterns(lines: string[]) {
+    // Basic parser to just acknowledge existence
+    return lines.length;
+}
+
+function parseCurves(lines: string[]) {
+    return lines.length;
+}
+
+function parseOptions(lines: string[]) {
+    const options: Record<string, string> = {};
+    lines.forEach(l => {
+        // const p = l.split(/\s+/);
+        // if (p.length >= 2) options[p[0]] = p[1];
+        const parts = l.trim().split(/\s{2,}|\t/); // Split by 2+ spaces or tab
+        if (parts.length >= 2) {
+            options[parts[0].trim()] = parts[1].trim();
+        } else {
+            // Fallback for single space
+            const p = l.split(/\s+/);
+            if (p.length >= 2) options[p[0]] = p[1];
+        }
+    });
+    return options;
+}
+
+function parseTimes(lines: string[]) {
+    const times: Record<string, string> = {};
+    lines.forEach(l => {
+        const p = l.split(/\s+/);
+        if (p.length >= 2) times[p[0]] = p[1];
+    });
+    return times;
 }
