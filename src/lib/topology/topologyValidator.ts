@@ -1,7 +1,7 @@
 import VectorSource from "ol/source/Vector";
 import { Feature } from "ol";
 import { Point, LineString } from "ol/geom";
-import { NetworkValidation, ValidationError, ValidationWarning } from "@/types/network";
+import { NetworkValidation, ValidationError, ValidationWarning, FeatureType } from "@/types/network";
 
 export class TopologyValidator {
     private vectorSource: VectorSource;
@@ -17,42 +17,47 @@ export class TopologyValidator {
         const errors: ValidationError[] = [];
         const warnings: ValidationWarning[] = [];
 
-        // Run all validation checks
+        // 1. Connectivity Checks
         const orphanedNodes = this.findOrphanedNodes();
         const disconnectedComponents = this.findDisconnectedComponents();
+
+        // 2. Topology Checks
         const pipesWithMissingNodes = this.findPipesWithMissingNodes();
-        const duplicateIds = this.findDuplicateFeatureIds();
+        const selfLoops = this.findSelfLoops();
         const crossingPipes = this.findCrossingPipesWithoutJunction();
         const invalidGeometries = this.findInvalidGeometries();
+
+        // 3. Data Integrity Checks
+        const duplicateIds = this.findDuplicateFeatureIds();
         const missingProperties = this.findMissingRequiredProperties();
 
-        // Process orphaned nodes
-        if (orphanedNodes.length > 0) {
-            warnings.push({
-                type: "orphaned_nodes",
-                message: `${orphanedNodes.length} orphaned node(s) found (no connected pipes)`,
-                featureId: orphanedNodes.map((n) => n.getId() as string).join(", "),
-            });
-        }
+        // --- Compile Results ---
 
-        // Process disconnected components
-        if (disconnectedComponents.length > 1) {
-            warnings.push({
-                type: "disconnected_network",
-                message: `Network has ${disconnectedComponents.length} disconnected components`,
-            });
-        }
-
-        // Process pipes with missing nodes
+        // Errors (Prevent Simulation)
         if (pipesWithMissingNodes.length > 0) {
             errors.push({
                 type: "missing_nodes",
-                message: `${pipesWithMissingNodes.length} pipe(s) have missing node references`,
-                featureId: pipesWithMissingNodes.map((p) => p.getId() as string).join(", "),
+                message: `${pipesWithMissingNodes.length} pipe(s) are not connected to start/end nodes`,
+                featureId: pipesWithMissingNodes.map(this.getId).join(", "),
             });
         }
 
-        // Process duplicate IDs
+        if (selfLoops.length > 0) {
+            errors.push({
+                type: "self_loop",
+                message: `${selfLoops.length} pipe(s) connect a node to itself`,
+                featureId: selfLoops.map(this.getId).join(", "),
+            });
+        }
+
+        if (invalidGeometries.length > 0) {
+            errors.push({
+                type: "invalid_geometry",
+                message: `${invalidGeometries.length} feature(s) have invalid or empty geometries`,
+                featureId: invalidGeometries.map(this.getId).join(", "),
+            });
+        }
+
         if (duplicateIds.length > 0) {
             errors.push({
                 type: "duplicate_ids",
@@ -61,44 +66,54 @@ export class TopologyValidator {
             });
         }
 
-        // Process crossing pipes
+        // Warnings (Issues that might affect results but allow simulation)
+        if (orphanedNodes.length > 0) {
+            warnings.push({
+                type: "orphaned_nodes",
+                message: `${orphanedNodes.length} orphaned node(s) (no pipes connected)`,
+                featureId: orphanedNodes.map(this.getId).join(", "),
+            });
+        }
+
+        if (disconnectedComponents.length > 1) {
+            warnings.push({
+                type: "disconnected_network",
+                message: `Network is split into ${disconnectedComponents.length} disconnected sub-networks`,
+            });
+        }
+
         if (crossingPipes.length > 0) {
             warnings.push({
                 type: "crossing_pipes",
-                message: `${crossingPipes.length} pipe crossing(s) without junction detected`,
+                message: `${crossingPipes.length} location(s) where pipes cross without a junction`,
             });
         }
 
-        // Process invalid geometries
-        if (invalidGeometries.length > 0) {
-            errors.push({
-                type: "invalid_geometry",
-                message: `${invalidGeometries.length} feature(s) have invalid geometries`,
-                featureId: invalidGeometries.map((f) => f.getId() as string).join(", "),
-            });
-        }
-
-        // Process missing properties
         if (missingProperties.length > 0) {
             warnings.push({
                 type: "missing_properties",
-                message: `${missingProperties.length} feature(s) missing required properties`,
-                featureId: missingProperties.map((f) => f.getId() as string).join(", "),
+                message: `${missingProperties.length} feature(s) missing required hydraulic properties (e.g. elevation, diameter)`,
+                featureId: missingProperties.map(this.getId).join(", "),
             });
         }
 
-        const isValid = errors.length === 0;
-
         return {
-            isValid,
+            isValid: errors.length === 0,
             errors,
             warnings,
         };
     }
 
     /**
-     * Find nodes with no connected pipes
+     * Helper to safely get Feature ID
      */
+    private getId(feature: Feature): string {
+        const id = feature.getId() || feature.get('id');
+        return id ? String(id) : 'UNKNOWN';
+    }
+
+    // --- Check Implementations ---
+
     private findOrphanedNodes(): Feature[] {
         const nodes = this.vectorSource
             .getFeatures()
@@ -110,9 +125,17 @@ export class TopologyValidator {
         });
     }
 
-    /**
-     * Find disconnected network components
-     */
+    private findSelfLoops(): Feature[] {
+        return this.vectorSource
+            .getFeatures()
+            .filter((f) => ["pipe", "pump", "valve"].includes(f.get("type")))
+            .filter((link) => {
+                const start = link.get("startNodeId");
+                const end = link.get("endNodeId");
+                return start && end && start === end;
+            });
+    }
+
     private findDisconnectedComponents(): string[][] {
         const visited = new Set<string>();
         const components: string[][] = [];
@@ -122,7 +145,7 @@ export class TopologyValidator {
             .filter((f) => ["junction", "tank", "reservoir"].includes(f.get("type")));
 
         nodes.forEach((node) => {
-            const nodeId = node.getId() as string;
+            const nodeId = this.getId(node);
             if (!visited.has(nodeId)) {
                 const component = this.traverseNetwork(node, visited);
                 if (component.length > 0) {
@@ -134,16 +157,18 @@ export class TopologyValidator {
         return components;
     }
 
-    /**
-     * Traverse network using BFS to find connected component
-     */
     private traverseNetwork(startNode: Feature, visited: Set<string>): string[] {
         const queue: Feature[] = [startNode];
         const component: string[] = [];
 
-        while (queue.length > 0) {
+        // Safety check for infinite loops
+        let iterations = 0;
+        const maxIterations = 10000;
+
+        while (queue.length > 0 && iterations < maxIterations) {
+            iterations++;
             const currentNode = queue.shift()!;
-            const currentNodeId = currentNode.getId() as string;
+            const currentNodeId = this.getId(currentNode);
 
             if (!visited.has(currentNodeId)) {
                 visited.add(currentNodeId);
@@ -152,26 +177,20 @@ export class TopologyValidator {
                 const connectedLinks = currentNode.get("connectedLinks") || [];
 
                 connectedLinks.forEach((linkId: string) => {
-                    const link = this.vectorSource
-                        .getFeatures()
-                        .find((f) => f.getId() === linkId);
+                    // Try finding by internal ID first, then property ID
+                    const link = this.vectorSource.getFeatureById(linkId) ||
+                        this.vectorSource.getFeatures().find(f => this.getId(f) === linkId);
 
                     if (link) {
                         const startNodeId = link.get("startNodeId");
                         const endNodeId = link.get("endNodeId");
-                        const otherNodeId =
-                            startNodeId === currentNodeId ? endNodeId : startNodeId;
+                        const otherNodeId = startNodeId === currentNodeId ? endNodeId : startNodeId;
 
-                        const otherNode = this.vectorSource
-                            .getFeatures()
-                            .find(
-                                (f) =>
-                                    f.getId() === otherNodeId &&
-                                    ["junction", "tank", "reservoir"].includes(f.get("type"))
-                            );
-
-                        if (otherNode && !visited.has(otherNodeId)) {
-                            queue.push(otherNode);
+                        if (otherNodeId) {
+                            const otherNode = this.findNodeById(otherNodeId);
+                            if (otherNode && !visited.has(this.getId(otherNode))) {
+                                queue.push(otherNode);
+                            }
                         }
                     }
                 });
@@ -181,17 +200,14 @@ export class TopologyValidator {
         return component;
     }
 
-    /**
-     * Find pipes with missing start or end nodes
-     */
     private findPipesWithMissingNodes(): Feature[] {
-        const pipes = this.vectorSource
+        const links = this.vectorSource
             .getFeatures()
-            .filter((f) => f.get("type") === "pipe");
+            .filter((f) => ["pipe", "pump", "valve"].includes(f.get("type")));
 
-        return pipes.filter((pipe) => {
-            const startNodeId = pipe.get("startNodeId");
-            const endNodeId = pipe.get("endNodeId");
+        return links.filter((link) => {
+            const startNodeId = link.get("startNodeId");
+            const endNodeId = link.get("endNodeId");
 
             const startNode = this.findNodeById(startNodeId);
             const endNode = this.findNodeById(endNodeId);
@@ -200,76 +216,57 @@ export class TopologyValidator {
         });
     }
 
-    /**
-     * Find features with duplicate IDs
-     */
     private findDuplicateFeatureIds(): string[] {
-        const featureIds = new Map<string, number>();
+        const idCounts = new Map<string, number>();
         const duplicates: string[] = [];
 
         this.vectorSource.getFeatures().forEach((feature) => {
-            const id = feature.getId() as string;
-            if (id) {
-                const count = featureIds.get(id) || 0;
-                featureIds.set(id, count + 1);
+            // Skip helper features
+            if (feature.get('isPreview') || feature.get('isVertexMarker') || feature.get('isVisualLink')) return;
 
-                if (count === 1) {
-                    duplicates.push(id);
-                }
+            const id = this.getId(feature);
+            if (id) {
+                const count = idCounts.get(id) || 0;
+                idCounts.set(id, count + 1);
+                if (count === 1) duplicates.push(id);
             }
         });
 
         return duplicates;
     }
 
-    /**
-     * Find pipes that cross without a junction at intersection
-     */
-    private findCrossingPipesWithoutJunction(): Array<{ pipe1: string; pipe2: string; intersection: number[] }> {
+    private findCrossingPipesWithoutJunction(): Feature[] {
+        // Checking for visual intersection is expensive (O(N^2))
+        // We'll perform a simplified check on the first segment of pipes
         const pipes = this.vectorSource
             .getFeatures()
             .filter((f) => f.get("type") === "pipe");
 
-        const crossings: Array<{ pipe1: string; pipe2: string; intersection: number[] }> = [];
+        const crossings: Feature[] = []; // Store pipes involved in crossings
 
         for (let i = 0; i < pipes.length; i++) {
             for (let j = i + 1; j < pipes.length; j++) {
                 const pipe1 = pipes[i];
                 const pipe2 = pipes[j];
 
-                // Check if pipes share nodes (they connect at nodes)
-                const pipe1StartNode = pipe1.get("startNodeId");
-                const pipe1EndNode = pipe1.get("endNodeId");
-                const pipe2StartNode = pipe2.get("startNodeId");
-                const pipe2EndNode = pipe2.get("endNodeId");
+                // Skip if they share a node (connected)
+                const p1Start = pipe1.get("startNodeId");
+                const p1End = pipe1.get("endNodeId");
+                const p2Start = pipe2.get("startNodeId");
+                const p2End = pipe2.get("endNodeId");
 
-                const shareNode =
-                    pipe1StartNode === pipe2StartNode ||
-                    pipe1StartNode === pipe2EndNode ||
-                    pipe1EndNode === pipe2StartNode ||
-                    pipe1EndNode === pipe2EndNode;
-
-                if (shareNode) {
-                    continue; // Pipes properly connected at node
+                if (p1Start === p2Start || p1Start === p2End || p1End === p2Start || p1End === p2End) {
+                    continue;
                 }
 
-                // Check for geometric intersection
-                const intersection = this.findLineIntersection(
-                    pipe1.getGeometry() as LineString,
-                    pipe2.getGeometry() as LineString
-                );
+                // Check geometric intersection
+                const geom1 = pipe1.getGeometry() as LineString;
+                const geom2 = pipe2.getGeometry() as LineString;
 
-                if (intersection) {
-                    // Check if there's a junction at intersection point
-                    const junctionAtIntersection = this.findNodeAtCoordinate(intersection);
-
-                    if (!junctionAtIntersection) {
-                        crossings.push({
-                            pipe1: pipe1.getId() as string,
-                            pipe2: pipe2.getId() as string,
-                            intersection,
-                        });
-                    }
+                if (this.intersects(geom1, geom2)) {
+                    // It intersects and they don't share a node ID -> Crossing without junction
+                    if (!crossings.includes(pipe1)) crossings.push(pipe1);
+                    if (!crossings.includes(pipe2)) crossings.push(pipe2);
                 }
             }
         }
@@ -278,249 +275,85 @@ export class TopologyValidator {
     }
 
     /**
-     * Find intersection point between two line segments
+     * Simple line segment intersection check
      */
-    private findLineIntersection(line1: LineString, line2: LineString): number[] | null {
+    private intersects(line1: LineString, line2: LineString): boolean {
+        // Bounding box check first for performance
+        if (!line1.getExtent() || !line2.getExtent()) return false;
+
         const coords1 = line1.getCoordinates();
         const coords2 = line2.getCoordinates();
 
-        // Simple implementation - check first segment only
-        // In production, check all segments
-        if (coords1.length < 2 || coords2.length < 2) return null;
-
-        const p1 = coords1[0];
-        const p2 = coords1[coords1.length - 1];
-        const p3 = coords2[0];
-        const p4 = coords2[coords2.length - 1];
-
-        const x1 = p1[0], y1 = p1[1];
-        const x2 = p2[0], y2 = p2[1];
-        const x3 = p3[0], y3 = p3[1];
-        const x4 = p4[0], y4 = p4[1];
-
-        const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-
-        if (Math.abs(denom) < 1e-10) {
-            return null; // Lines are parallel
-        }
-
-        const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
-        const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
-
-        if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
-            // Intersection exists
-            const intersectionX = x1 + t * (x2 - x1);
-            const intersectionY = y1 + t * (y2 - y1);
-
-            // Check if intersection is at endpoints (which is okay)
-            const isEndpoint =
-                this.isCoordinateEqual([intersectionX, intersectionY], p1) ||
-                this.isCoordinateEqual([intersectionX, intersectionY], p2) ||
-                this.isCoordinateEqual([intersectionX, intersectionY], p3) ||
-                this.isCoordinateEqual([intersectionX, intersectionY], p4);
-
-            if (isEndpoint) {
-                return null; // Endpoint intersection is okay
+        // Check all segments against all segments
+        for (let i = 0; i < coords1.length - 1; i++) {
+            for (let j = 0; j < coords2.length - 1; j++) {
+                if (this.segmentsIntersect(
+                    coords1[i], coords1[i + 1],
+                    coords2[j], coords2[j + 1]
+                )) {
+                    return true;
+                }
             }
-
-            return [intersectionX, intersectionY];
         }
-
-        return null;
+        return false;
     }
 
-    /**
-     * Find features with invalid geometries
-     */
+    private segmentsIntersect(a: number[], b: number[], c: number[], d: number[]): boolean {
+        const ccw = (p1: number[], p2: number[], p3: number[]) => {
+            return (p3[1] - p1[1]) * (p2[0] - p1[0]) > (p2[1] - p1[1]) * (p3[0] - p1[0]);
+        };
+        return (ccw(a, c, d) !== ccw(b, c, d)) && (ccw(a, b, c) !== ccw(a, b, d));
+    }
+
     private findInvalidGeometries(): Feature[] {
         return this.vectorSource.getFeatures().filter((feature) => {
-            const geometry = feature.getGeometry();
+            if (feature.get('isPreview') || feature.get('isVertexMarker')) return false;
 
+            const geometry = feature.getGeometry();
             if (!geometry) return true;
 
             if (geometry instanceof Point) {
                 const coords = geometry.getCoordinates();
-                return coords.length !== 2 || !isFinite(coords[0]) || !isFinite(coords[1]);
+                return !coords || coords.length < 2 || !isFinite(coords[0]) || !isFinite(coords[1]);
             }
-
             if (geometry instanceof LineString) {
                 const coords = geometry.getCoordinates();
-                return coords.length < 2 || coords.some((c) => !isFinite(c[0]) || !isFinite(c[1]));
+                return !coords || coords.length < 2;
             }
-
             return false;
         });
     }
 
-    /**
-     * Find features missing required properties
-     */
     private findMissingRequiredProperties(): Feature[] {
+        // Aligned with COMPONENT_TYPES and PropertyPanel
         const requiredProps: Record<string, string[]> = {
             junction: ["elevation"],
-            tank: ["elevation", "capacity", "diameter"],
+            tank: ["elevation", "diameter"],
             reservoir: ["head"],
-            pipe: ["diameter", "length", "roughness"],
-            pump: ["capacity", "headGain"],
-            valve: ["diameter", "status"],
+            pipe: ["diameter", "roughness"],
+            pump: [], // Power or curve is often set via "parameters" property string
+            valve: ["diameter", "setting"],
         };
 
         return this.vectorSource.getFeatures().filter((feature) => {
-            const featureType = feature.get("type");
-            const required = requiredProps[featureType];
+            const type = feature.get("type") as string;
+            const required = requiredProps[type];
 
             if (!required) return false;
 
             return required.some((prop) => {
-                const value = feature.get(prop);
-                return value === undefined || value === null;
+                const val = feature.get(prop);
+                // Allow 0, but not undefined/null/empty string
+                return val === undefined || val === null || val === "";
             });
         });
     }
 
-    /**
-     * Analyze network connectivity
-     */
-    public analyzeNetworkConnectivity(): {
-        totalNodes: number;
-        totalPipes: number;
-        connectedComponents: number;
-        largestComponent: number;
-        networkDensity: number;
-        averageNodeDegree: number;
-    } {
-        const nodes = this.vectorSource
-            .getFeatures()
-            .filter((f) => ["junction", "tank", "reservoir"].includes(f.get("type")));
-
-        const pipes = this.vectorSource
-            .getFeatures()
-            .filter((f) => f.get("type") === "pipe");
-
-        const components = this.findDisconnectedComponents();
-        const largestComponent = Math.max(...components.map((c) => c.length), 0);
-
-        const networkDensity = this.calculateNetworkDensity(nodes.length, pipes.length);
-        const averageNodeDegree = this.calculateAverageNodeDegree(nodes);
-
-        return {
-            totalNodes: nodes.length,
-            totalPipes: pipes.length,
-            connectedComponents: components.length,
-            largestComponent,
-            networkDensity,
-            averageNodeDegree,
-        };
-    }
-
-    /**
-     * Calculate network density
-     */
-    private calculateNetworkDensity(nodeCount: number, pipeCount: number): number {
-        if (nodeCount < 2) return 0;
-
-        const maxPossibleConnections = (nodeCount * (nodeCount - 1)) / 2;
-        return pipeCount / maxPossibleConnections;
-    }
-
-    /**
-     * Calculate average node degree (connections per node)
-     */
-    private calculateAverageNodeDegree(nodes: Feature[]): number {
-        if (nodes.length === 0) return 0;
-
-        const totalConnections = nodes.reduce((sum, node) => {
-            const connections = node.get("connectedLinks") || [];
-            return sum + connections.length;
-        }, 0);
-
-        return totalConnections / nodes.length;
-    }
-
-    /**
-     * Helper: Find node by ID
-     */
     private findNodeById(nodeId: string): Feature | undefined {
-        return this.vectorSource
-            .getFeatures()
-            .find(
-                (f) =>
-                    ["junction", "tank", "reservoir"].includes(f.get("type")) &&
-                    f.getId() === nodeId
-            );
-    }
-
-    /**
-     * Helper: Find node at coordinate
-     */
-    private findNodeAtCoordinate(coordinate: number[]): Feature | null {
-        const tolerance = 1e-6;
-
-        return (
-            this.vectorSource
-                .getFeatures()
-                .find((feature) => {
-                    if (!["junction", "tank", "reservoir"].includes(feature.get("type"))) {
-                        return false;
-                    }
-
-                    const geometry = feature.getGeometry();
-                    if (geometry instanceof Point) {
-                        const nodeCoord = geometry.getCoordinates();
-                        return this.isCoordinateEqual(coordinate, nodeCoord, tolerance);
-                    }
-                    return false;
-                }) || null
+        return this.vectorSource.getFeatures().find(
+            (f) =>
+                this.getId(f) === nodeId &&
+                ["junction", "tank", "reservoir"].includes(f.get("type"))
         );
-    }
-
-    /**
-     * Helper: Check if two coordinates are equal within tolerance
-     */
-    private isCoordinateEqual(
-        coord1: number[],
-        coord2: number[],
-        tolerance: number = 1e-6
-    ): boolean {
-        return (
-            Math.abs(coord1[0] - coord2[0]) < tolerance &&
-            Math.abs(coord1[1] - coord2[1]) < tolerance
-        );
-    }
-
-    /**
-     * Get validation summary as formatted string
-     */
-    public getValidationSummary(validation: NetworkValidation): string {
-        let summary = "";
-
-        if (validation.isValid) {
-            summary += "✓ Network is valid\n\n";
-        } else {
-            summary += "✗ Network has errors\n\n";
-        }
-
-        if (validation.errors.length > 0) {
-            summary += "ERRORS:\n";
-            validation.errors.forEach((error, index) => {
-                summary += `${index + 1}. ${error.message}\n`;
-                if (error.featureId) {
-                    summary += `   Affected features: ${error.featureId}\n`;
-                }
-            });
-            summary += "\n";
-        }
-
-        if (validation.warnings.length > 0) {
-            summary += "WARNINGS:\n";
-            validation.warnings.forEach((warning, index) => {
-                summary += `${index + 1}. ${warning.message}\n`;
-                if (warning.featureId) {
-                    summary += `   Affected features: ${warning.featureId}\n`;
-                }
-            });
-        }
-
-        return summary;
     }
 }

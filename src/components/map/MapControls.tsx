@@ -11,6 +11,7 @@ import {
   Pentagon,
   Ruler,
   Square,
+  Stethoscope,
   Table,
   ZoomIn,
   ZoomOut,
@@ -32,6 +33,7 @@ import { useUIStore } from "@/store/uiStore";
 import { ImportModal } from "../modals/ImportModal";
 import { ExportModal } from "../modals/ExportModal";
 import { AutoElevationModal } from "../modals/AutoElevationModal";
+import { useTopologyValidation } from "@/hooks/useTopologyValidation";
 
 export function MapControls() {
   const { map } = useMapStore();
@@ -57,6 +59,8 @@ export function MapControls() {
     setImportModalOpen,
     setExportModalOpen,
   } = useUIStore();
+
+  const { validate } = useTopologyValidation();
 
   const [showSelectMenu, setShowSelectMenu] = useState(false);
   const [showAutoElevation, setShowAutoElevation] = useState(false);
@@ -199,6 +203,17 @@ export function MapControls() {
           title="Auto-Elevation Tool"
         >
           <Mountain className="w-5 h-5 text-gray-700" />
+        </button>
+
+        <div className="h-px bg-gray-200" />
+
+        {/* Validate Button */}
+        <button
+          onClick={validate}
+          className="w-10 h-10 flex items-center justify-center rounded-md hover:bg-gray-100 transition-colors group relative"
+          title="Validate Network"
+        >
+          <Stethoscope className="w-5 h-5 text-gray-700" />
         </button>
 
         <div className="h-px bg-gray-200" />

@@ -20,6 +20,7 @@ interface UIState {
     keyboardShortcutsModalOpen: boolean;
     componentSelectionModalOpen: boolean;
     simulationReportModalOpen: boolean;
+    validationModalOpen: boolean;
 
     // Map control states
     activeTool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | null;
@@ -51,6 +52,7 @@ interface UIState {
     setExportModalOpen: (open: boolean) => void;
     setSidebarCollapsed: (collapsed: boolean) => void;
     togglePropertyPanel: () => void;
+    setValidationModalOpen: (open: boolean) => void;
 
     // Actions - Map Controls
     setActiveTool: (tool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | null) => void;
@@ -81,6 +83,7 @@ const DEFAULT_STATE = {
     componentSelectionModalOpen: false,
     keyboardShortcutsModalOpen: false,
     simulationReportModalOpen: false,
+    validationModalOpen: false,
     propertyPanelOpen: false,
     deleteModalOpen: false,
     importModalOpen: false,
@@ -118,6 +121,10 @@ export const useUIStore = create<UIState>((set, get) => ({
 
     setSimulationReportModalOpen: (open) => {
         set({ simulationReportModalOpen: open });
+    },
+
+    setValidationModalOpen: (open) => {
+        set({ validationModalOpen: open });
     },
 
     setDeleteModalOpen: (open) => {

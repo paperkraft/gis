@@ -30,6 +30,7 @@ import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 import { Cordinates } from "./Cordinates";
 import { useHistoryManager } from "@/hooks/useHistoryManager";
 import { SimulationReportModal } from "../modals/SimulationReportModal";
+import { ValidationModal } from "../modals/ValidationModal";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -39,15 +40,17 @@ export function MapContainer() {
   const { map, vectorSource } = useMapStore();
   const {
     activeTool,
+    deleteModalOpen,
     showAttributeTable,
-    setShowAttributeTable,
-    componentSelectionModalOpen,
+    validationModalOpen,
     simulationReportModalOpen,
+    componentSelectionModalOpen,
+    setActiveTool,
+    setDeleteModalOpen,
+    setShowAttributeTable,
+    setValidationModalOpen,
     setSimulationReportModalOpen,
     setComponentSelectionModalOpen,
-    deleteModalOpen,
-    setDeleteModalOpen,
-    setActiveTool,
   } = useUIStore();
 
   // Get setSelectedFeature to update global state when selection changes
@@ -162,6 +165,12 @@ export function MapContainer() {
 
       {/* Coordinate Display */}
       <Cordinates />
+
+      {/* Render Validation Modal */}
+      <ValidationModal
+        isOpen={validationModalOpen}
+        onClose={() => setValidationModalOpen(false)}
+      />
     </div>
   );
 }
