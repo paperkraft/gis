@@ -1,37 +1,65 @@
 "use client";
 
+import { useEffect } from "react";
 import {
   Play,
+  Pause,
   RotateCcw,
   AlertCircle,
-  CheckCircle2,
   Activity,
-  BarChart3,
-  Droplets,
+  Clock,
+  ChevronRight,
+  ChevronLeft,
+  FileText,
 } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
 import { useNetworkStore } from "@/store/networkStore";
-import { Button } from "@/components/ui/button";
 import { useUIStore } from "@/store/uiStore";
+import { Button } from "@/components/ui/button";
 
 export function SimulationPanel() {
   const { features } = useNetworkStore();
-  const { status, results, error, runSimulation, resetSimulation } =
-    useSimulationStore();
   const { setSimulationReportModalOpen } = useUIStore();
 
+  const {
+    status,
+    results,
+    history,
+    error,
+    currentTimeIndex,
+    isPlaying,
+    runSimulation,
+    resetSimulation,
+    setTimeIndex,
+    togglePlayback,
+    nextStep,
+  } = useSimulationStore();
+
+  // Animation Loop
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isPlaying && status === "completed") {
+      interval = setInterval(() => {
+        nextStep();
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, status, nextStep]);
+
   const handleRun = () => {
-    const featureList = Array.from(features.values());
-    runSimulation(featureList);
+    runSimulation(Array.from(features.values()));
   };
 
-  const getNodeCount = () => Object.keys(results?.nodes || {}).length;
-  const getLinkCount = () => Object.keys(results?.links || {}).length;
+  const formatTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+  };
 
-  // Helper to get ranges
   const getPressureRange = () => {
     if (!results) return { min: 0, max: 0 };
     const pressures = Object.values(results.nodes).map((n) => n.pressure);
+    if (pressures.length === 0) return { min: 0, max: 0 };
     return {
       min: Math.min(...pressures).toFixed(1),
       max: Math.max(...pressures).toFixed(1),
@@ -39,17 +67,17 @@ export function SimulationPanel() {
   };
 
   return (
-    <div className="absolute top-4 left-4 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden z-20">
+    <div className="absolute top-4 left-4 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden z-20 transition-all duration-300 pointer-events-auto">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-linear-to-r from-indigo-500 to-purple-600">
         <h3 className="font-bold text-white flex items-center gap-2">
           <Activity className="w-5 h-5" />
           Hydraulic Simulation
         </h3>
-        <p className="text-indigo-100 text-xs mt-1">Static Analysis Engine</p>
+        <p className="text-indigo-100 text-xs mt-1">Extended Period Analysis</p>
       </div>
 
-      {/* Controls */}
+      {/* Main Controls */}
       <div className="p-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <div className="flex gap-2">
           <Button
@@ -57,136 +85,137 @@ export function SimulationPanel() {
             disabled={status === "running" || features.size === 0}
             className={`flex-1 ${
               status === "completed"
-                ? "bg-green-600 hover:bg-green-700"
-                : "bg-indigo-600 hover:bg-indigo-700"
+                ? "bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50"
+                : "bg-indigo-600 hover:bg-indigo-700 text-white"
             }`}
           >
-            {status === "running" ? (
-              <>Running...</>
-            ) : status === "completed" ? (
-              <>
-                <Play className="w-4 h-4 mr-2" /> Re-Run
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 mr-2" /> Run Analysis
-              </>
-            )}
+            {status === "running"
+              ? "Simulating..."
+              : status === "completed"
+              ? "Re-Run Analysis"
+              : "Run Analysis"}
           </Button>
 
           {status !== "idle" && (
-            <Button variant="outline" onClick={resetSimulation} size="icon">
+            <Button
+              variant="outline"
+              onClick={resetSimulation}
+              size="icon"
+              title="Reset"
+            >
               <RotateCcw className="w-4 h-4 text-gray-600" />
             </Button>
           )}
         </div>
 
-        {/* Status Message */}
         {status === "error" && (
-          <div className="mt-3 p-3 bg-red-50 text-red-700 rounded-lg text-sm flex items-start gap-2">
+          <div className="mt-3 p-3 bg-red-50 text-red-700 rounded-lg text-xs flex items-start gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
         )}
       </div>
 
-      {/* Results */}
-      {status === "completed" && results && (
-        <div className="p-0 overflow-y-auto max-h-[60vh]">
-          <div className="p-4 space-y-4">
-            <div className="flex items-center gap-2 text-green-600 font-medium text-sm">
-              <CheckCircle2 className="w-4 h-4" />
-              Simulation Successful
+      {/* Time Series Controls */}
+      {status === "completed" && history && (
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-200">
+              <Clock className="w-4 h-4 text-indigo-500" />
+              {formatTime(history.timestamps[currentTimeIndex])}
             </div>
-
-            {/* Summary Cards */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-800">
-                <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">
-                  Nodes
-                </div>
-                <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-                  {getNodeCount()}
-                </div>
-              </div>
-              <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg border border-indigo-100 dark:border-indigo-800">
-                <div className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mb-1">
-                  Links
-                </div>
-                <div className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">
-                  {getLinkCount()}
-                </div>
-              </div>
-            </div>
-
-            {/* Detailed Metrics */}
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4" />
-                System Metrics
-              </h4>
-
-              {/* Pressure */}
-              <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-600 shadow-xs">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs text-gray-500">System Pressure</span>
-                  <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded">
-                    PSI
-                  </span>
-                </div>
-                <div className="flex items-end gap-2">
-                  <span className="text-lg font-semibold">
-                    {getPressureRange().min}
-                  </span>
-                  <span className="text-xs text-gray-400 mb-1">to</span>
-                  <span className="text-lg font-semibold">
-                    {getPressureRange().max}
-                  </span>
-                </div>
-                <div className="w-full bg-gray-100 h-1.5 rounded-full mt-2 overflow-hidden">
-                  <div
-                    className="bg-blue-500 h-full rounded-full"
-                    style={{ width: "75%" }}
-                  ></div>
-                </div>
-              </div>
-
-              {/* Flow Stats */}
-              <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-600 shadow-xs">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs text-gray-500">Flow Status</span>
-                  <Droplets className="w-3 h-3 text-cyan-500" />
-                </div>
-                <div className="text-sm">
-                  <span className="font-semibold text-green-600">100%</span>
-                  <span className="text-gray-500 ml-1">Converged</span>
-                </div>
-              </div>
+            <div className="text-xs text-gray-500 font-mono">
+              Step {currentTimeIndex + 1} / {history.timestamps.length}
             </div>
           </div>
 
-          <div className="px-4 pb-4">
-            <button
-              onClick={() => setSimulationReportModalOpen(true)}
-              className="w-full py-2 text-xs text-center text-gray-500 hover:text-gray-800 hover:underline"
+          <input
+            type="range"
+            min="0"
+            max={history.timestamps.length - 1}
+            value={currentTimeIndex}
+            onChange={(e) => setTimeIndex(parseInt(e.target.value))}
+            disabled={history.timestamps.length <= 1}
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 mb-4 disabled:opacity-50"
+          />
+
+          <div className="flex justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setTimeIndex(Math.max(0, currentTimeIndex - 1))}
+              disabled={currentTimeIndex <= 0}
             >
-              View Detailed Report
-            </button>
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+
+            <Button
+              onClick={togglePlayback}
+              disabled={history.timestamps.length <= 1}
+              className={`w-24 ${
+                isPlaying
+                  ? "bg-amber-500 hover:bg-amber-600"
+                  : "bg-indigo-600 hover:bg-indigo-700"
+              }`}
+            >
+              {isPlaying ? (
+                <>
+                  <Pause className="w-4 h-4 mr-2" /> Pause
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-2" /> Play
+                </>
+              )}
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setTimeIndex(
+                  Math.min(history.timestamps.length - 1, currentTimeIndex + 1)
+                )
+              }
+              disabled={currentTimeIndex >= history.timestamps.length - 1}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       )}
 
-      {/* Empty State */}
-      {status === "idle" && (
-        <div className="p-8 text-center">
-          <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3">
-            <Activity className="w-6 h-6 text-gray-400" />
+      {/* Results Summary */}
+      {status === "completed" && results && (
+        <div className="p-4 space-y-3 bg-gray-50/50 dark:bg-gray-900/50 flex-1 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-600 shadow-xs">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs text-gray-500 uppercase font-semibold">
+                System Pressure
+              </span>
+              <span className="text-[10px] font-mono bg-gray-100 px-1.5 py-0.5 rounded">
+                PSI
+              </span>
+            </div>
+            <div className="flex items-end gap-2">
+              <span className="text-xl font-bold text-gray-800 dark:text-white">
+                {getPressureRange().min}
+              </span>
+              <span className="text-xs text-gray-400 mb-1 mx-1">to</span>
+              <span className="text-xl font-bold text-gray-800 dark:text-white">
+                {getPressureRange().max}
+              </span>
+            </div>
           </div>
-          <p className="text-sm text-gray-500">
-            Ready to simulate.
-            <br />
-            Click "Run Analysis" to begin.
-          </p>
+
+          {/* RESTORED: Detailed Report Button */}
+          <button
+            onClick={() => setSimulationReportModalOpen(true)}
+            className="w-full flex items-center justify-center gap-2 py-2 mt-2 text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-colors"
+          >
+            <FileText className="w-3 h-3" />
+            View Detailed Report
+          </button>
         </div>
       )}
     </div>

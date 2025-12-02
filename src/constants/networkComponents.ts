@@ -24,6 +24,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
             elevation: 120,
             diameter: 30,
             currentLevel: 400000,
+            status: "active",
         },
         createsJunction: true,
     },
@@ -48,7 +49,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
             capacity: 1000,
             headGain: 50,
             efficiency: 80,
-            status: "running",
+            status: "open",
         },
         createsJunction: false,
     },
@@ -61,7 +62,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
             diameter: 8,
             status: "open",
             valveType: "PRV",
-            setting: 100,
+            setting: 40,
         },
         createsJunction: false,
     },
@@ -74,12 +75,13 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
             diameter: 100,
             material: "PVC",
             roughness: 130,
+            status: "open",
         },
         createsJunction: false,
     },
 };
 
-export const SNAPPING_TOLERANCE = 20; // pixels
+export const SNAPPING_TOLERANCE = 20;
 
 export const BASE_LAYERS = {
     osm: "OpenStreetMap",

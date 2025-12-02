@@ -10,7 +10,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useNetworkStore } from "@/store/networkStore";
-import { NetworkExporter } from "@/lib/export/NetworkExporter";
+import { NetworkExporter } from "@/lib/export/networkExporter";
 import { Button } from "@/components/ui/button";
 
 interface ExportModalProps {

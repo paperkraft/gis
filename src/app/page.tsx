@@ -54,7 +54,7 @@ export default function HomePage() {
             <MapContainer />
             {/* Conditionally render panels based on tab */}
             {activeTab === "simulation" && (
-              <div className="absolute inset-0 pointer-events-none z-10">
+              <div className="absolute inset-0 z-10">
                 {/* Pointer events auto so we can click the panel */}
                 <div className="pointer-events-auto">
                   <SimulationPanel />

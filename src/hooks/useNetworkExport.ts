@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { useNetworkStore } from '@/store/networkStore';
-import { NetworkExporter } from '@/lib/export/NetworkExporter';
+import { NetworkExporter } from '@/lib/export/networkExporter';
 
 export function useNetworkExport() {
     const { features } = useNetworkStore();

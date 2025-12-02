@@ -1,38 +1,45 @@
 import { create } from 'zustand';
 import { Feature } from 'ol';
-import { SimulationResults, SimulationStatus } from '@/types/simulation';
+import { SimulationSnapshot, SimulationHistory, SimulationStatus } from '@/types/simulation';
 import { generateINP } from '@/lib/export/inpWriter';
 
 interface SimulationState {
     status: SimulationStatus;
-    results: SimulationResults | null;
+
+    // The "Full" dataset (all time steps)
+    history: SimulationHistory | null;
+
+    // The "Current" visual state (single time step)
+    results: SimulationSnapshot | null;
+
+    currentTimeIndex: number;
     error: string | null;
+    isPlaying: boolean;
 
     // Actions
     runSimulation: (features: Feature[]) => Promise<void>;
+    setTimeIndex: (index: number) => void;
+    togglePlayback: () => void;
     resetSimulation: () => void;
+    nextStep: () => void; // For animation loop
 }
 
-export const useSimulationStore = create<SimulationState>((set) => ({
+export const useSimulationStore = create<SimulationState>((set, get) => ({
     status: 'idle',
+    history: null,
     results: null,
+    currentTimeIndex: 0,
     error: null,
+    isPlaying: false,
 
     runSimulation: async (features) => {
-        set({ status: 'running', error: null, results: null });
+        set({ status: 'running', error: null, history: null, results: null });
 
         try {
-            if (features.length === 0) {
-                throw new Error("Network is empty. Cannot run simulation.");
-            }
+            if (features.length === 0) throw new Error("Network is empty.");
 
-            // Call the solver
-            // const results = await MockSolver.solve(features);
-
-            // 1. Generate INP String on Client
             const inpContent = generateINP(features);
 
-            // 2. Call Next.js API Route
             const response = await fetch('/api/simulate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -44,27 +51,55 @@ export const useSimulationStore = create<SimulationState>((set) => ({
                 throw new Error(errData.error || "Server simulation failed");
             }
 
-            // 3. Receive Results
-            const data = await response.json();
+            const data: SimulationHistory = await response.json();
 
+            // Set initial state (t=0)
             set({
                 status: 'completed',
-                results: {
-                    nodes: data.nodes,
-                    links: data.links,
-                    timestamp: data.timestamp,
-                    message: "Simulation completed (Server-Side)"
-                }
+                history: data,
+                currentTimeIndex: 0,
+                results: data.snapshots[0] || null,
             });
+
         } catch (err) {
+            console.error(err);
             set({
                 status: 'error',
-                error: err instanceof Error ? err.message : "Unknown simulation error"
+                error: err instanceof Error ? err.message : "Simulation error"
             });
         }
     },
 
+    setTimeIndex: (index) => {
+        const { history } = get();
+        if (!history || !history.snapshots[index]) return;
+
+        set({
+            currentTimeIndex: index,
+            results: history.snapshots[index]
+        });
+    },
+
+    togglePlayback: () => {
+        set((state) => ({ isPlaying: !state.isPlaying }));
+    },
+
+    nextStep: () => {
+        const { history, currentTimeIndex, isPlaying } = get();
+        if (!history || !isPlaying) return;
+
+        let nextIndex = currentTimeIndex + 1;
+        if (nextIndex >= history.snapshots.length) {
+            nextIndex = 0; // Loop back to start
+        }
+
+        set({
+            currentTimeIndex: nextIndex,
+            results: history.snapshots[nextIndex]
+        });
+    },
+
     resetSimulation: () => {
-        set({ status: 'idle', results: null, error: null });
+        set({ status: 'idle', history: null, results: null, error: null, isPlaying: false });
     }
 }));

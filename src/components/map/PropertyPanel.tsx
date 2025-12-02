@@ -1,13 +1,23 @@
 "use client";
-import { Info, Link, Mountain, RefreshCw, Save, Trash2, X } from "lucide-react";
+import {
+  Info,
+  Link,
+  Save,
+  Trash2,
+  X,
+  RefreshCw,
+  Mountain,
+  Activity,
+} from "lucide-react";
 import React, { useEffect, useState } from "react";
-
+import { Point } from "ol/geom";
+import { ElevationService } from "@/lib/services/ElevationService";
 import { Button } from "@/components/ui/button";
 import { COMPONENT_TYPES } from "@/constants/networkComponents";
 import { useNetworkStore } from "@/store/networkStore";
+import { useSimulationStore } from "@/store/simulationStore";
 import { NetworkFeatureProperties } from "@/types/network";
-import { ElevationService } from "@/lib/services/ElevationService";
-import { Point } from "ol/geom";
+import { ResultChart } from "@/components/simulation/ResultChart";
 
 interface PropertyPanelProps {
   properties: NetworkFeatureProperties;
@@ -20,45 +30,32 @@ export function PropertyPanel({
 }: PropertyPanelProps) {
   const { selectedFeatureId, selectedFeature, updateFeature } =
     useNetworkStore();
-  const [isFetchingElevation, setIsFetchingElevation] = useState(false);
+  const { history, results } = useSimulationStore();
+
   const [editedProperties, setEditedProperties] =
     useState<NetworkFeatureProperties>(properties);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isFetchingElevation, setIsFetchingElevation] = useState(false);
 
+  // Sync state when selection changes AND polyfill missing status
   useEffect(() => {
-    setEditedProperties(properties);
+    const initialProps = { ...properties };
+
+    // FIX: If status is missing (legacy feature), default it so it shows in the panel
+    if (!initialProps.status) {
+      if (["pipe", "pump", "valve"].includes(properties.type)) {
+        initialProps.status = "open";
+      } else {
+        initialProps.status = "active";
+      }
+    }
+
+    setEditedProperties(initialProps);
     setHasChanges(false);
   }, [properties]);
 
-  const handleAutoElevate = async () => {
-    if (!selectedFeature) return;
-
-    setIsFetchingElevation(true);
-    try {
-      const geometry = selectedFeature.getGeometry();
-      if (geometry instanceof Point) {
-        const elevation = await ElevationService.getElevation(
-          geometry.getCoordinates()
-        );
-        if (elevation !== null) {
-          handlePropertyChange("elevation", elevation);
-        } else {
-          alert("Could not fetch elevation data.");
-        }
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Error fetching elevation.");
-    } finally {
-      setIsFetchingElevation(false);
-    }
-  };
-
   const handlePropertyChange = (key: string, value: any) => {
-    setEditedProperties((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    setEditedProperties((prev) => ({ ...prev, [key]: value }));
     setHasChanges(true);
   };
 
@@ -67,28 +64,30 @@ export function PropertyPanel({
       window.dispatchEvent(new CustomEvent("takeSnapshot"));
       updateFeature(selectedFeatureId, editedProperties);
       setHasChanges(false);
-      console.log("Properties saved successfully");
     }
   };
 
-  const handleDelete = () => {
-    // Trigger the delete request callback instead of direct deletion
-    if (onDeleteRequest) {
-      onDeleteRequest();
+  const handleDelete = () => onDeleteRequest && onDeleteRequest();
+  const handleClose = () => useNetworkStore.getState().selectFeature(null);
+
+  const handleAutoElevate = async () => {
+    if (!selectedFeature) return;
+    setIsFetchingElevation(true);
+    try {
+      const geometry = selectedFeature.getGeometry();
+      if (geometry instanceof Point) {
+        const elevation = await ElevationService.getElevation(
+          geometry.getCoordinates()
+        );
+        if (elevation !== null) handlePropertyChange("elevation", elevation);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsFetchingElevation(false);
     }
   };
 
-  const handleClose = () => {
-    if (hasChanges) {
-      const confirmClose = confirm(
-        "You have unsaved changes. Are you sure you want to close?"
-      );
-      if (!confirmClose) return;
-    }
-    useNetworkStore.getState().selectFeature(null);
-  };
-
-  // Get connected features info
   const getConnectedInfo = () => {
     if (["junction", "tank", "reservoir"].includes(properties.type)) {
       const connectedLinks = properties.connectedLinks || [];
@@ -110,7 +109,6 @@ export function PropertyPanel({
   const connectionInfo = getConnectedInfo();
   const componentConfig = COMPONENT_TYPES[properties.type];
 
-  // Group properties by category
   const basicProperties = ["elevation", "demand", "population"];
   const hydraulicProperties = [
     "diameter",
@@ -124,7 +122,6 @@ export function PropertyPanel({
   const operationalProperties = ["status", "valveType", "setting", "material"];
 
   const renderPropertyInput = (key: string, value: any) => {
-    const isNumeric = typeof value === "number";
     const isBoolean = typeof value === "boolean";
     const isStatus = key === "status";
 
@@ -156,7 +153,6 @@ export function PropertyPanel({
       );
     }
 
-    // Special render for Elevation
     if (key === "elevation") {
       return (
         <div className="flex gap-2">
@@ -172,8 +168,7 @@ export function PropertyPanel({
           <button
             onClick={handleAutoElevate}
             disabled={isFetchingElevation}
-            className="p-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md text-gray-600 dark:text-gray-300 transition-colors"
-            title="Auto-fetch elevation"
+            className="p-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md transition-colors"
           >
             {isFetchingElevation ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
@@ -187,16 +182,18 @@ export function PropertyPanel({
 
     return (
       <input
-        type={isNumeric ? "number" : "text"}
+        type={typeof value === "number" ? "number" : "text"}
         value={editedProperties[key] ?? ""}
         onChange={(e) =>
           handlePropertyChange(
             key,
-            isNumeric ? parseFloat(e.target.value) || 0 : e.target.value
+            typeof value === "number"
+              ? parseFloat(e.target.value) || 0
+              : e.target.value
           )
         }
         className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-        step={isNumeric ? "0.1" : undefined}
+        step={typeof value === "number" ? "0.1" : undefined}
       />
     );
   };
@@ -205,9 +202,7 @@ export function PropertyPanel({
     const groupProperties = propertyKeys.filter((key) =>
       editedProperties.hasOwnProperty(key)
     );
-
     if (groupProperties.length === 0) return null;
-
     return (
       <div className="property-group">
         <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-3">
@@ -227,9 +222,70 @@ export function PropertyPanel({
     );
   };
 
+  // Render Simulation Results (Charts)
+  const renderSimulationResults = () => {
+    if (!history || !results || !selectedFeatureId) return null;
+
+    const isNode = ["junction", "tank", "reservoir"].includes(properties.type);
+    const isLink = ["pipe", "pump", "valve"].includes(properties.type);
+
+    let currentVal = 0;
+    let label = "";
+    let unit = "";
+    let color = "";
+    let dataType: "pressure" | "flow" = "pressure";
+
+    if (isNode) {
+      const res = results.nodes[selectedFeatureId];
+      if (!res) return null;
+      currentVal = res.pressure;
+      label = "Pressure";
+      unit = "psi";
+      color = "#0ea5e9";
+      dataType = "pressure";
+    } else if (isLink) {
+      const res = results.links[selectedFeatureId];
+      if (!res) return null;
+      currentVal = res.flow;
+      label = "Flow";
+      unit = "GPM";
+      color = "#8b5cf6";
+      dataType = "flow";
+    } else {
+      return null;
+    }
+
+    return (
+      <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
+        <h4 className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase mb-3 flex items-center gap-2">
+          <Activity className="w-4 h-4" />
+          Simulation Results
+        </h4>
+        <div className="flex justify-between items-end mb-2">
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            {label} (Current)
+          </span>
+          <span className="text-xl font-bold font-mono text-gray-900 dark:text-white">
+            {currentVal.toFixed(2)}{" "}
+            <span className="text-sm font-normal text-gray-500">{unit}</span>
+          </span>
+        </div>
+        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-2">
+          <ResultChart
+            featureId={selectedFeatureId}
+            type={isNode ? "node" : "link"}
+            history={history}
+            dataType={dataType}
+            color={color}
+            unit={unit}
+          />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="absolute top-4 right-4 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-10 max-h-[calc(100vh-8rem)] overflow-hidden flex flex-col">
-      {/* Header */}
       <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <div
@@ -253,19 +309,15 @@ export function PropertyPanel({
         <button
           onClick={handleClose}
           className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
-          title="Close"
         >
           <X className="w-5 h-5 text-gray-500" />
         </button>
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* Feature Information */}
         <div className="property-group">
           <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-3 flex items-center gap-2">
-            <Info className="w-4 h-4" />
-            Feature Information
+            <Info className="w-4 h-4" /> Feature Information
           </h4>
           <div className="space-y-3">
             <div className="property-row">
@@ -277,53 +329,18 @@ export function PropertyPanel({
                 value={editedProperties.label || ""}
                 onChange={(e) => handlePropertyChange("label", e.target.value)}
                 className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                placeholder="Enter label..."
               />
-            </div>
-            <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-md text-xs space-y-1">
-              <div className="flex justify-between py-1">
-                <span className="text-gray-600 dark:text-gray-400">Type:</span>
-                <span className="font-medium text-gray-900 dark:text-white capitalize">
-                  {properties.type}
-                </span>
-              </div>
-              <div className="flex justify-between py-1">
-                <span className="text-gray-600 dark:text-gray-400">
-                  Status:
-                </span>
-                <span
-                  className={`font-medium ${
-                    properties.isNew
-                      ? "text-green-600 dark:text-green-400"
-                      : "text-blue-600 dark:text-blue-400"
-                  }`}
-                >
-                  {properties.isNew ? "New" : "Existing"}
-                </span>
-              </div>
-              {properties.autoCreated && (
-                <div className="flex justify-between py-1">
-                  <span className="text-gray-600 dark:text-gray-400">
-                    Created:
-                  </span>
-                  <span className="font-medium text-amber-600 dark:text-amber-400">
-                    Auto-generated
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         </div>
 
-        {/* Topology Information */}
         {connectionInfo && (
           <div className="property-group">
             <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-3 flex items-center gap-2">
-              <Link className="w-4 h-4" />
-              Topology
+              <Link className="w-4 h-4" /> Topology
             </h4>
             <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md space-y-2 text-sm">
-              {connectionInfo.type === "node" && (
+              {connectionInfo.type === "node" ? (
                 <>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">
@@ -352,8 +369,7 @@ export function PropertyPanel({
                       </div>
                     )}
                 </>
-              )}
-              {connectionInfo.type === "link" && (
+              ) : (
                 <>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600 dark:text-gray-400">
@@ -377,31 +393,25 @@ export function PropertyPanel({
           </div>
         )}
 
-        {/* Basic Properties */}
         {renderPropertyGroup("Basic Properties", basicProperties)}
-
-        {/* Hydraulic Properties */}
         {renderPropertyGroup("Hydraulic Properties", hydraulicProperties)}
-
-        {/* Operational Properties */}
         {renderPropertyGroup("Operational Properties", operationalProperties)}
+        {renderSimulationResults()}
       </div>
 
-      {/* Footer Actions */}
       <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex gap-2 shrink-0">
         <Button
           onClick={handleSave}
           disabled={!hasChanges}
-          className="flex-1 bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="flex-1 bg-primary text-white hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2"
         >
-          <Save className="w-4 h-4" />
+          <Save className="w-4 h-4" />{" "}
           <span>{hasChanges ? "Save Changes" : "Saved"}</span>
         </Button>
         <Button
           onClick={handleDelete}
           variant="outline"
-          className="border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center px-3"
-          title="Delete feature"
+          className="border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 px-3"
         >
           <Trash2 className="w-4 h-4" />
         </Button>

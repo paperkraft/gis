@@ -1,27 +1,131 @@
 "use client";
 
-import { useState } from "react";
-import { X, Table, Activity, Droplets } from "lucide-react";
+import { useState, useMemo, useRef, useEffect } from "react";
+import {
+  X,
+  Table,
+  Activity,
+  Droplets,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  BarChart,
+  Download,
+  ChevronDown,
+} from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
+import { Button } from "@/components/ui/button";
+import { ResultExporter } from "@/lib/export/resultExporter";
 
 interface SimulationReportModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+type ReportMode = "instant" | "summary";
+
 export function SimulationReportModal({
   isOpen,
   onClose,
 }: SimulationReportModalProps) {
-  const { results } = useSimulationStore();
+  const { results, history, currentTimeIndex, setTimeIndex } =
+    useSimulationStore();
+
+  // Hooks
   const [activeTab, setActiveTab] = useState<"nodes" | "links">("nodes");
+  const [reportMode, setReportMode] = useState<ReportMode>("instant");
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
-  if (!isOpen || !results) return null;
+  // Close export menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        exportMenuRef.current &&
+        !exportMenuRef.current.contains(event.target as Node)
+      ) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-  const nodes = Object.values(results.nodes);
-  const links = Object.values(results.links);
+  // Format time
+  const formatTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+  };
 
-  // Helper for color coding values
+  // Memoized Summary Data (Keep existing logic)
+  const summaryData = useMemo(() => {
+    if (reportMode !== "summary" || !history || history.snapshots.length === 0)
+      return null;
+
+    const nodeStats: Record<
+      string,
+      { minPres: number; maxPres: number; avgPres: number }
+    > = {};
+    const linkStats: Record<string, { maxFlow: number; maxVel: number }> = {};
+    const firstSnap = history.snapshots[0];
+
+    // Init
+    Object.values(firstSnap.nodes).forEach((n) => {
+      nodeStats[n.id] = {
+        minPres: n.pressure,
+        maxPres: n.pressure,
+        avgPres: 0,
+      };
+    });
+    Object.values(firstSnap.links).forEach((l) => {
+      linkStats[l.id] = { maxFlow: Math.abs(l.flow), maxVel: l.velocity };
+    });
+
+    // Accumulate
+    history.snapshots.forEach((snap) => {
+      Object.values(snap.nodes).forEach((n) => {
+        const s = nodeStats[n.id];
+        if (s) {
+          s.minPres = Math.min(s.minPres, n.pressure);
+          s.maxPres = Math.max(s.maxPres, n.pressure);
+          s.avgPres += n.pressure;
+        }
+      });
+      Object.values(snap.links).forEach((l) => {
+        const s = linkStats[l.id];
+        if (s) {
+          s.maxFlow = Math.max(s.maxFlow, Math.abs(l.flow));
+          s.maxVel = Math.max(s.maxVel, l.velocity);
+        }
+      });
+    });
+
+    // Average
+    const count = history.snapshots.length;
+    Object.values(nodeStats).forEach((s) => (s.avgPres /= count));
+
+    return { nodes: nodeStats, links: linkStats };
+  }, [history, reportMode]);
+
+  // Export Handlers
+  const handleExportCurrent = () => {
+    if (results) {
+      ResultExporter.exportSnapshotCSV(results);
+      setShowExportMenu(false);
+    }
+  };
+
+  const handleExportAll = () => {
+    if (history) {
+      ResultExporter.exportHistoryCSV(history);
+      setShowExportMenu(false);
+    }
+  };
+
+  if (!isOpen || !results || !history) return null;
+
+  // Value color helper (Keep existing)
   const getValueColor = (value: number, type: "pressure" | "velocity") => {
     if (type === "pressure") {
       if (value < 20) return "text-red-600 font-bold";
@@ -29,166 +133,338 @@ export function SimulationReportModal({
       return "text-green-600";
     }
     if (type === "velocity") {
-      if (value > 3) return "text-red-600 font-bold";
-      if (value < 0.1) return "text-orange-600 font-bold";
+      if (value > 5) return "text-red-600 font-bold";
+      if (value < 0.5) return "text-orange-600 font-bold";
       return "text-green-600";
     }
     return "text-gray-900";
   };
 
+  const currentNodeList = Object.values(results.nodes);
+  const currentLinkList = Object.values(results.links);
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col animate-in fade-in zoom-in duration-200">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-900 rounded-t-xl shrink-0">
-          <div className="flex items-center gap-2">
-            <Table className="w-5 h-5 text-indigo-600" />
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Simulation Report
-              </h2>
-              <p className="text-xs text-gray-500">
-                {new Date(results.timestamp).toLocaleString()}
-              </p>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col animate-in fade-in zoom-in duration-200">
+        {/* HEADER */}
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-t-xl shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+                <Table className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                  Simulation Report
+                </h2>
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <span>{history.snapshots.length} Time Steps</span>
+                  <span>•</span>
+                  <span>
+                    Duration:{" "}
+                    {formatTime(
+                      history.timestamps[history.timestamps.length - 1]
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* --- EXPORT BUTTON --- */}
+              <div className="relative" ref={exportMenuRef}>
+                <button
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  Export Results
+                  <ChevronDown className="w-3 h-3 opacity-80" />
+                </button>
+
+                {showExportMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
+                    <div className="p-1">
+                      <button
+                        onClick={handleExportCurrent}
+                        className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                      >
+                        Current Time Step ({formatTime(results.timeStep)})
+                      </button>
+                      <button
+                        onClick={handleExportAll}
+                        className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                      >
+                        Full Report (All Steps)
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {/* --------------------- */}
+
+              <div className="flex bg-gray-200 dark:bg-gray-700 rounded-lg p-1">
+                <button
+                  onClick={() => setReportMode("instant")}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    reportMode === "instant"
+                      ? "bg-white dark:bg-gray-600 text-indigo-600 shadow-xs"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900"
+                  }`}
+                >
+                  Time Step View
+                </button>
+                <button
+                  onClick={() => setReportMode("summary")}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    reportMode === "summary"
+                      ? "bg-white dark:bg-gray-600 text-indigo-600 shadow-xs"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900"
+                  }`}
+                >
+                  Daily Summary
+                </button>
+              </div>
+
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shrink-0">
-          <button
-            onClick={() => setActiveTab("nodes")}
-            className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors flex items-center justify-center gap-2 ${
-              activeTab === "nodes"
-                ? "border-indigo-500 text-indigo-600 bg-indigo-50/50"
-                : "border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-            }`}
-          >
-            <Activity className="w-4 h-4" />
-            Nodes ({nodes.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("links")}
-            className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors flex items-center justify-center gap-2 ${
-              activeTab === "links"
-                ? "border-blue-500 text-blue-600 bg-blue-50/50"
-                : "border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-            }`}
-          >
-            <Droplets className="w-4 h-4" />
-            Links ({links.length})
-          </button>
+        {/* CONTROLS & TABLE (Same as before) */}
+        <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between shrink-0">
+          <div className="flex gap-4">
+            <button
+              onClick={() => setActiveTab("nodes")}
+              className={`pb-1 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+                activeTab === "nodes"
+                  ? "border-indigo-500 text-indigo-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <Activity className="w-4 h-4" /> Nodes
+            </button>
+            <button
+              onClick={() => setActiveTab("links")}
+              className={`pb-1 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+                activeTab === "links"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <Droplets className="w-4 h-4" /> Links
+            </button>
+          </div>
+
+          {reportMode === "instant" && (
+            <div className="flex items-center gap-4 bg-gray-50 dark:bg-gray-900 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setTimeIndex(Math.max(0, currentTimeIndex - 1))}
+                disabled={currentTimeIndex <= 0}
+                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full disabled:opacity-30"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              <div className="flex items-center gap-2 min-w-20 justify-center text-sm font-mono font-medium text-indigo-700 dark:text-indigo-300">
+                <Clock className="w-3.5 h-3.5" />
+                {formatTime(history.timestamps[currentTimeIndex])}
+              </div>
+
+              <button
+                onClick={() =>
+                  setTimeIndex(
+                    Math.min(
+                      history.timestamps.length - 1,
+                      currentTimeIndex + 1
+                    )
+                  )
+                }
+                disabled={currentTimeIndex >= history.timestamps.length - 1}
+                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full disabled:opacity-30"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {reportMode === "summary" && (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <BarChart className="w-4 h-4" />
+              <span>Aggregated over 24h</span>
+            </div>
+          )}
         </div>
 
-        {/* Content Table */}
         <div className="flex-1 overflow-auto p-0">
           <table className="w-full text-sm text-left">
-            <thead className="text-xs text-gray-500 uppercase bg-gray-100 dark:bg-gray-900 sticky top-0 z-10">
+            <thead className="text-xs text-gray-500 uppercase bg-gray-100 dark:bg-gray-900 sticky top-0 z-10 shadow-xs">
               {activeTab === "nodes" ? (
                 <tr>
-                  <th className="px-6 py-3">ID</th>
-                  <th className="px-6 py-3">Elevation (ft)</th>
-                  <th className="px-6 py-3">Demand (GPM)</th>
-                  <th className="px-6 py-3">Head (ft)</th>
-                  <th className="px-6 py-3">Pressure (psi)</th>
+                  <th className="px-6 py-3 w-32">Node ID</th>
+                  {reportMode === "instant" ? (
+                    <>
+                      <th className="px-6 py-3">Demand (GPM)</th>
+                      <th className="px-6 py-3">Head (ft)</th>
+                      <th className="px-6 py-3">Pressure (psi)</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="px-6 py-3">Min Pressure</th>
+                      <th className="px-6 py-3">Max Pressure</th>
+                      <th className="px-6 py-3">Avg Pressure</th>
+                    </>
+                  )}
                 </tr>
               ) : (
                 <tr>
-                  <th className="px-6 py-3">ID</th>
+                  <th className="px-6 py-3 w-32">Link ID</th>
                   <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3">Flow (GPM)</th>
-                  <th className="px-6 py-3">Velocity (fps)</th>
-                  <th className="px-6 py-3">Headloss (ft/kft)</th>
+                  {reportMode === "instant" ? (
+                    <>
+                      <th className="px-6 py-3">Flow (GPM)</th>
+                      <th className="px-6 py-3">Velocity (fps)</th>
+                      <th className="px-6 py-3">Headloss</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="px-6 py-3">Max Flow</th>
+                      <th className="px-6 py-3">Max Velocity</th>
+                      <th className="px-6 py-3">Peak Status</th>
+                    </>
+                  )}
                 </tr>
               )}
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {activeTab === "nodes"
-                ? nodes.map((node) => (
+              {activeTab === "nodes" &&
+                currentNodeList.map((node) => {
+                  const stats = summaryData?.nodes[node.id];
+                  return (
                     <tr
                       key={node.id}
-                      className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      className="bg-white dark:bg-gray-800 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors"
                     >
-                      <td className="px-6 py-3 font-medium text-gray-900 dark:text-white">
+                      <td className="px-6 py-3 font-semibold text-gray-900 dark:text-white border-r border-gray-100 dark:border-gray-700">
                         {node.id}
                       </td>
-                      {/* Note: We don't have elevation in results, normally you'd merge with static props */}
-                      <td className="px-6 py-3 text-gray-500">-</td>
-                      <td className="px-6 py-3 text-gray-500">
-                        {node.demand.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-3 text-gray-500">
-                        {node.head.toFixed(2)}
-                      </td>
-                      <td
-                        className={`px-6 py-3 ${getValueColor(
-                          node.pressure,
-                          "pressure"
-                        )}`}
-                      >
-                        {node.pressure.toFixed(2)}
-                      </td>
+                      {reportMode === "instant" ? (
+                        <>
+                          <td className="px-6 py-3 text-gray-600">
+                            {node.demand.toFixed(2)}
+                          </td>
+                          <td className="px-6 py-3 text-gray-600">
+                            {node.head.toFixed(2)}
+                          </td>
+                          <td
+                            className={`px-6 py-3 font-mono ${getValueColor(
+                              node.pressure,
+                              "pressure"
+                            )}`}
+                          >
+                            {node.pressure.toFixed(2)}
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td
+                            className={`px-6 py-3 font-mono ${getValueColor(
+                              stats?.minPres || 0,
+                              "pressure"
+                            )}`}
+                          >
+                            {stats?.minPres.toFixed(2)}
+                          </td>
+                          <td
+                            className={`px-6 py-3 font-mono ${getValueColor(
+                              stats?.maxPres || 0,
+                              "pressure"
+                            )}`}
+                          >
+                            {stats?.maxPres.toFixed(2)}
+                          </td>
+                          <td className="px-6 py-3 text-gray-600">
+                            {stats?.avgPres.toFixed(2)}
+                          </td>
+                        </>
+                      )}
                     </tr>
-                  ))
-                : links.map((link) => (
+                  );
+                })}
+              {activeTab === "links" &&
+                currentLinkList.map((link) => {
+                  const stats = summaryData?.links[link.id];
+                  return (
                     <tr
                       key={link.id}
-                      className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      className="bg-white dark:bg-gray-800 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors"
                     >
-                      <td className="px-6 py-3 font-medium text-gray-900 dark:text-white">
+                      <td className="px-6 py-3 font-semibold text-gray-900 dark:text-white border-r border-gray-100 dark:border-gray-700">
                         {link.id}
                       </td>
                       <td className="px-6 py-3">
                         <span
-                          className={`px-2 py-0.5 rounded text-xs ${
+                          className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wide ${
                             link.status === "Open"
                               ? "bg-green-100 text-green-700"
-                              : "bg-gray-100 text-gray-700"
+                              : "bg-gray-100 text-gray-600"
                           }`}
                         >
                           {link.status}
                         </span>
                       </td>
-                      <td className="px-6 py-3 text-gray-500">
-                        {link.flow.toFixed(2)}
-                      </td>
-                      <td
-                        className={`px-6 py-3 ${getValueColor(
-                          link.velocity,
-                          "velocity"
-                        )}`}
-                      >
-                        {link.velocity.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-3 text-gray-500">
-                        {link.headloss.toFixed(4)}
-                      </td>
+                      {reportMode === "instant" ? (
+                        <>
+                          <td className="px-6 py-3 text-gray-600">
+                            {Math.abs(link.flow).toFixed(2)}
+                          </td>
+                          <td
+                            className={`px-6 py-3 font-mono ${getValueColor(
+                              link.velocity,
+                              "velocity"
+                            )}`}
+                          >
+                            {link.velocity.toFixed(2)}
+                          </td>
+                          <td className="px-6 py-3 text-gray-500">
+                            {link.headloss.toFixed(4)}
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-6 py-3 font-mono text-gray-700 font-bold">
+                            {stats?.maxFlow.toFixed(2)}
+                          </td>
+                          <td
+                            className={`px-6 py-3 font-mono ${getValueColor(
+                              stats?.maxVel || 0,
+                              "velocity"
+                            )}`}
+                          >
+                            {stats?.maxVel.toFixed(2)}
+                          </td>
+                          <td className="px-6 py-3 text-gray-400 text-xs italic">
+                            -
+                          </td>
+                        </>
+                      )}
                     </tr>
-                  ))}
+                  );
+                })}
             </tbody>
           </table>
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900 rounded-b-xl">
-          <span className="text-xs text-gray-500">
-            {activeTab === "nodes"
-              ? `${nodes.length} nodes`
-              : `${links.length} links`}{" "}
-            loaded
-          </span>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-white border border-gray-300 rounded text-sm font-medium hover:bg-gray-50 text-gray-700"
-          >
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end bg-gray-50 dark:bg-gray-900 rounded-b-xl shrink-0">
+          <Button variant="outline" onClick={onClose}>
             Close Report
-          </button>
+          </Button>
         </div>
       </div>
     </div>

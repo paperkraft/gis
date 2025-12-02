@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Project, Workspace } from "epanet-js";
 
-// EPANET Node Parameter Codes
+// EPANET Parameter Codes
 const EN_DEMAND = 9;
 const EN_HEAD = 10;
 const EN_PRESSURE = 11;
-
-// EPANET Link Parameter Codes
 const EN_FLOW = 8;
 const EN_VELOCITY = 9;
 const EN_HEADLOSS = 10;
@@ -20,78 +18,87 @@ export async function POST(req: NextRequest) {
         const { inp } = await req.json();
 
         if (!inp) {
-            return NextResponse.json(
-                { error: "No INP data provided" },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: "No INP data" }, { status: 400 });
         }
 
-        // 1. Setup
+        // 1. Setup Virtual File System
         const inputFileName = "network.inp";
         const reportFileName = "report.rpt";
         const outputFileName = "out.bin";
-
         ws.writeFile(inputFileName, inp);
 
-        // 2. Run Simulation
+        // 2. Initialize Simulation
         await model.open(inputFileName, reportFileName, outputFileName);
         await model.openH();
         await model.initH(0);
 
-        let t = 0;
+        // 3. Run Step-by-Step Loop
+        const timestamps: number[] = [];
+        const snapshots: any[] = [];
+
+        let tStep = Infinity;
+
         do {
-            t = await model.runH();
-        } while (t > 0);
+            // A. Solve Hydraulics for current time
+            const t = await model.runH();
 
-        // 3. Extract Results
-        const nodeResults: Record<string, any> = {};
-        const linkResults: Record<string, any> = {};
+            // B. Extract Results
+            const nodeResults: Record<string, any> = {};
+            const linkResults: Record<string, any> = {};
 
-        // --- Nodes ---
-        const nodeCount = await model.getCount(1); // 1 = CountNodes
-        for (let i = 1; i <= nodeCount; i++) {
-            const id = await model.getNodeId(i);
+            // Nodes
+            const nodeCount = await model.getCount(1); // 1 = CountNodes
+            for (let i = 1; i <= nodeCount; i++) {
+                const id = await model.getNodeId(i);
+                nodeResults[id] = {
+                    id,
+                    pressure: parseFloat((await model.getNodeValue(i, EN_PRESSURE)).toFixed(2)),
+                    demand: parseFloat((await model.getNodeValue(i, EN_DEMAND)).toFixed(2)),
+                    head: parseFloat((await model.getNodeValue(i, EN_HEAD)).toFixed(2)),
+                };
+            }
 
-            // FIX: Use correct constants (9, 10, 11)
-            const demand = await model.getNodeValue(i, EN_DEMAND);
-            const head = await model.getNodeValue(i, EN_HEAD);
-            const pressure = await model.getNodeValue(i, EN_PRESSURE);
+            // Links
+            const linkCount = await model.getCount(2); // 2 = CountLinks
+            for (let i = 1; i <= linkCount; i++) {
+                const id = await model.getLinkId(i);
+                const statusVal = await model.getLinkValue(i, EN_STATUS);
+                linkResults[id] = {
+                    id,
+                    flow: parseFloat((await model.getLinkValue(i, EN_FLOW)).toFixed(2)),
+                    velocity: parseFloat((await model.getLinkValue(i, EN_VELOCITY)).toFixed(2)),
+                    headloss: parseFloat((await model.getLinkValue(i, EN_HEADLOSS)).toFixed(4)),
+                    status: statusVal >= 1 ? "Open" : "Closed",
+                };
+            }
 
-            nodeResults[id] = {
-                id,
-                pressure: parseFloat(pressure.toFixed(2)),
-                demand: parseFloat(demand.toFixed(2)),
-                head: parseFloat(head.toFixed(2)),
-            };
-        }
+            // Store Snapshot
+            timestamps.push(t);
+            snapshots.push({
+                nodes: nodeResults,
+                links: linkResults,
+                timeStep: t,
+                timestamp: Date.now()
+            });
 
-        // --- Links ---
-        const linkCount = await model.getCount(2); // 2 = CountLinks
-        for (let i = 1; i <= linkCount; i++) {
-            const id = await model.getLinkId(i);
+            // C. Advance Time (Critical Step!)
+            // nextH() calculates the time until the next hydraulic event
+            // If tStep > 0, simulation continues. If tStep = 0, simulation ends.
+            tStep = await model.nextH();
 
-            // FIX: Use correct constants
-            const flow = await model.getLinkValue(i, EN_FLOW);
-            const velocity = await model.getLinkValue(i, EN_VELOCITY);
-            const headloss = await model.getLinkValue(i, EN_HEADLOSS);
-            const statusVal = await model.getLinkValue(i, EN_STATUS);
+        } while (tStep > 0);
 
-            linkResults[id] = {
-                id,
-                flow: parseFloat(flow.toFixed(2)),
-                velocity: parseFloat(velocity.toFixed(2)),
-                headloss: parseFloat(headloss.toFixed(4)),
-                status: statusVal >= 1 ? "Open" : "Closed",
-            };
-        }
-
+        // 4. Cleanup
         await model.closeH();
         await model.close();
 
+        console.log(`✅ Simulation completed. Generated ${timestamps.length} time steps.`);
+
+        // 5. Response
         return NextResponse.json({
-            nodes: nodeResults,
-            links: linkResults,
-            timestamp: Date.now()
+            timestamps,
+            snapshots,
+            generatedAt: Date.now()
         });
 
     } catch (error) {
