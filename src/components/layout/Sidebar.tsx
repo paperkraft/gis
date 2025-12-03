@@ -15,6 +15,7 @@ import {
   SquareDot,
   Minus,
   Type,
+  Hand,
 } from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
 import { KeyboardShortcutsModal } from "../modals/KeyboardShortcutsModal";
@@ -91,6 +92,13 @@ export function Sidebar() {
   if (!sidebarOpen) return null;
 
   const tools = [
+    {
+      id: "pan", // New Tool
+      name: "Pan",
+      icon: Hand,
+      description: "Pan the map without selecting",
+      shortcut: "H",
+    },
     {
       id: "select",
       name: "Select",

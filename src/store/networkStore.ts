@@ -1,16 +1,17 @@
 import { create } from "zustand";
 import { Feature } from "ol";
 import { FeatureType, NetworkFeatureProperties, ProjectSettings, PumpCurve, TimePattern } from "@/types/network";
+import { ParsedProjectData } from "@/lib/import/inpParser";
 
 interface NetworkState {
     features: Map<string, Feature>;
-    settings: ProjectSettings;
     selectedFeature: Feature | null;
     selectedFeatureId: string | null;
     selectedFeatureIds: string[];
     nextIdCounter: Record<FeatureType, number>;
 
-    // Data Tables
+    // Project Data
+    settings: ProjectSettings;
     patterns: TimePattern[];
     curves: PumpCurve[];
 
@@ -20,7 +21,6 @@ interface NetworkState {
 
     // Actions
     setSelectedFeature: (feature: Feature | null) => void;
-    updateSettings: (settings: Partial<ProjectSettings>) => void;
     addFeature: (feature: Feature) => void;
     removeFeature: (id: string) => void;
     updateFeature: (id: string, properties: Partial<NetworkFeatureProperties>) => void;
@@ -43,6 +43,10 @@ interface NetworkState {
     updateNodeConnections: (nodeId: string, linkId: string, action: "add" | "remove") => void;
     getConnectedLinks: (nodeId: string) => string[];
     findNodeById: (nodeId: string) => Feature | undefined;
+
+    // Project Actions
+    loadProject: (data: ParsedProjectData) => void;
+    updateSettings: (settings: Partial<ProjectSettings>) => void;
 
     // History Actions
     snapshot: () => void;
@@ -71,11 +75,11 @@ const DEFAULT_SETTINGS: ProjectSettings = {
 
 export const useNetworkStore = create<NetworkState>((set, get) => ({
     features: new Map(),
-    settings: DEFAULT_SETTINGS,
     selectedFeatureId: null,
     selectedFeature: null,
     selectedFeatureIds: [],
 
+    settings: DEFAULT_SETTINGS,
     patterns: DEFAULT_PATTERNS,
     curves: [],
 
@@ -89,6 +93,26 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         pump: 100,
         valve: 100,
         pipe: 100,
+    },
+
+    loadProject: (data) => {
+        const featureMap = new Map<string, Feature>();
+        data.features.forEach(f => {
+            const id = f.getId() as string;
+            if (id) f.set('id', id);
+            featureMap.set(id, f);
+        });
+
+        set({
+            features: featureMap,
+            settings: data.settings,
+            patterns: data.patterns.length > 0 ? data.patterns : DEFAULT_PATTERNS,
+            curves: data.curves,
+            past: [],
+            future: [],
+            selectedFeature: null,
+            selectedFeatureId: null
+        });
     },
 
     updateSettings: (newSettings) => {

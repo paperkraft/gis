@@ -20,7 +20,7 @@ export function Header() {
       <div className="flex items-center gap-3">
         <Droplet className="h-6 w-6 text-primary" />
         <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Water Network GIS
+          Water Network
         </h1>
         <span className="text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
           Beta Edition

@@ -36,7 +36,8 @@ import { AutoElevationModal } from "../modals/AutoElevationModal";
 import { useTopologyValidation } from "@/hooks/useTopologyValidation";
 
 export function MapControls() {
-  const { map } = useMapStore();
+  const map = useMapStore((state) => state.map);
+
   const {
     activeTab,
     activeTool,

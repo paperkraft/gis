@@ -1,7 +1,7 @@
 import { Feature } from 'ol';
 import Map from 'ol/Map';
 import { toLonLat } from 'ol/proj';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { handleZoomToExtent } from '@/lib/interactions/map-controls';
 import { isJunctionConnectedToLink } from '@/lib/styles/featureStyles';
@@ -12,19 +12,29 @@ interface UseMapEventsProps {
 }
 
 export function useMapEvents({ map }: UseMapEventsProps) {
-    const { setCoordinates } = useMapStore();
+    const setCoordinates = useMapStore((state) => state.setCoordinates); // Use selector
+    const lastUpdate = useRef(0); // For throttling
 
     useEffect(() => {
         if (!map) return;
 
         // 1. Coordinate Tracking
         const handlePointerMove = (event: any) => {
-            const coord = event.coordinate;
-            const [lon, lat] = toLonLat(coord);
-            setCoordinates(`${lon.toFixed(4)}°N, ${lat.toFixed(4)}°E`);
+            // const coord = event.coordinate;
+            // const [lon, lat] = toLonLat(coord);
+            // setCoordinates(`${lon.toFixed(4)}°N, ${lat.toFixed(4)}°E`);
+
+            // 1. Throttle Coordinate Updates (e.g., max 20 times per second)
+            const now = Date.now();
+            if (now - lastUpdate.current > 50) {
+                const coord = event.coordinate;
+                const [lon, lat] = toLonLat(coord);
+                setCoordinates(`${lon.toFixed(4)}°N, ${lat.toFixed(4)}°E`);
+                lastUpdate.current = now;
+            }
 
 
-            // Cursor and Tooltip logic for special junctions
+            // 2. Cursor Logic (Keep instantaneous for responsiveness)
             const feature = map.forEachFeatureAtPixel(
                 event.pixel,
                 (f) => f as Feature,
@@ -38,6 +48,13 @@ export function useMapEvents({ map }: UseMapEventsProps) {
                     map.getViewport().title = 'This junction is part of a pump/valve. Move the pump/valve to reposition.';
                 } else {
                     map.getViewport().style.cursor = 'pointer';
+                    map.getViewport().title = '';
+                }
+            } else {
+                // Reset cursor if not drawing/modifying
+                // Note: Be careful not to override drawing cursors
+                if (map.getViewport().style.cursor === 'not-allowed') {
+                    map.getViewport().style.cursor = 'default';
                     map.getViewport().title = '';
                 }
             }

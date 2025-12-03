@@ -1,6 +1,6 @@
 import { Feature } from 'ol';
 import { Point, LineString } from 'ol/geom';
-import { NetworkFeatureProperties } from '@/types/network';
+import { NetworkFeatureProperties, ProjectSettings, PumpCurve, TimePattern } from '@/types/network';
 import { useNetworkStore } from '@/store/networkStore';
 
 /**
@@ -23,11 +23,21 @@ function pad(val: any, width: number = 16): string {
 /**
  * Generates EPANET INP file content from network features
  */
-export function generateINP(features: Feature[]): string {
+export function generateINP(
+    features: Feature[],
+    customSettings?: ProjectSettings,
+    customPatterns?: TimePattern[],
+    customCurves?: PumpCurve[]
+): string {
+
     const lines: string[] = [];
 
-    // GET DYNAMIC SETTINGS
-    const { settings, patterns, curves } = useNetworkStore.getState();
+    // 1. Resolve Data Sources (Custom or Store)
+    const store = useNetworkStore.getState();
+    const settings = customSettings || store.settings;
+
+    const patterns = customPatterns || store.patterns;
+    const curves = customCurves || store.curves;
 
     // Separate features by type
     const junctions = features.filter(f => f.get('type') === 'junction');
@@ -58,7 +68,7 @@ export function generateINP(features: Feature[]): string {
     lines.push('PATTERN            1');
     lines.push('');
 
-    // --- 3. TIMES (FIXED: Using HH:MM format) ---
+    // --- 3. TIMES ---
     lines.push('[TIMES]');
     lines.push('Duration           24:00');
     lines.push('Hydraulic Timestep 1:00');

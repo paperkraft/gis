@@ -36,8 +36,10 @@ export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
 
   // 1. Initialize Map & Layers
+  const map = useMapStore((state) => state.map);
+  const vectorSource = useMapStore((state) => state.vectorSource);
+
   const { vectorLayer } = useMapInitialization(mapRef);
-  const { map, vectorSource } = useMapStore();
   const {
     activeTool,
     deleteModalOpen,

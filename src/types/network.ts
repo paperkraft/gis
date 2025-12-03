@@ -70,7 +70,7 @@ export interface ProjectSettings {
 export interface TimePattern {
     id: string;
     description?: string;
-    multipliers: number[]; // Array of 24 multipliers
+    multipliers: number[];
 }
 export interface PumpCurve {
     id: string;

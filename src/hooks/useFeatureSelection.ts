@@ -91,7 +91,17 @@ export function useFeatureSelection({
         const selectInteraction = new Select({
             layers: [vectorLayer],
             // Disable click selection while drawing polygon to prevent conflicts
-            condition: activeTool === 'select-polygon' ? never : (e) => click(e) || (click(e) && (shiftKeyOnly(e) || platformModifierKeyOnly(e))),
+            // condition: activeTool === 'select-polygon' ? never : (e) => click(e) || (click(e) && (shiftKeyOnly(e) || platformModifierKeyOnly(e))),
+            condition: (e) => {
+                // DISABLE user selection if tool is 'pan' or 'draw' or 'modify'
+                if (activeTool === 'pan' || activeTool === 'draw' || activeTool === 'modify') {
+                    return false;
+                }
+
+                // Normal selection logic for 'select' tool
+                if (activeTool === 'select-polygon') return false; // Handled by Draw
+                return click(e) || (click(e) && (shiftKeyOnly(e) || platformModifierKeyOnly(e)));
+            },
             style: (feature) => getSelectedStyle(feature as Feature),
             filter: (feature) => !feature.get("isPreview") && !feature.get("isVertexMarker") && !feature.get("isVisualLink"),
             multi: true,
@@ -198,7 +208,7 @@ export function useFeatureSelection({
     // 2. HOVER INTERACTION
     useEffect(() => {
         if (!map || !vectorLayer || !enableHover) return;
-        if (activeTool === 'select-polygon' || activeTool === 'select-box') return;
+        if (activeTool === 'pan' || activeTool === 'select-polygon' || activeTool === 'select-box') return;
 
         let hoveredFeature: Feature | null = null;
 

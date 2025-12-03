@@ -25,7 +25,7 @@ interface UIState {
     dataManagerModalOpen: boolean;
 
     // Map control states
-    activeTool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | null;
+    activeTool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | 'pan' | null;
     measurementType: 'distance' | 'area';
     showBaseLayerMenu: boolean;
     measurementActive: boolean;
@@ -59,7 +59,7 @@ interface UIState {
     setDataManagerModalOpen: (open: boolean) => void;
 
     // Actions - Map Controls
-    setActiveTool: (tool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | null) => void;
+    setActiveTool: (tool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | 'pan' | null) => void;
     setMeasurementType: (type: 'distance' | 'area') => void;
     setShowBaseLayerMenu: (open: boolean) => void;
     setShowAttributeTable: (open: boolean) => void;
@@ -94,7 +94,7 @@ const DEFAULT_STATE = {
     deleteModalOpen: false,
     importModalOpen: false,
     exportModalOpen: false,
-    activeTool: 'select' as const,
+    activeTool: 'pan' as const,
     measurementActive: false,
     measurementType: 'distance' as const,
     showAttributeTable: false,
@@ -267,7 +267,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     // Utility actions
     resetAllTools: () => {
         set({
-            activeTool: 'select',
+            activeTool: 'pan',
             measurementActive: false,
             componentSelectionModalOpen: false,
             showAttributeTable: false,

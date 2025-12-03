@@ -31,12 +31,10 @@ export function ValidationModal({ isOpen, onClose }: ValidationModalProps) {
   const { selectFeature } = useNetworkStore();
   const { map, vectorSource } = useMapStore();
 
-  // State for view mode: 'list' (full modal) or 'inspect' (minimized HUD)
   const [viewMode, setViewMode] = useState<"list" | "inspect">("list");
   const [currentIssueIndex, setCurrentIssueIndex] = useState(0);
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0);
 
-  // Flatten errors and warnings into a single navigable list
   const allIssues = useMemo<CombinedIssue[]>(() => {
     if (!lastValidation) return [];
     return [
@@ -51,16 +49,48 @@ export function ValidationModal({ isOpen, onClose }: ValidationModalProps) {
     ];
   }, [lastValidation]);
 
-  // Reset state when modal opens/closes or validation changes
+  // --- DYNAMIC HEADER LOGIC ---
+  const headerState = useMemo(() => {
+    if (!lastValidation)
+      return {
+        title: "Validating...",
+        color: "text-gray-500",
+        icon: CheckCircle,
+      };
+
+    if (!lastValidation.isValid || lastValidation.errors.length > 0) {
+      return {
+        title: "Validation Failed",
+        count: `${lastValidation.errors.length} Errors`,
+        color: "text-red-600",
+        icon: AlertOctagon,
+      };
+    }
+    if (lastValidation.warnings.length > 0) {
+      return {
+        title: "Validation Warnings",
+        count: `${lastValidation.warnings.length} Warnings`,
+        color: "text-amber-600",
+        icon: AlertTriangle,
+      };
+    }
+    return {
+      title: "Network Valid",
+      count: "Ready for Simulation",
+      color: "text-green-600",
+      icon: CheckCircle,
+    };
+  }, [lastValidation]);
+  // ----------------------------
+
   useEffect(() => {
     if (!isOpen) {
       setViewMode("list");
       setCurrentIssueIndex(0);
       setCurrentFeatureIndex(0);
     }
-  }, [isOpen, lastValidation]);
+  }, [isOpen]);
 
-  // Helper: Parse IDs from string
   const getFeatureIds = (issue: CombinedIssue) => {
     if (!issue.featureId) return [];
     return issue.featureId
@@ -69,7 +99,6 @@ export function ValidationModal({ isOpen, onClose }: ValidationModalProps) {
       .filter((s) => s.length > 0);
   };
 
-  // Action: Zoom to specific feature
   const zoomToFeature = (id: string) => {
     if (!id || !map || !vectorSource) return;
     const feature = vectorSource.getFeatureById(id);
@@ -86,7 +115,6 @@ export function ValidationModal({ isOpen, onClose }: ValidationModalProps) {
     }
   };
 
-  // Effect: Auto-zoom when navigating in inspect mode
   useEffect(() => {
     if (viewMode === "inspect" && allIssues[currentIssueIndex]) {
       const ids = getFeatureIds(allIssues[currentIssueIndex]);
@@ -96,7 +124,6 @@ export function ValidationModal({ isOpen, onClose }: ValidationModalProps) {
     }
   }, [viewMode, currentIssueIndex, currentFeatureIndex, allIssues]);
 
-  // Handlers
   const handleInspect = (index: number) => {
     setCurrentIssueIndex(index);
     setCurrentFeatureIndex(0);
@@ -108,7 +135,6 @@ export function ValidationModal({ isOpen, onClose }: ValidationModalProps) {
     if (currentFeatureIndex < ids.length - 1) {
       setCurrentFeatureIndex((prev) => prev + 1);
     } else if (currentIssueIndex < allIssues.length - 1) {
-      // Automatically go to next issue if out of features
       setCurrentIssueIndex((prev) => prev + 1);
       setCurrentFeatureIndex(0);
     }
@@ -118,7 +144,6 @@ export function ValidationModal({ isOpen, onClose }: ValidationModalProps) {
     if (currentFeatureIndex > 0) {
       setCurrentFeatureIndex((prev) => prev - 1);
     } else if (currentIssueIndex > 0) {
-      // Go to previous issue's last feature
       const prevIssueIndex = currentIssueIndex - 1;
       const prevIds = getFeatureIds(allIssues[prevIssueIndex]);
       setCurrentIssueIndex(prevIssueIndex);
@@ -128,9 +153,6 @@ export function ValidationModal({ isOpen, onClose }: ValidationModalProps) {
 
   if (!isOpen || !lastValidation) return null;
 
-  // ---------------------------------------------------------
-  // VIEW 1: INSPECTION HUD (Minimized)
-  // ---------------------------------------------------------
   if (viewMode === "inspect") {
     const currentIssue = allIssues[currentIssueIndex];
     const ids = getFeatureIds(currentIssue);
@@ -138,9 +160,7 @@ export function ValidationModal({ isOpen, onClose }: ValidationModalProps) {
 
     return (
       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 w-full max-w-lg pointer-events-none">
-        {/* Navigation Card */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 w-full pointer-events-auto animate-in slide-in-from-bottom-4 duration-300">
-          {/* Header Row */}
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2">
               <span
@@ -177,15 +197,10 @@ export function ValidationModal({ isOpen, onClose }: ValidationModalProps) {
               </button>
             </div>
           </div>
-
-          {/* Content */}
           <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">
             {currentIssue.message}
           </p>
-
-          {/* Controls */}
           <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-900/50 p-2 rounded-lg border border-gray-200 dark:border-gray-700">
-            {/* Feature Navigation */}
             <div className="flex items-center gap-2">
               <button
                 onClick={handlePrevFeature}
@@ -194,7 +209,6 @@ export function ValidationModal({ isOpen, onClose }: ValidationModalProps) {
               >
                 <ArrowLeft className="w-4 h-4" />
               </button>
-
               <div className="text-xs font-mono text-center min-w-[100px]">
                 {ids.length > 0 ? (
                   <>
@@ -210,7 +224,6 @@ export function ValidationModal({ isOpen, onClose }: ValidationModalProps) {
                   <span className="text-gray-400 italic">No specific ID</span>
                 )}
               </div>
-
               <button
                 onClick={handleNextFeature}
                 disabled={
@@ -222,8 +235,6 @@ export function ValidationModal({ isOpen, onClose }: ValidationModalProps) {
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
-
-            {/* Hint */}
             <div className="text-[10px] text-gray-400 uppercase font-semibold">
               {currentFeatureIndex === ids.length - 1 &&
               currentIssueIndex < allIssues.length - 1
@@ -236,25 +247,26 @@ export function ValidationModal({ isOpen, onClose }: ValidationModalProps) {
     );
   }
 
-  // ---------------------------------------------------------
-  // VIEW 2: LIST MODE (Full Modal)
-  // ---------------------------------------------------------
   const { isValid, errors, warnings } = lastValidation;
+  const HeaderIcon = headerState.icon;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full max-h-[85vh] flex flex-col animate-in fade-in zoom-in duration-200">
-        {/* Header */}
+        {/* DYNAMIC HEADER */}
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-900 rounded-t-xl shrink-0">
-          <div className="flex items-center gap-2">
-            {isValid ? (
-              <CheckCircle className="w-6 h-6 text-green-600" />
-            ) : (
-              <AlertOctagon className="w-6 h-6 text-red-600" />
-            )}
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {isValid ? "Network Valid" : "Validation Issues"}
-            </h2>
+          <div className="flex items-center gap-3">
+            <HeaderIcon className={`w-6 h-6 ${headerState.color}`} />
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {headerState.title}
+              </h2>
+              <p
+                className={`text-xs font-medium ${headerState.color} opacity-80`}
+              >
+                {headerState.count}
+              </p>
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -275,69 +287,45 @@ export function ValidationModal({ isOpen, onClose }: ValidationModalProps) {
             </div>
           )}
 
-          {/* List Items */}
-          {allIssues.map((issue, index) => {
-            const isError = issue.severity === "error";
-            const ids = getFeatureIds(issue);
-
-            return (
-              <div
-                key={index}
-                className={`p-3 rounded-lg border flex flex-col gap-2 transition-colors ${
-                  isError
-                    ? "bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800"
-                    : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`mt-0.5 shrink-0 ${
-                      isError ? "text-red-600" : "text-amber-600"
-                    }`}
-                  >
-                    {isError ? (
-                      <AlertOctagon className="w-4 h-4" />
-                    ) : (
-                      <AlertTriangle className="w-4 h-4" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <p
-                      className={`text-sm font-medium ${
-                        isError
-                          ? "text-red-800 dark:text-red-200"
-                          : "text-amber-800 dark:text-amber-200"
-                      }`}
-                    >
-                      {issue.message}
-                    </p>
-
-                    {ids.length > 0 && (
-                      <div className="mt-2 flex items-center justify-between">
-                        <span className="text-xs text-gray-500 bg-white/50 px-2 py-1 rounded">
-                          {ids.length} Feature{ids.length !== 1 ? "s" : ""}{" "}
-                          affected
-                        </span>
-
-                        <button
-                          onClick={() => handleInspect(index)}
-                          className={`text-xs flex items-center gap-1 font-bold uppercase tracking-wide hover:underline ${
-                            isError ? "text-red-600" : "text-amber-600"
-                          }`}
-                        >
-                          <Search className="w-3 h-3" />
-                          Inspect & Fix
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+          {errors.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-red-600 uppercase tracking-wide flex items-center gap-2">
+                <AlertOctagon className="w-4 h-4" />
+                Critical Errors ({errors.length})
+              </h3>
+              <div className="space-y-2">
+                {errors.map((error, idx) => (
+                  <ValidationListItem
+                    key={idx}
+                    issue={error}
+                    severity="error"
+                    onInspect={() => handleInspect(idx)} // Correct index mapping needed if flattened
+                  />
+                ))}
               </div>
-            );
-          })}
+            </div>
+          )}
+
+          {warnings.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-amber-600 uppercase tracking-wide flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Warnings ({warnings.length})
+              </h3>
+              <div className="space-y-2">
+                {warnings.map((warning, idx) => (
+                  <ValidationListItem
+                    key={idx}
+                    issue={warning}
+                    severity="warning"
+                    onInspect={() => handleInspect(errors.length + idx)} // Offset index
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex justify-end rounded-b-xl">
           <button
             onClick={onClose}
@@ -345,6 +333,73 @@ export function ValidationModal({ isOpen, onClose }: ValidationModalProps) {
           >
             Close
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Sub-component for clean rendering
+function ValidationListItem({
+  issue,
+  severity,
+  onInspect,
+}: {
+  issue: ValidationError | ValidationWarning;
+  severity: "error" | "warning";
+  onInspect: () => void;
+}) {
+  const isError = severity === "error";
+  const ids = issue.featureId
+    ? issue.featureId.split(",").filter((s) => s.trim().length)
+    : [];
+
+  return (
+    <div
+      className={`p-3 rounded-lg border flex flex-col gap-2 transition-colors ${
+        isError
+          ? "bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800"
+          : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className={`mt-0.5 shrink-0 ${
+            isError ? "text-red-600" : "text-amber-600"
+          }`}
+        >
+          {isError ? (
+            <AlertOctagon className="w-4 h-4" />
+          ) : (
+            <AlertTriangle className="w-4 h-4" />
+          )}
+        </div>
+        <div className="flex-1">
+          <p
+            className={`text-sm font-medium ${
+              isError
+                ? "text-red-800 dark:text-red-200"
+                : "text-amber-800 dark:text-amber-200"
+            }`}
+          >
+            {issue.message}
+          </p>
+          {ids.length > 0 && (
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-xs text-gray-500 bg-white/50 px-2 py-1 rounded">
+                {ids.length} Feature{ids.length !== 1 ? "s" : ""} affected
+              </span>
+              <button
+                onClick={onInspect}
+                className={`text-xs flex items-center gap-1 font-bold uppercase tracking-wide hover:underline ${
+                  isError ? "text-red-600" : "text-amber-600"
+                }`}
+              >
+                <Search className="w-3 h-3" />
+                Inspect
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

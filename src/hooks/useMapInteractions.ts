@@ -75,6 +75,9 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
         modifyManagerRef.current.cleanup();
 
         switch (activeTool) {
+            case 'pan':
+                map.getViewport().style.cursor = 'grab';
+                break;
             case 'select':
                 map.getViewport().style.cursor = 'default';
                 break;
