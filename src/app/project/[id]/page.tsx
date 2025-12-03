@@ -10,12 +10,16 @@ import {
   ArrowLeft,
   Loader2,
   SettingsIcon,
+  Database,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useUIStore } from "@/store/uiStore";
 import { cn } from "@/lib/utils";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useNetworkStore } from "@/store/networkStore";
+import { ProjectSettingsModal } from "@/components/modals/ProjectSettingsModal";
+import { DataManagerModal } from "@/components/modals/DataManagerModal";
+import { Button } from "@/components/ui/button";
 
 const MapContainer = dynamic(
   () => import("@/components/map/MapContainer").then((mod) => mod.MapContainer),
@@ -38,7 +42,14 @@ const tabs = [
 export default function ProjectEditorPage() {
   const params = useParams();
   const router = useRouter();
-  const { activeTab, setActiveTab } = useUIStore();
+  const {
+    activeTab,
+    setActiveTab,
+    dataManagerModalOpen,
+    setDataManagerModalOpen,
+    projectSettingsModalOpen,
+    setProjectSettingsModalOpen,
+  } = useUIStore();
 
   // Subscribe to store title for the header
   const projectTitle = useNetworkStore((state) => state.settings.title);
@@ -78,81 +89,100 @@ export default function ProjectEditorPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
-      {/* Custom Editor Header */}
-      <header className="h-14 border-b bg-white dark:bg-gray-900 flex items-center justify-between px-4 shadow-sm z-50">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push("/")}
-            className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-sm font-semibold text-gray-900 dark:text-white">
-              {projectTitle || "Untitled Project"}
-            </h1>
-            <span className="text-xs text-gray-500">Last saved: Just now</span>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
-          {tabs.map((tab) => (
+    <>
+      <div className="h-screen flex flex-col overflow-hidden">
+        {/* Custom Editor Header */}
+        <header className="h-14 border-b bg-white dark:bg-gray-900 flex items-center justify-between px-4 shadow-sm z-50">
+          <div className="flex items-center gap-4">
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "px-4 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-2",
-                activeTab === tab.id
-                  ? "bg-white dark:bg-gray-700 text-blue-600 shadow-xs"
-                  : "text-gray-600 hover:text-gray-900"
-              )}
+              onClick={() => router.push("/")}
+              className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
             >
-              <tab.icon className="w-3.5 h-3.5" />
-              {tab.label}
+              <ArrowLeft className="w-5 h-5" />
             </button>
-          ))}
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-          {/* Add Settings Button Here for convenience */}
-          <button
-            onClick={() =>
-              useUIStore.getState().setProjectSettingsModalOpen(true)
-            }
-            className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
-            title="Project Settings"
-          >
-            <SettingsIcon className="w-5 h-5" />
-          </button>
-
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            <Save className="w-4 h-4" />
-            Save
-          </button>
-        </div>
-      </header>
-
-      <div className="flex-1 flex overflow-hidden">
-        <Sidebar />
-        <main className="flex-1 flex flex-col relative">
-          <div className="flex-1 relative">
-            <MapContainer />
-            {activeTab === "simulation" && (
-              <div className="absolute inset-0 pointer-events-none z-10">
-                <div className="pointer-events-auto">
-                  <SimulationPanel />
-                </div>
-              </div>
-            )}
+            <div>
+              <h1 className="text-sm font-semibold text-gray-900 dark:text-white">
+                {projectTitle || "Untitled Project"}
+              </h1>
+              <span className="text-xs text-gray-500">
+                Last saved: Just now
+              </span>
+            </div>
           </div>
-        </main>
+
+          {/* Tabs */}
+          <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "px-4 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-2",
+                  activeTab === tab.id
+                    ? "bg-white dark:bg-gray-700 text-blue-600 shadow-xs"
+                    : "text-gray-600 hover:text-gray-900"
+                )}
+              >
+                <tab.icon className="w-3.5 h-3.5" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            {/* Add Settings Button Here for convenience */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setProjectSettingsModalOpen(true)}
+              title="Project Settings"
+            >
+              <SettingsIcon className="w-5 h-5" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDataManagerModalOpen(true)}
+              title="Database"
+            >
+              <Database className="h-5 w-5" />
+            </Button>
+
+            <Button onClick={handleSave}>
+              <Save className="w-4 h-4" />
+              Save
+            </Button>
+          </div>
+        </header>
+
+        <div className="flex-1 flex overflow-hidden">
+          <Sidebar />
+          <main className="flex-1 flex flex-col relative">
+            <div className="flex-1 relative">
+              <MapContainer />
+              {activeTab === "simulation" && (
+                <div className="absolute inset-0 pointer-events-none z-10">
+                  <div className="pointer-events-auto">
+                    <SimulationPanel />
+                  </div>
+                </div>
+              )}
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+
+      <ProjectSettingsModal
+        isOpen={projectSettingsModalOpen}
+        onClose={() => setProjectSettingsModalOpen(false)}
+      />
+
+      <DataManagerModal
+        isOpen={dataManagerModalOpen}
+        onClose={() => setDataManagerModalOpen(false)}
+      />
+    </>
   );
 }

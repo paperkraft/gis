@@ -20,10 +20,6 @@ export function useMapEvents({ map }: UseMapEventsProps) {
 
         // 1. Coordinate Tracking
         const handlePointerMove = (event: any) => {
-            // const coord = event.coordinate;
-            // const [lon, lat] = toLonLat(coord);
-            // setCoordinates(`${lon.toFixed(4)}°N, ${lat.toFixed(4)}°E`);
-
             // 1. Throttle Coordinate Updates (e.g., max 20 times per second)
             const now = Date.now();
             if (now - lastUpdate.current > 50) {
@@ -32,7 +28,6 @@ export function useMapEvents({ map }: UseMapEventsProps) {
                 setCoordinates(`${lon.toFixed(4)}°N, ${lat.toFixed(4)}°E`);
                 lastUpdate.current = now;
             }
-
 
             // 2. Cursor Logic (Keep instantaneous for responsiveness)
             const feature = map.forEachFeatureAtPixel(

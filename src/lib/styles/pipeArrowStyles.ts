@@ -1,3 +1,4 @@
+import { useSimulationStore } from '@/store/simulationStore';
 import { Feature } from 'ol';
 import { LineString, Point } from 'ol/geom';
 import { Fill, RegularShape, Stroke, Style } from 'ol/style';
@@ -6,13 +7,31 @@ import { Fill, RegularShape, Stroke, Style } from 'ol/style';
  * Helper to check if arrow direction should be reversed based on flow direction
  */
 function shouldReverseArrowDirection(feature: Feature): boolean {
-    // If the feature has a 'reversed' property set by the topology engine
+    // 1. Check for manual topology reverse flag (if set by editing tools)
     if (feature.get('reversed')) {
         return true;
     }
 
-    // You could add more logic here if you have flow simulation results
-    // e.g., if (simulationResult.flow < 0) return true;
+    // 2. Check Simulation Results
+    try {
+        const { results, status } = useSimulationStore.getState();
+
+        // Only apply if simulation has results
+        if (status === 'completed' && results) {
+            const id = feature.getId() as string;
+            const linkResult = results.links[id];
+
+            // EPANET Convention: 
+            // Positive Flow = StartNode -> EndNode
+            // Negative Flow = EndNode -> StartNode (Reverse)
+            if (linkResult && linkResult.flow < 0) {
+                return true;
+            }
+        }
+    } catch (e) {
+        // Safe fallback if store is not ready
+        return false;
+    }
 
     return false;
 }
@@ -140,7 +159,7 @@ export function createSegmentArrows(feature: Feature): Style[] {
 export function getArrowColor(feature: Feature): string {
     const status = feature.get('status');
     if (status === 'closed' || status === 'inactive') return '#9CA3AF'; // Gray
-    return '#EF4444'; // Red default
+    return '#1f1e1c'; // default
 }
 
 /**

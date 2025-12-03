@@ -1,17 +1,16 @@
-import { useEffect, useRef, useCallback } from 'react';
 import { Feature, MapBrowserEvent } from 'ol';
 import { Point } from 'ol/geom';
-import VectorSource from 'ol/source/Vector';
 import Map from 'ol/Map';
+import VectorSource from 'ol/source/Vector';
+import { useCallback, useEffect, useRef } from 'react';
 
-import { useUIStore } from '@/store/uiStore';
-import { useNetworkStore } from '@/store/networkStore';
-import { useMapStore } from '@/store/mapStore';
-import { PipeDrawingManager } from '@/lib/topology/pipeDrawingManager';
-import { ModifyManager } from '@/lib/topology/modifyManager';
-import { ContextMenuManager } from '@/lib/topology/contextMenuManager';
-import { VertexLayerManager } from '@/lib/topology/vertexManager';
 import { COMPONENT_TYPES } from '@/constants/networkComponents';
+import { ContextMenuManager } from '@/lib/topology/contextMenuManager';
+import { ModifyManager } from '@/lib/topology/modifyManager';
+import { PipeDrawingManager } from '@/lib/topology/pipeDrawingManager';
+import { VertexLayerManager } from '@/lib/topology/vertexManager';
+import { useNetworkStore } from '@/store/networkStore';
+import { useUIStore } from '@/store/uiStore';
 import { FeatureType } from '@/types/network';
 
 interface UseMapInteractionsProps {

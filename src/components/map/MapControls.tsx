@@ -473,7 +473,7 @@ export function MapControls() {
       </div>
 
       {/* Active Tool Indicator */}
-      {activeTool !== "select" && (
+      {activeTool !== "pan" && activeTool !== "select" && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
           <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
           <span className="text-sm font-medium">
@@ -483,7 +483,7 @@ export function MapControls() {
             {activeTool === "select-polygon" && "Region Select Mode"}
           </span>
           <button
-            onClick={() => setActiveTool("select")}
+            onClick={() => setActiveTool("pan")}
             className="ml-2 text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded"
           >
             ESC

@@ -187,10 +187,8 @@ export const useUIStore = create<UIState>((set, get) => ({
     },
 
     setMeasurementActive: (active) => {
-
-        // When activating measurement, switch to select tool
-        if (active && get().activeTool !== 'select') {
-            set({ activeTool: 'select' });
+        if (active && get().activeTool !== 'pan') {
+            set({ activeTool: 'pan' });
         }
 
         set({ measurementActive: active });

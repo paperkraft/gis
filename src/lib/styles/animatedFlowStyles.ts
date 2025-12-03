@@ -4,7 +4,6 @@ import { Fill, Stroke, Style, Circle as CircleStyle } from 'ol/style';
 
 /**
  * Animated water flow visualization using dashed stroke animation
- * This creates a "marching ants" effect along the pipe
  */
 export class AnimatedFlowRenderer {
     private animationFrame: number | null = null;
@@ -15,24 +14,18 @@ export class AnimatedFlowRenderer {
 
     constructor(private vectorLayer: any) { }
 
-    /**
-     * Start the flow animation
-     */
     public startAnimation() {
         if (this.animationFrame) return;
 
         const animate = () => {
             this.offset = (this.offset + this.speed) % (this.dashLength + this.gapLength);
-            this.vectorLayer.changed(); // Trigger re-render
+            this.vectorLayer.changed();
             this.animationFrame = requestAnimationFrame(animate);
         };
 
         animate();
     }
 
-    /**
-     * Stop the flow animation
-     */
     public stopAnimation() {
         if (this.animationFrame) {
             cancelAnimationFrame(this.animationFrame);
@@ -40,23 +33,8 @@ export class AnimatedFlowRenderer {
         }
     }
 
-    /**
-     * Get current offset for animated dashes
-     */
-    public getOffset(): number {
-        return this.offset;
-    }
-
-    /**
-     * Set animation speed
-     */
-    public setSpeed(speed: number) {
-        this.speed = speed;
-    }
-
-    /**
-     * Set dash pattern
-     */
+    public getOffset(): number { return this.offset; }
+    public setSpeed(speed: number) { this.speed = speed; }
     public setDashPattern(dashLength: number, gapLength: number) {
         this.dashLength = dashLength;
         this.gapLength = gapLength;
@@ -65,8 +43,6 @@ export class AnimatedFlowRenderer {
 
 /**
  * Create animated flow overlay style for a pipe
- * This is a SEMI-TRANSPARENT OVERLAY that goes on top of the base pipe style
- * Uses dashed stroke with animated offset to simulate flow
  */
 export function createAnimatedFlowStyle(
     feature: Feature,
@@ -116,12 +92,12 @@ export function createFlowParticleStyles(
 
     const styles: Style[] = [];
     const reversed = feature.get('reversed') || false;
-    const flowRate = feature.get('flow') || 1; // Flow rate (affects speed)
+    const flowRate = feature.get('flow') || 1;
     const diameter = feature.get('diameter') || 300;
 
     // Adjust particle density based on pipe length
     const pipeLength = geometry.getLength();
-    const numParticles = Math.max(2, Math.min(5, Math.floor(pipeLength / 150))); // 2-5 particles
+    const numParticles = Math.max(2, Math.min(5, Math.floor(pipeLength / 150)));
 
     // Calculate total length
     let totalLength = 0;
@@ -139,7 +115,7 @@ export function createFlowParticleStyles(
     }
 
     // Create particles at intervals
-    const speed = 20 + Math.abs(flowRate) * 10; // Increased speed for visibility
+    const speed = 20 + Math.abs(flowRate) * 10;
     const cycleLength = totalLength;
 
     for (let i = 0; i < numParticles; i++) {
@@ -165,10 +141,10 @@ export function createFlowParticleStyles(
                 geometry: new Point(position),
                 image: new CircleStyle({
                     radius: particleRadius,
-                    fill: new Fill({ color: 'rgba(59, 130, 246, 0.9)' }), // More opaque
+                    fill: new Fill({ color: 'rgba(59, 130, 246, 0.9)' }),
                     stroke: new Stroke({ color: '#FFFFFF', width: 1.5 }),
                 }),
-                zIndex: 99, // Above everything else
+                zIndex: 99,
             });
 
             styles.push(particleStyle);
@@ -212,10 +188,10 @@ export function createPulsingGlowStyle(
     time: number = 0
 ): Style {
     const diameter = feature.get('diameter') || 300;
-    const status = feature.get('status') || 'active';
+    const status = (feature.get('status') || 'open').toString().toLowerCase();
 
-    if (status !== 'active') {
-        // No glow for inactive pipes
+    if (status !== 'active' && status !== 'open') {
+        // No glow for closed/inactive pipes
         return new Style({});
     }
 
@@ -241,13 +217,6 @@ export function createPulsingGlowStyle(
 
 /**
  * Combined style function that creates all flow animations
- * IMPORTANT: These styles should be ADDED to the base pipe style, not replace it
- * 
- * Usage:
- * const styles = [
- *   getBasePipeStyle(feature),           // Base pipe (zIndex: 10)
- *   ...createCombinedFlowStyles(...)     // Animated overlays (zIndex: 8, 15, 105)
- * ];
  */
 export function createCombinedFlowStyles(
     feature: Feature,

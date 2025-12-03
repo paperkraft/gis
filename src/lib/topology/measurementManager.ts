@@ -60,6 +60,7 @@ export class MeasurementManager {
 
         // Add interaction
         this.addInteraction(type);
+        this.map.getViewport().style.cursor = 'default';
     }
 
     public stopMeasurement() {

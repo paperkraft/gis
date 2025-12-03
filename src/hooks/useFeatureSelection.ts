@@ -99,7 +99,7 @@ export function useFeatureSelection({
                 }
 
                 // Normal selection logic for 'select' tool
-                if (activeTool === 'select-polygon') return false; // Handled by Draw
+                if (activeTool === 'select-polygon') return false;
                 return click(e) || (click(e) && (shiftKeyOnly(e) || platformModifierKeyOnly(e)));
             },
             style: (feature) => getSelectedStyle(feature as Feature),
