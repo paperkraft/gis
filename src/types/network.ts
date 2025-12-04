@@ -78,3 +78,15 @@ export interface PumpCurve {
     type: 'PUMP' | 'VOLUME' | 'HEADLOSS';
     points: { x: number; y: number }[];
 }
+
+export type ControlType = 'LOW LEVEL' | 'HI LEVEL' | 'TIMER' | 'TIMEOFDAY';
+export type ControlAction = 'OPEN' | 'CLOSED' | 'ACTIVE';
+
+export interface NetworkControl {
+    id: string;
+    linkId: string;
+    status: ControlAction;
+    nodeId?: string;
+    value: number;
+    type: ControlType;
+}

@@ -11,6 +11,7 @@ import {
   Loader2,
   SettingsIcon,
   Database,
+  Cpu,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useUIStore } from "@/store/uiStore";
@@ -20,6 +21,7 @@ import { useNetworkStore } from "@/store/networkStore";
 import { ProjectSettingsModal } from "@/components/modals/ProjectSettingsModal";
 import { DataManagerModal } from "@/components/modals/DataManagerModal";
 import { Button } from "@/components/ui/button";
+import { ControlManagerModal } from "@/components/modals/ControlManagerModal";
 
 const MapContainer = dynamic(
   () => import("@/components/map/MapContainer").then((mod) => mod.MapContainer),
@@ -49,6 +51,8 @@ export default function ProjectEditorPage() {
     setDataManagerModalOpen,
     projectSettingsModalOpen,
     setProjectSettingsModalOpen,
+    controlManagerModalOpen,
+    setControlManagerModalOpen,
   } = useUIStore();
 
   // Subscribe to store title for the header
@@ -104,9 +108,7 @@ export default function ProjectEditorPage() {
               <h1 className="text-sm font-semibold text-gray-900 dark:text-white">
                 {projectTitle || "Untitled Project"}
               </h1>
-              <span className="text-xs text-gray-500">
-                Last saved: Just now
-              </span>
+              <span className="text-xs text-gray-500">Last saved:</span>
             </div>
           </div>
 
@@ -150,6 +152,15 @@ export default function ProjectEditorPage() {
               <Database className="h-5 w-5" />
             </Button>
 
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setControlManagerModalOpen(true)}
+              title="Controls"
+            >
+              <Cpu className="h-5 w-5" />
+            </Button>
+
             <Button onClick={handleSave}>
               <Save className="w-4 h-4" />
               Save
@@ -182,6 +193,11 @@ export default function ProjectEditorPage() {
       <DataManagerModal
         isOpen={dataManagerModalOpen}
         onClose={() => setDataManagerModalOpen(false)}
+      />
+
+      <ControlManagerModal
+        isOpen={controlManagerModalOpen}
+        onClose={() => setControlManagerModalOpen(false)}
       />
     </>
   );

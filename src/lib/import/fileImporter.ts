@@ -2,7 +2,6 @@ import { Feature } from 'ol';
 import VectorSource from 'ol/source/Vector';
 import { useNetworkStore } from '@/store/networkStore';
 import { parseINP, ParsedProjectData } from './inpParser';
-import { ProjectSettings, TimePattern, PumpCurve } from '@/types/network';
 
 export type ImportFormat = 'inp' | 'geojson' | 'shapefile' | 'kml';
 
@@ -10,10 +9,11 @@ export interface ImportResult {
     success: boolean;
     features: Feature[];
     message: string;
-    // Extended fields for Project data
-    settings?: ProjectSettings;
-    patterns?: TimePattern[];
-    curves?: PumpCurve[];
+    // Extended fields
+    settings?: any;
+    patterns?: any[];
+    curves?: any[];
+    controls?: any[]; // NEW
     stats?: {
         junctions: number;
         tanks: number;
@@ -155,16 +155,14 @@ export class FileImporter {
         // CASE A: Full Project Import (INP) -> Replace Everything
         if (result.settings) {
             console.log("🔄 Loading full project...");
-
-            // 1. Update Store (Features + Metadata)
             store.loadProject({
                 features: result.features,
                 settings: result.settings,
                 patterns: result.patterns || [],
-                curves: result.curves || []
+                curves: result.curves || [],
+                controls: result.controls || [] // Load controls
             });
 
-            // 2. Update Map (Vector Layer)
             this.vectorSource.clear();
             this.vectorSource.addFeatures(result.features);
         }

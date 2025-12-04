@@ -23,6 +23,7 @@ interface UIState {
     validationModalOpen: boolean;
     projectSettingsModalOpen: boolean;
     dataManagerModalOpen: boolean;
+    controlManagerModalOpen: boolean;
 
     // Map control states
     activeTool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | 'pan' | null;
@@ -57,6 +58,7 @@ interface UIState {
     setValidationModalOpen: (open: boolean) => void;
     setProjectSettingsModalOpen: (open: boolean) => void;
     setDataManagerModalOpen: (open: boolean) => void;
+    setControlManagerModalOpen: (open: boolean) => void;
 
     // Actions - Map Controls
     setActiveTool: (tool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | 'pan' | null) => void;
@@ -89,6 +91,7 @@ const DEFAULT_STATE = {
     simulationReportModalOpen: false,
     validationModalOpen: false,
     projectSettingsModalOpen: false,
+    controlManagerModalOpen: false,
     dataManagerModalOpen: false,
     propertyPanelOpen: false,
     deleteModalOpen: false,
@@ -128,6 +131,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     setProjectSettingsModalOpen: (open) => set({ projectSettingsModalOpen: open }),
 
     setDataManagerModalOpen: (open) => set({ dataManagerModalOpen: open }),
+    setControlManagerModalOpen: (open) => set({ controlManagerModalOpen: open }),
 
     setSimulationReportModalOpen: (open) => {
         set({ simulationReportModalOpen: open });

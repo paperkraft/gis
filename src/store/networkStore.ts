@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { Feature } from "ol";
-import { FeatureType, NetworkFeatureProperties, ProjectSettings, PumpCurve, TimePattern } from "@/types/network";
+import { FeatureType, NetworkControl, NetworkFeatureProperties, ProjectSettings, PumpCurve, TimePattern } from "@/types/network";
 import { ParsedProjectData } from "@/lib/import/inpParser";
 
 interface NetworkState {
@@ -14,6 +14,7 @@ interface NetworkState {
     settings: ProjectSettings;
     patterns: TimePattern[];
     curves: PumpCurve[];
+    controls: NetworkControl[];
 
     // History
     past: Feature[][];
@@ -40,12 +41,20 @@ interface NetworkState {
     updateCurve: (id: string, curve: PumpCurve) => void;
     deleteCurve: (id: string) => void;
 
+    addControl: (control: NetworkControl) => void;
+    updateControl: (id: string, control: NetworkControl) => void;
+    deleteControl: (id: string) => void;
+
     updateNodeConnections: (nodeId: string, linkId: string, action: "add" | "remove") => void;
     getConnectedLinks: (nodeId: string) => string[];
     findNodeById: (nodeId: string) => Feature | undefined;
 
     // Project Actions
     loadProject: (data: ParsedProjectData) => void;
+    
+    setPatterns: (patterns: TimePattern[]) => void;
+    setCurves: (curves: PumpCurve[]) => void;
+    setControls: (controls: NetworkControl[]) => void;
     updateSettings: (settings: Partial<ProjectSettings>) => void;
 
     // History Actions
@@ -85,6 +94,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
     past: [],
     future: [],
+    controls: [],
 
     nextIdCounter: {
         junction: 100,
@@ -107,13 +117,18 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
             features: featureMap,
             settings: data.settings,
             patterns: data.patterns.length > 0 ? data.patterns : DEFAULT_PATTERNS,
-            curves: data.curves,
+            curves: data.curves || [],
             past: [],
             future: [],
+            controls: data.controls || [],
             selectedFeature: null,
-            selectedFeatureId: null
+            selectedFeatureId: null,
         });
     },
+
+    setPatterns: (patterns) => set({ patterns }),
+    setCurves: (curves) => set({ curves }),
+    setControls: (controls) => set({ controls }),
 
     updateSettings: (newSettings) => {
         set((state) => ({
@@ -141,13 +156,26 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         curves: state.curves.filter(c => c.id !== id)
     })),
 
+    addControl: (control) => set((state) => ({
+        controls: [...state.controls, control]
+    })),
+
+    updateControl: (id, updated) => set((state) => ({
+        controls: state.controls.map(c => c.id === id ? updated : c)
+    })),
+
+    deleteControl: (id) => set((state) => ({
+        controls: state.controls.filter(c => c.id !== id)
+    })),
+
     clearFeatures: () => set({
         features: new Map(),
         past: [],
         future: [],
         settings: DEFAULT_SETTINGS,
         patterns: DEFAULT_PATTERNS,
-        curves: []
+        curves: [],
+        controls: []
     }),
 
     setSelectedFeature: (feature) => set({ selectedFeature: feature }),
