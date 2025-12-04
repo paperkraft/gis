@@ -1,5 +1,6 @@
-import { layerType } from "@/constants/map";
-import { create } from "zustand";
+import { create } from 'zustand';
+
+import { layerType } from '@/constants/map';
 
 interface UIState {
 
@@ -17,6 +18,7 @@ interface UIState {
     deleteModalOpen: boolean;
     importModalOpen: boolean;
     exportModalOpen: boolean;
+    showAutoElevation: boolean;
     keyboardShortcutsModalOpen: boolean;
     componentSelectionModalOpen: boolean;
     simulationReportModalOpen: boolean;
@@ -50,6 +52,7 @@ interface UIState {
     setComponentSelectionModalOpen: (open: boolean) => void;
     setKeyboardShortcutsModalOpen: (open: boolean) => void;
     setSimulationReportModalOpen: (open: boolean) => void;
+    setShowAutoElevation: (open: boolean) => void;
     setDeleteModalOpen: (open: boolean) => void;
     setImportModalOpen: (open: boolean) => void;
     setExportModalOpen: (open: boolean) => void;
@@ -62,9 +65,10 @@ interface UIState {
 
     // Actions - Map Controls
     setActiveTool: (tool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | 'pan' | null) => void;
-    setMeasurementType: (type: 'distance' | 'area') => void;
     setShowBaseLayerMenu: (open: boolean) => void;
     setShowAttributeTable: (open: boolean) => void;
+
+    setMeasurementType: (type: 'distance' | 'area') => void;
     setMeasurementActive: (active: boolean) => void;
     setShowMeasurementMenu: (open: boolean) => void;
 
@@ -90,6 +94,7 @@ const DEFAULT_STATE = {
     keyboardShortcutsModalOpen: false,
     simulationReportModalOpen: false,
     validationModalOpen: false,
+    showAutoElevation: false,
     projectSettingsModalOpen: false,
     controlManagerModalOpen: false,
     dataManagerModalOpen: false,
@@ -141,6 +146,10 @@ export const useUIStore = create<UIState>((set, get) => ({
         set({ validationModalOpen: open });
     },
 
+    setShowAutoElevation: (open) => {
+        set({ showAutoElevation: open });
+    },
+
     setDeleteModalOpen: (open) => {
         set({ deleteModalOpen: open });
     },
@@ -168,7 +177,9 @@ export const useUIStore = create<UIState>((set, get) => ({
     // Map control actions
     setActiveTool: (tool) => {
         const currentTool = get().activeTool;
-        if (currentTool === tool) {
+        const isMeasuring = get().measurementActive;
+
+        if (currentTool === tool && !isMeasuring) {
             return;
         }
 
@@ -182,11 +193,10 @@ export const useUIStore = create<UIState>((set, get) => ({
             updates.componentSelectionModalOpen = false;
         }
 
-        // Deactivate measurement when switching to other tools
-        if (tool !== 'select' && get().measurementActive) {
+        // ALWAYS disable measurement if explicitly switching tools
+        if (isMeasuring) {
             updates.measurementActive = false;
         }
-
         set(updates);
     },
 
@@ -271,6 +281,7 @@ export const useUIStore = create<UIState>((set, get) => ({
         set({
             activeTool: 'pan',
             measurementActive: false,
+            showMeasurementMenu: false,
             componentSelectionModalOpen: false,
             showAttributeTable: false,
             propertyPanelOpen: false

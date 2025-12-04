@@ -31,6 +31,7 @@ import { Cordinates } from "./Cordinates";
 import { useHistoryManager } from "@/hooks/useHistoryManager";
 import { SimulationReportModal } from "../modals/SimulationReportModal";
 import { ValidationModal } from "../modals/ValidationModal";
+import { useMeasurement } from "@/hooks/useMeasurement";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -44,14 +45,10 @@ export function MapContainer() {
     activeTool,
     deleteModalOpen,
     showAttributeTable,
-    validationModalOpen,
-    simulationReportModalOpen,
     componentSelectionModalOpen,
     setActiveTool,
     setDeleteModalOpen,
     setShowAttributeTable,
-    setValidationModalOpen,
-    setSimulationReportModalOpen,
     setComponentSelectionModalOpen,
   } = useUIStore();
 
@@ -98,6 +95,9 @@ export function MapContainer() {
   // 10. History Manager (Undo/Redo)
   useHistoryManager();
 
+  // 11. Manager
+  useMeasurement();
+
   // --- Handlers ---
 
   const handleComponentSelection = (componentType: FeatureType | "skip") => {
@@ -115,19 +115,17 @@ export function MapContainer() {
     <div className="relative w-full h-full">
       {/* Map Target */}
       <div ref={mapRef} className="w-full h-full" />
-
-      {/* Overlays & Controls */}
       <MapControls />
       <LocationSearch />
 
-      <FlowAnimationControls
+      {/* <FlowAnimationControls
         isAnimating={flowAnimation.isAnimating}
         speed={flowAnimation.options.speed}
         style={flowAnimation.options.style}
         onToggle={flowAnimation.toggleAnimation}
         onSpeedChange={flowAnimation.setSpeed}
         onStyleChange={flowAnimation.setStyle}
-      />
+      /> */}
 
       <AttributeTable
         isOpen={showAttributeTable}
@@ -160,19 +158,8 @@ export function MapContainer() {
         cascadeInfo={cascadeInfo}
       />
 
-      <SimulationReportModal
-        isOpen={simulationReportModalOpen}
-        onClose={() => setSimulationReportModalOpen(false)}
-      />
-
       {/* Coordinate Display */}
       <Cordinates />
-
-      {/* Render Validation Modal */}
-      <ValidationModal
-        isOpen={validationModalOpen}
-        onClose={() => setValidationModalOpen(false)}
-      />
     </div>
   );
 }
