@@ -1,14 +1,28 @@
 "use client";
 
-import { Eye, Globe, Home, Layers, Map as MapIcon, Mountain, ZoomIn, ZoomOut } from 'lucide-react';
+import {
+  Eye,
+  Globe,
+  Home,
+  Layers,
+  Map as MapIcon,
+  Mountain,
+  Search,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 
-import { layerType } from '@/constants/map';
-import { handleZoomIn, handleZoomOut, handleZoomToExtent } from '@/lib/interactions/map-controls';
-import { switchBaseLayer } from '@/lib/map/baseLayers';
-import { useMapStore } from '@/store/mapStore';
-import { useUIStore } from '@/store/uiStore';
+import { layerType } from "@/constants/map";
+import {
+  handleZoomIn,
+  handleZoomOut,
+  handleZoomToExtent,
+} from "@/lib/interactions/map-controls";
+import { switchBaseLayer } from "@/lib/map/baseLayers";
+import { useMapStore } from "@/store/mapStore";
+import { useUIStore } from "@/store/uiStore";
 
-import { ControlGroup, ToolBtn } from './Shared';
+import { ControlGroup, ToolBtn } from "./Shared";
 
 interface NavigationControlsProps {
   activeGroup: string | null;
@@ -20,7 +34,13 @@ export function NavigationControls({
   onToggle,
 }: NavigationControlsProps) {
   const map = useMapStore((state) => state.map);
-  const { baseLayer, setBaseLayer, setShowBaseLayerMenu } = useUIStore();
+  const {
+    baseLayer,
+    showLocationSearch,
+    setBaseLayer,
+    setShowBaseLayerMenu,
+    setShowLocationSearch,
+  } = useUIStore();
 
   const handleBaseLayerChange = (layerType: layerType) => {
     if (!map) return;
@@ -39,6 +59,12 @@ export function NavigationControls({
         activeGroup={activeGroup}
         onToggle={onToggle}
       >
+        <ToolBtn
+          onClick={() => setShowLocationSearch(!showLocationSearch)}
+          isActive={showLocationSearch}
+          icon={Search}
+          title="Search"
+        />
         <ToolBtn
           onClick={() => handleZoomIn(map)}
           icon={ZoomIn}

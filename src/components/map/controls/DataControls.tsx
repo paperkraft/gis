@@ -1,5 +1,5 @@
 "use client";
-import { Database, Table, FileUp } from "lucide-react";
+import { FileUp, Table2 } from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
 import { ControlGroup, ToolBtn } from "./Shared";
 
@@ -15,7 +15,7 @@ export function DataControls({ activeGroup, onToggle }: DataControlsProps) {
   return (
     <ControlGroup
       id="data"
-      icon={Database}
+      icon={Table2}
       label="Data & Import"
       activeGroup={activeGroup}
       onToggle={onToggle}
@@ -23,7 +23,7 @@ export function DataControls({ activeGroup, onToggle }: DataControlsProps) {
       <ToolBtn
         onClick={() => setShowAttributeTable(!showAttributeTable)}
         isActive={showAttributeTable}
-        icon={Table}
+        icon={Table2}
         title="Attribute Table"
       />
       <ToolBtn

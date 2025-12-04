@@ -14,18 +14,32 @@ import { ImportModal } from "../modals/ImportModal";
 import { AutoElevationModal } from "../modals/AutoElevationModal";
 import { ValidationModal } from "../modals/ValidationModal";
 import { SimulationReportModal } from "../modals/SimulationReportModal";
+import { ProjectSettingsModal } from "../modals/ProjectSettingsModal";
+import { DataManagerModal } from "../modals/DataManagerModal";
+import { ControlManagerModal } from "../modals/ControlManagerModal";
+import { Settings } from "./controls/Settings";
+import { ExportModal } from "../modals/ExportModal";
 
 export function MapControls() {
   const {
     importModalOpen,
+    exportModalOpen,
     validationModalOpen,
     showAutoElevation,
     simulationReportModalOpen,
+    dataManagerModalOpen,
+    projectSettingsModalOpen,
+    controlManagerModalOpen,
 
     setImportModalOpen,
+    setExportModalOpen,
     setValidationModalOpen,
     setShowAutoElevation,
     setSimulationReportModalOpen,
+    setDataManagerModalOpen,
+    setProjectSettingsModalOpen,
+    setControlManagerModalOpen,
+    setShowLocationSearch,
   } = useUIStore();
 
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
@@ -54,6 +68,9 @@ export function MapControls() {
   }, [activeGroup]);
 
   const toggleGroup = (group: string) => {
+    if (activeGroup !== group) {
+      setShowLocationSearch(false);
+    }
     setActiveGroup(activeGroup === group ? null : group);
   };
 
@@ -71,6 +88,7 @@ export function MapControls() {
           onOpenAutoElevation={() => setShowAutoElevation(true)}
         />
         <DataControls activeGroup={activeGroup} onToggle={toggleGroup} />
+        <Settings activeGroup={activeGroup} onToggle={toggleGroup} />
       </div>
 
       {/* Modals */}
@@ -79,10 +97,16 @@ export function MapControls() {
         onClose={() => setImportModalOpen(false)}
       />
 
+      <ExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+      />
+
       <AutoElevationModal
         isOpen={showAutoElevation}
         onClose={() => setShowAutoElevation(false)}
       />
+
       <ValidationModal
         isOpen={validationModalOpen}
         onClose={() => setValidationModalOpen(false)}
@@ -91,6 +115,21 @@ export function MapControls() {
       <SimulationReportModal
         isOpen={simulationReportModalOpen}
         onClose={() => setSimulationReportModalOpen(false)}
+      />
+
+      <ProjectSettingsModal
+        isOpen={projectSettingsModalOpen}
+        onClose={() => setProjectSettingsModalOpen(false)}
+      />
+
+      <DataManagerModal
+        isOpen={dataManagerModalOpen}
+        onClose={() => setDataManagerModalOpen(false)}
+      />
+
+      <ControlManagerModal
+        isOpen={controlManagerModalOpen}
+        onClose={() => setControlManagerModalOpen(false)}
       />
     </>
   );

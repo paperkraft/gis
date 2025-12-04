@@ -1,27 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { ProjectService } from "@/lib/services/ProjectService";
-import {
-  Network,
-  Play,
-  Save,
-  ArrowLeft,
-  Loader2,
-  SettingsIcon,
-  Database,
-  Cpu,
-} from "lucide-react";
+import { ArrowLeft, Loader2, Network, Play } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useUIStore } from "@/store/uiStore";
-import { cn } from "@/lib/utils";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
 import { Sidebar } from "@/components/layout/Sidebar";
-import { useNetworkStore } from "@/store/networkStore";
-import { ProjectSettingsModal } from "@/components/modals/ProjectSettingsModal";
-import { DataManagerModal } from "@/components/modals/DataManagerModal";
 import { Button } from "@/components/ui/button";
-import { ControlManagerModal } from "@/components/modals/ControlManagerModal";
+import { ProjectService } from "@/lib/services/ProjectService";
+import { cn } from "@/lib/utils";
+import { useNetworkStore } from "@/store/networkStore";
+import { useUIStore } from "@/store/uiStore";
 
 const MapContainer = dynamic(
   () => import("@/components/map/MapContainer").then((mod) => mod.MapContainer),
@@ -44,16 +33,7 @@ const tabs = [
 export default function ProjectEditorPage() {
   const params = useParams();
   const router = useRouter();
-  const {
-    activeTab,
-    setActiveTab,
-    dataManagerModalOpen,
-    setDataManagerModalOpen,
-    projectSettingsModalOpen,
-    setProjectSettingsModalOpen,
-    controlManagerModalOpen,
-    setControlManagerModalOpen,
-  } = useUIStore();
+  const { activeTab, setActiveTab } = useUIStore();
 
   // Subscribe to store title for the header
   const projectTitle = useNetworkStore((state) => state.settings.title);
@@ -73,13 +53,6 @@ export default function ProjectEditorPage() {
       }
     }
   }, [params.id, router]);
-
-  const handleSave = () => {
-    if (params.id) {
-      ProjectService.saveCurrentProject(params.id as string, projectTitle);
-      alert("Project Saved!");
-    }
-  };
 
   if (loading) {
     return (
@@ -133,38 +106,7 @@ export default function ProjectEditorPage() {
 
           {/* Actions */}
           <div className="flex items-center gap-2">
-            {/* Add Settings Button Here for convenience */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setProjectSettingsModalOpen(true)}
-              title="Project Settings"
-            >
-              <SettingsIcon className="w-5 h-5" />
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setDataManagerModalOpen(true)}
-              title="Database"
-            >
-              <Database className="h-5 w-5" />
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setControlManagerModalOpen(true)}
-              title="Controls"
-            >
-              <Cpu className="h-5 w-5" />
-            </Button>
-
-            <Button onClick={handleSave}>
-              <Save className="w-4 h-4" />
-              Save
-            </Button>
+            <Button variant={"ghost"}>User</Button>
           </div>
         </header>
 
@@ -184,21 +126,6 @@ export default function ProjectEditorPage() {
           </main>
         </div>
       </div>
-
-      <ProjectSettingsModal
-        isOpen={projectSettingsModalOpen}
-        onClose={() => setProjectSettingsModalOpen(false)}
-      />
-
-      <DataManagerModal
-        isOpen={dataManagerModalOpen}
-        onClose={() => setDataManagerModalOpen(false)}
-      />
-
-      <ControlManagerModal
-        isOpen={controlManagerModalOpen}
-        onClose={() => setControlManagerModalOpen(false)}
-      />
     </>
   );
 }

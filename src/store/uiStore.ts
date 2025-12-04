@@ -34,6 +34,7 @@ interface UIState {
     measurementActive: boolean;
     showAttributeTable: boolean;
     showMeasurementMenu: boolean;
+    showLocationSearch: boolean;
 
     // Layer visibility
     layerVisibility: Record<string, boolean>;
@@ -80,6 +81,7 @@ interface UIState {
 
     // Actions - Search
     setSearchFocused: (focused: boolean) => void;
+    setShowLocationSearch: (focused: boolean) => void;
 
     // Actions - Tab navigation
     setActiveTab: (tab: string) => void;
@@ -95,6 +97,7 @@ const DEFAULT_STATE = {
     simulationReportModalOpen: false,
     validationModalOpen: false,
     showAutoElevation: false,
+    showLocationSearch: false,
     projectSettingsModalOpen: false,
     controlManagerModalOpen: false,
     dataManagerModalOpen: false,
@@ -148,6 +151,10 @@ export const useUIStore = create<UIState>((set, get) => ({
 
     setShowAutoElevation: (open) => {
         set({ showAutoElevation: open });
+    },
+
+    setShowLocationSearch: (open) => {
+        set({ showLocationSearch: open });
     },
 
     setDeleteModalOpen: (open) => {

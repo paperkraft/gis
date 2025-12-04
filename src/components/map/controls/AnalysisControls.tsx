@@ -1,5 +1,12 @@
 "use client";
-import { Ruler, Square, Mountain, ActivityIcon, Radar } from "lucide-react";
+import {
+  Ruler,
+  Square,
+  Mountain,
+  ActivityIcon,
+  Radar,
+  ShieldCheck,
+} from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
 import { useTopologyValidation } from "@/hooks/useTopologyValidation";
 import { ControlGroup, ToolBtn, Divider } from "./Shared";
@@ -73,7 +80,11 @@ export function AnalysisControls({
           icon={Mountain}
           title="Auto Elevation"
         />
-        <ToolBtn onClick={validate} icon={Radar} title="Validate Network" />
+        <ToolBtn
+          onClick={validate}
+          icon={ShieldCheck}
+          title="Validate Network"
+        />
       </ControlGroup>
     </>
   );

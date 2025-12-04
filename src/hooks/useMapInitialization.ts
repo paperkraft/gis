@@ -46,8 +46,9 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
             target: mapTargetRef.current,
             layers: [...baseLayers, vecLayer],
             view: new View({
-                center: fromLonLat([74.2381, 16.7012]),
-                zoom: 16,
+                // center: fromLonLat([74.2381, 16.7012]),
+                center: fromLonLat([78.6677, 22.3511]),
+                zoom: 5,
             }),
             controls: [], // Custom controls only
         });

@@ -60,6 +60,7 @@ export const ToolBtn = ({
   title,
   label,
   colorClass = "text-gray-700 dark:text-gray-200",
+  className,
 }: {
   onClick: () => void;
   isActive?: boolean;
@@ -67,6 +68,7 @@ export const ToolBtn = ({
   title: string;
   label?: string;
   colorClass?: string;
+  className?: string;
 }) => (
   <button
     onClick={onClick}
@@ -75,9 +77,14 @@ export const ToolBtn = ({
       label ? "px-2 gap-2 h-8" : "w-8 h-8",
       isActive
         ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-        : "hover:bg-gray-100 dark:hover:bg-gray-700"
+        : "hover:bg-gray-100 dark:hover:bg-gray-700",
+      className
     )}
     title={title}
+    // Add data attribute for robust targeting
+    data-search-toggle={
+      title === "Location Search" || title === "Search" ? "true" : undefined
+    }
   >
     <Icon
       className={cn(
@@ -102,4 +109,31 @@ export const ToolBtn = ({
 
 export const Divider = () => (
   <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
+);
+
+export const StandaloneControl = ({
+  onClick,
+  isActive = false,
+  icon: Icon,
+  title,
+  colorClass = "text-gray-700 dark:text-gray-200",
+}: {
+  onClick: () => void;
+  isActive?: boolean;
+  icon: any;
+  title: string;
+  colorClass?: string;
+}) => (
+  <button
+    onClick={onClick}
+    className={cn(
+      "w-10 h-10 flex items-center justify-center rounded-xl transition-all shadow-sm border border-gray-200 dark:border-gray-700",
+      isActive
+        ? "bg-blue-600 text-white border-blue-600"
+        : "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+    )}
+    title={title}
+  >
+    <Icon className={cn("w-5 h-5", isActive ? "text-white" : colorClass)} />
+  </button>
 );
