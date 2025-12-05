@@ -14,6 +14,9 @@ interface UIState {
     // Tab navigation
     activeTab: string;
 
+    // Snapping
+    isSnappingEnabled: boolean;
+
     // Modal states
     deleteModalOpen: boolean;
     importModalOpen: boolean;
@@ -79,6 +82,9 @@ interface UIState {
     // Actions - Search
     setShowLocationSearch: (focused: boolean) => void;
 
+    // Snapping
+    setIsSnappingEnabled: (enabled: boolean) => void;
+
     // Action - Animation
     setIsFlowAnimating: (animating: boolean) => void;
     setFlowAnimationSpeed: (speed: number) => void;
@@ -135,8 +141,7 @@ const DEFAULT_STATE = {
     showLabels: true,
     showPipeArrows: true,
 
-
-
+    isSnappingEnabled: true,
 };
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -166,6 +171,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     setMeasurementType: (type) => set({ measurementType: type }),
     setShowPipeArrows: (show) => set({ showPipeArrows: show }),
     setShowLabels: (show) => set({ showLabels: show }),
+    setIsSnappingEnabled: (enabled) => set({ isSnappingEnabled: enabled }),
 
     // Map control actions
     setActiveTool: (tool) => {

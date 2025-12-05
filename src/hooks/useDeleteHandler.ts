@@ -6,12 +6,13 @@ import { useMapStore } from '@/store/mapStore';
 import { DeleteManager } from '@/lib/topology/deleteManager';
 
 export function useDeleteHandler() {
-    const { map, vectorSource } = useMapStore();
+    const map = useMapStore((state) => state.map);
+    const vectorSource = useMapStore((state) => state.vectorSource);
     const {
         selectFeature,
         selectFeatures,
         setSelectedFeature,
-        selectedFeatureIds, // Use plural Ids
+        selectedFeatureIds,
         getFeatureById
     } = useNetworkStore();
 

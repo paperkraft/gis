@@ -28,6 +28,7 @@ import { PropertyPanel } from "./PropertyPanel";
 import { ComponentSelectionModal } from "@/components/modals/ComponentSelectionModal";
 import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 import { Cordinates } from "./Cordinates";
+import { useSnapping } from "@/hooks/useSnapping";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -90,6 +91,8 @@ export function MapContainer() {
 
   // Measurement
   useMeasurement();
+
+  useSnapping();
 
   // --- Handlers ---
 

@@ -6,6 +6,7 @@ import {
   MousePointer2,
   BoxSelect,
   Pentagon,
+  Magnet,
 } from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
 import { ControlGroup, ToolBtn, Divider } from "./Shared";
@@ -19,7 +20,8 @@ export function EditingControls({
   activeGroup,
   onToggle,
 }: EditingControlsProps) {
-  const { activeTool, setActiveTool } = useUIStore();
+  const { activeTool, setActiveTool, isSnappingEnabled, setIsSnappingEnabled } =
+    useUIStore();
 
   const handleUndo = () => window.dispatchEvent(new CustomEvent("undo"));
   const handleRedo = () => window.dispatchEvent(new CustomEvent("redo"));
@@ -39,6 +41,16 @@ export function EditingControls({
     >
       <ToolBtn onClick={handleUndo} icon={RotateCcw} title="Undo" />
       <ToolBtn onClick={handleRedo} icon={RotateCw} title="Redo" />
+      <Divider />
+
+      <ToolBtn
+        onClick={() => setIsSnappingEnabled(!isSnappingEnabled)}
+        isActive={isSnappingEnabled}
+        icon={Magnet}
+        title={isSnappingEnabled ? "Snapping On" : "Snapping Off"}
+        colorClass="text-purple-600"
+      />
+
       <Divider />
       <ToolBtn
         onClick={() => setActiveTool("select")}

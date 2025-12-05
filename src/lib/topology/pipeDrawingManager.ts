@@ -154,7 +154,7 @@ export class PipeDrawingManager {
     // ============================================
     // NODE/LINK INSERTION (Unchanged)
     // ============================================
-    // ... [Previous insertion methods remain identical] ...
+
     public insertNodeOnPipe(
         pipe: Feature,
         coordinate: number[],
@@ -341,72 +341,6 @@ export class PipeDrawingManager {
         return { link, startJunction, endJunction };
     }
 
-    public addLinkWhileDrawingO(linkType: 'pump' | 'valve'): Feature {
-        if (!this.isDrawingMode || this.drawingCoordinates.length === 0) {
-            throw new Error("Cannot add link - not drawing");
-        }
-
-        const lastCoord = this.drawingCoordinates[this.drawingCoordinates.length - 1];
-        const startJunction = this.createJunction(lastCoord);
-
-        const LINK_LENGTH = 1;
-        let angle = 0;
-
-        if (this.drawingCoordinates.length >= 2) {
-            const prevCoord = this.drawingCoordinates[this.drawingCoordinates.length - 2];
-            angle = Math.atan2(
-                lastCoord[1] - prevCoord[1],
-                lastCoord[0] - prevCoord[0]
-            );
-        }
-
-        const endJunctionCoord = [
-            lastCoord[0] + Math.cos(angle) * LINK_LENGTH,
-            lastCoord[1] + Math.sin(angle) * LINK_LENGTH,
-        ];
-
-        const endJunction = this.createJunction(endJunctionCoord);
-
-        const midPoint = [
-            (lastCoord[0] + endJunctionCoord[0]) / 2,
-            (lastCoord[1] + endJunctionCoord[1]) / 2,
-        ];
-
-        const link = new Feature({
-            geometry: new Point(midPoint)
-        });
-
-        const store = useNetworkStore.getState();
-        const linkId = store.generateUniqueId(linkType);
-
-        link.setId(linkId);
-        link.set("type", linkType);
-        link.set("isNew", true);
-        link.setProperties({
-            ...COMPONENT_TYPES[linkType].defaultProperties,
-            label: `${COMPONENT_TYPES[linkType].name}-${linkId}`,
-            startNodeId: startJunction.getId(),
-            endNodeId: endJunction.getId(),
-        });
-
-        this.vectorSource.addFeature(link);
-        store.addFeature(link);
-
-        this.createVisualLinkLine(lastCoord, endJunctionCoord, linkId, linkType);
-
-        store.updateNodeConnections(startJunction.getId() as string, linkId, "add");
-        store.updateNodeConnections(endJunction.getId() as string, linkId, "add");
-
-        if (this.startNode) {
-            this.endNode = startJunction;
-            this.createPipeSegment();
-        }
-
-        this.resetForNextSegment(endJunction);
-
-        return endJunction;
-    }
-
     public addLinkWhileDrawing(linkType: 'pump' | 'valve'): Feature {
         if (!this.isDrawingMode || this.drawingCoordinates.length === 0) {
             throw new Error("Cannot add link - not drawing");
@@ -504,7 +438,6 @@ export class PipeDrawingManager {
 
         return endJunction;
     }
-
 
     // ============================================
     // PRIVATE METHODS
@@ -1030,15 +963,23 @@ export class PipeDrawingManager {
     }
 
     private findNodeAtCoordinate(coordinate: number[]): Feature | null {
-        const pixel = this.map.getPixelFromCoordinate(coordinate);
-        const features = this.vectorSource.getFeatures();
+        const { isSnappingEnabled } = useUIStore.getState();
+        if (!isSnappingEnabled) return null;
 
+        // if (!this.isValidCoordinate(coordinate)) return null;
+
+        const pixel = this.map.getPixelFromCoordinate(coordinate);
+        if (!pixel) return null;
+
+        const features = this.vectorSource.getFeatures();
         return features.find((f) => {
             if (!["junction", "tank", "reservoir"].includes(f.get("type"))) return false;
 
             const geom = f.getGeometry();
             if (geom instanceof Point) {
                 const fPixel = this.map.getPixelFromCoordinate(geom.getCoordinates());
+                if (!fPixel) return false;
+
                 const dist = Math.sqrt(
                     (pixel[0] - fPixel[0]) ** 2 +
                     (pixel[1] - fPixel[1]) ** 2
