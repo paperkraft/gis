@@ -28,7 +28,7 @@ interface UIState {
     componentSelectionModalOpen: boolean;
 
     // Map control states
-    activeTool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | 'pan' | null;
+    activeTool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | 'pan' | 'zoom-box' | null;
     measurementType: 'distance' | 'area';
     measurementActive: boolean;
     showAttributeTable: boolean;
@@ -64,7 +64,7 @@ interface UIState {
     setControlManagerModalOpen: (open: boolean) => void;
 
     // Actions - Map Controls
-    setActiveTool: (tool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | 'pan' | null) => void;
+    setActiveTool: (tool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | 'pan' | 'zoom-box' | null) => void;
     setShowAttributeTable: (open: boolean) => void;
 
     setMeasurementType: (type: 'distance' | 'area') => void;

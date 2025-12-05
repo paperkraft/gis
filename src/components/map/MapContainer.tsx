@@ -75,8 +75,12 @@ export function MapContainer() {
   useKeyboardShortcuts();
 
   // Delete Handling
-  const { handleDeleteRequestFromPanel, handleDeleteConfirm, cascadeInfo } =
-    useDeleteHandler();
+  const {
+    handleDeleteRequestFromPanel,
+    handleDeleteConfirm,
+    cascadeInfo,
+    deleteCount,
+  } = useDeleteHandler();
 
   // Export Handling
   useNetworkExport();
@@ -133,6 +137,7 @@ export function MapContainer() {
         isOpen={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
         onConfirm={handleDeleteConfirm}
+        count={deleteCount}
         featureName={selectedFeature?.get("label") || "Unknown"}
         featureType={selectedFeature?.get("type") || "Feature"}
         featureId={selectedFeature?.getId()?.toString() || "Unknown"}

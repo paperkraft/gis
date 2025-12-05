@@ -12,6 +12,7 @@ import { VertexLayerManager } from '@/lib/topology/vertexManager';
 import { useNetworkStore } from '@/store/networkStore';
 import { useUIStore } from '@/store/uiStore';
 import { FeatureType } from '@/types/network';
+import { DragBox } from 'ol/interaction';
 
 interface UseMapInteractionsProps {
     map: Map | null;
@@ -26,6 +27,8 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
     const modifyManagerRef = useRef<ModifyManager | null>(null);
     const contextMenuManagerRef = useRef<ContextMenuManager | null>(null);
     const vertexLayerManagerRef = useRef<VertexLayerManager | null>(null);
+
+    const zoomBoxRef = useRef<DragBox | null>(null);
 
     // Initialize Managers
     useEffect(() => {
@@ -73,6 +76,11 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
         // Reset
         modifyManagerRef.current.cleanup();
 
+        if (zoomBoxRef.current) {
+            map.removeInteraction(zoomBoxRef.current);
+            zoomBoxRef.current = null;
+        }
+
         switch (activeTool) {
             case 'pan':
                 map.getViewport().style.cursor = 'grab';
@@ -85,6 +93,27 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
                 break;
             case 'draw':
                 pipeDrawingManagerRef.current.startDrawing();
+                break;
+            case 'zoom-box':
+                map.getViewport().style.cursor = 'crosshair';
+
+                const dragBox = new DragBox({
+                    className: 'ol-dragbox',
+                });
+
+                dragBox.on('boxend', () => {
+                    const geometry = dragBox.getGeometry();
+                    const view = map.getView();
+                    if (geometry) {
+                        view.fit(geometry, {
+                            padding: [50, 50, 50, 50],
+                            duration: 500
+                        });
+                    }
+                });
+
+                map.addInteraction(dragBox);
+                zoomBoxRef.current = dragBox;
                 break;
         }
     }, [activeTool, map]);

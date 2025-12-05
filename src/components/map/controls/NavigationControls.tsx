@@ -8,6 +8,7 @@ import {
   Map as MapIcon,
   Mountain,
   Search,
+  SquareMousePointer,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -22,7 +23,7 @@ import { switchBaseLayer } from "@/lib/map/baseLayers";
 import { useMapStore } from "@/store/mapStore";
 import { useUIStore } from "@/store/uiStore";
 
-import { ControlGroup, ToolBtn } from "./Shared";
+import { ControlGroup, Divider, ToolBtn } from "./Shared";
 
 interface NavigationControlsProps {
   activeGroup: string | null;
@@ -34,8 +35,14 @@ export function NavigationControls({
   onToggle,
 }: NavigationControlsProps) {
   const map = useMapStore((state) => state.map);
-  const { baseLayer, showLocationSearch, setBaseLayer, setShowLocationSearch } =
-    useUIStore();
+  const {
+    activeTool,
+    baseLayer,
+    showLocationSearch,
+    setActiveTool,
+    setBaseLayer,
+    setShowLocationSearch,
+  } = useUIStore();
 
   const handleBaseLayerChange = (layerType: layerType) => {
     if (!map) return;
@@ -59,6 +66,17 @@ export function NavigationControls({
           icon={Search}
           title="Search"
         />
+        <Divider />
+
+        {/* NEW: Zoom Box Tool */}
+        <ToolBtn
+          onClick={() => setActiveTool("zoom-box")}
+          isActive={activeTool === "zoom-box"}
+          icon={SquareMousePointer}
+          title="Zoom to Box"
+        />
+
+        <Divider />
         <ToolBtn
           onClick={() => handleZoomIn(map)}
           icon={ZoomIn}

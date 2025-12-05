@@ -91,15 +91,14 @@ export function useFeatureSelection({
         const selectInteraction = new Select({
             layers: [vectorLayer],
             // Disable click selection while drawing polygon to prevent conflicts
-            // condition: activeTool === 'select-polygon' ? never : (e) => click(e) || (click(e) && (shiftKeyOnly(e) || platformModifierKeyOnly(e))),
             condition: (e) => {
                 // DISABLE user selection if tool is 'pan' or 'draw' or 'modify'
-                if (activeTool === 'pan' || activeTool === 'draw' || activeTool === 'modify') {
+                if (activeTool === 'pan' || activeTool === 'draw' || activeTool === 'modify' || activeTool === 'zoom-box') {
                     return false;
                 }
 
                 // Normal selection logic for 'select' tool
-                if (activeTool === 'select-polygon') return false;
+                if (activeTool === 'select-polygon' || activeTool === 'select-box') return false;
                 return click(e) || (click(e) && (shiftKeyOnly(e) || platformModifierKeyOnly(e)));
             },
             style: (feature) => getSelectedStyle(feature as Feature),

@@ -9,7 +9,7 @@ import { useUIStore } from '@/store/uiStore';
 
 export function useKeyboardShortcuts() {
     const map = useMapStore(state => state.map);
-    const { selectedFeature } = useNetworkStore();
+    const { selectedFeatureIds } = useNetworkStore();
     const {
         setActiveTool,
         setDeleteModalOpen,
@@ -75,7 +75,7 @@ export function useKeyboardShortcuts() {
             // DELETE - Delete selected feature
             // NOTE: This relies on selectedFeature dependency
             if (key === "delete" || key === "backspace") {
-                if (selectedFeature) {
+                if (selectedFeatureIds.length > 0) {
                     event.preventDefault(); // Prevent browser back navigation
                     setDeleteModalOpen(true);
                 }
@@ -181,7 +181,7 @@ export function useKeyboardShortcuts() {
         };
     }, [
         map,
-        selectedFeature,
+        selectedFeatureIds,
         setActiveTool,
         setDeleteModalOpen,
         setComponentSelectionModalOpen,
