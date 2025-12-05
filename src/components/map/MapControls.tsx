@@ -50,7 +50,6 @@ export function MapControls() {
   // Handle clicks outside the controls
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // If a group is active AND the click target is NOT inside the controls container
       if (
         activeGroup &&
         controlsRef.current &&
@@ -60,7 +59,6 @@ export function MapControls() {
       }
     };
 
-    // Use mousedown to catch clicks before they might be swallowed by map interactions
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);

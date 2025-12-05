@@ -70,7 +70,7 @@ export function createAnimatedFlowStyle(
             color: strokeColor,
             width: strokeWidth,
             lineDash: [dashLength, gapLength],
-            lineDashOffset: -animationOffset, // Negative for forward flow
+            lineDashOffset: -animationOffset * 2, // Negative for forward flow
         }),
         zIndex: 100, // Higher than base pipe 
     });

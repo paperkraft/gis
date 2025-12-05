@@ -1,6 +1,6 @@
 import { Feature } from 'ol';
 import VectorLayer from 'ol/layer/Vector';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { createCombinedFlowStyles } from '@/lib/styles/animatedFlowStyles';
 import { getFeatureStyle } from '@/lib/styles/featureStyles';
@@ -9,56 +9,101 @@ import { useUIStore } from '@/store/uiStore';
 
 interface UseLayerManagerProps {
     vectorLayer: VectorLayer<any> | null;
-    flowAnimation: {
-        isAnimating: boolean;
-        animationTime: number;
-        options: { style: 'dashes' | 'particles' | 'glow' | 'combined' };
-    };
 }
 
-export function useLayerManager({ vectorLayer, flowAnimation }: UseLayerManagerProps) {
-    const { layerVisibility, showPipeArrows, showLabels } = useUIStore();
-    const { results } = useSimulationStore(); // Listen to results
+export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
 
+    // 1. Get Animation State from Global Store
+    const {
+        layerVisibility,
+        showPipeArrows,
+        showLabels,
+        isFlowAnimating,
+        flowAnimationSpeed,
+        flowAnimationStyle
+    } = useUIStore();
+
+    const { results } = useSimulationStore();
+
+    // Local State for Animation
+    const animationRef = useRef<number | null>(null);
+    const startTimeRef = useRef<number>(Date.now());
+
+    // 2. Animation Loop Logic
+    useEffect(() => {
+        if (!vectorLayer || !isFlowAnimating) {
+            if (animationRef.current) {
+                cancelAnimationFrame(animationRef.current);
+                animationRef.current = null;
+            }
+            return;
+        }
+
+        // Reset start time on activation to prevent large jumps
+        startTimeRef.current = Date.now();
+
+        const animate = () => {
+            if (vectorLayer) {
+                // Trigger map re-render (calls the style function)
+                vectorLayer.changed();
+            }
+            animationRef.current = requestAnimationFrame(animate);
+        };
+
+        // Start loop
+        animate();
+
+        return () => {
+            if (animationRef.current) {
+                cancelAnimationFrame(animationRef.current);
+                animationRef.current = null;
+            }
+        };
+    }, [isFlowAnimating, vectorLayer]);
+
+
+    // 3. Style Application
     useEffect(() => {
         if (!vectorLayer) return;
 
+        // Apply Visibility
         const source = vectorLayer.getSource();
-        if (!source) return;
+        if (source) {
+            source.getFeatures().forEach((feature: any) => {
+                const featureType = feature.get('type');
+                if (featureType) {
+                    const isVisible = layerVisibility[featureType] !== false;
+                    feature.set('hidden', !isVisible);
+                }
+            });
+        }
 
-        // 1. Update Visibility Property
-        source.getFeatures().forEach((feature: any) => {
-            const featureType = feature.get('type');
-            if (featureType) {
-                const isVisible = layerVisibility[featureType] !== false;
-                feature.set('hidden', !isVisible);
-            }
-        });
-
-        // 2. Apply Styles (including animation)
+        // Define Style Function
         vectorLayer.setStyle((feature) => {
             const styles = [];
+
+            // A. Base Static Style
             const baseStyles = getFeatureStyle(feature as Feature);
+            if (Array.isArray(baseStyles)) styles.push(...baseStyles);
+            else styles.push(baseStyles);
 
-            if (Array.isArray(baseStyles)) {
-                styles.push(...baseStyles);
-            } else {
-                styles.push(baseStyles);
-            }
-
-            // Apply Flow Animation Overlays
+            // B. Animated Flow Style
             if (
                 feature.get('type') === 'pipe' &&
-                flowAnimation.isAnimating &&
+                isFlowAnimating &&
                 !feature.get('hidden')
             ) {
+                // Calculate Offset: (Elapsed Time * Speed * 20px/sec)
+                const elapsed = (Date.now() - startTimeRef.current) / 1000;
+                const animationOffset = elapsed * flowAnimationSpeed * 10;
+
                 const animStyles = createCombinedFlowStyles(
                     feature as Feature,
-                    flowAnimation.animationTime,
+                    animationOffset,
                     {
-                        showDashes: ['dashes', 'combined'].includes(flowAnimation.options.style),
-                        showParticles: ['particles', 'combined'].includes(flowAnimation.options.style),
-                        showGlow: ['glow', 'combined'].includes(flowAnimation.options.style),
+                        showDashes: ['dashes', 'combined'].includes(flowAnimationStyle),
+                        showParticles: ['particles', 'combined'].includes(flowAnimationStyle),
+                        showGlow: ['glow', 'combined'].includes(flowAnimationStyle),
                     }
                 );
                 styles.push(...animStyles);
@@ -66,16 +111,16 @@ export function useLayerManager({ vectorLayer, flowAnimation }: UseLayerManagerP
             return styles;
         });
 
-        // FORCE REDRAW when results change
+        // Initial redraw to apply visibility changes immediately
         vectorLayer.changed();
     }, [
         vectorLayer,
         layerVisibility,
         showPipeArrows,
         showLabels,
-        flowAnimation.isAnimating,
-        flowAnimation.animationTime,
-        flowAnimation.options.style,
+        isFlowAnimating,
+        flowAnimationSpeed,
+        flowAnimationStyle,
         results
     ]);
 }

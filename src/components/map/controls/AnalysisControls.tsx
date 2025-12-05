@@ -6,6 +6,12 @@ import {
   ActivityIcon,
   Radar,
   ShieldCheck,
+  Zap,
+  Activity,
+  Pause,
+  Play,
+  Wind,
+  Sparkles,
 } from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
 import { useTopologyValidation } from "@/hooks/useTopologyValidation";
@@ -25,6 +31,12 @@ export function AnalysisControls({
   const {
     measurementType,
     measurementActive,
+    isFlowAnimating,
+    flowAnimationSpeed,
+    flowAnimationStyle,
+    setFlowAnimationStyle,
+    setFlowAnimationSpeed,
+    setIsFlowAnimating,
     setMeasurementType,
     setMeasurementActive,
   } = useUIStore();
@@ -64,6 +76,66 @@ export function AnalysisControls({
           icon={Square}
           title="Measure Area"
           label="Area"
+        />
+      </ControlGroup>
+
+      <ControlGroup
+        id="anim"
+        icon={isFlowAnimating ? Pause : Play}
+        label="Flow Animation"
+        isActiveGroup={isFlowAnimating}
+        activeGroup={activeGroup}
+        onToggle={onToggle}
+      >
+        {/* Play/Pause */}
+        <ToolBtn
+          onClick={() => setIsFlowAnimating(!isFlowAnimating)}
+          isActive={isFlowAnimating}
+          icon={isFlowAnimating ? Pause : Play}
+          title={isFlowAnimating ? "Pause" : "Play"}
+        />
+
+        <Divider />
+
+        {/* Speed Controls */}
+        <span className="text-[10px] font-mono text-gray-400 mr-1">SPD</span>
+        <ToolBtn
+          onClick={() => setFlowAnimationSpeed(1.0)}
+          isActive={flowAnimationSpeed === 1.0}
+          icon={Zap}
+          title="Normal Speed"
+          label="1x"
+        />
+        <ToolBtn
+          onClick={() => setFlowAnimationSpeed(2.0)}
+          isActive={flowAnimationSpeed === 2.0}
+          icon={Zap}
+          title="Fast Speed"
+          label="2x"
+        />
+
+        <Divider />
+
+        {/* Style Controls */}
+        <span className="text-[10px] font-mono text-gray-400 mr-1">FX</span>
+        <ToolBtn
+          onClick={() => setFlowAnimationStyle("dashes")}
+          isActive={flowAnimationStyle === "dashes"}
+          icon={Wind}
+          title="Style: Dashes"
+        />
+        <ToolBtn
+          onClick={() => setFlowAnimationStyle("particles")}
+          isActive={flowAnimationStyle === "particles"}
+          icon={Sparkles}
+          title="Style: Particles"
+        />
+        <ToolBtn
+          onClick={() => setFlowAnimationStyle("combined")}
+          isActive={flowAnimationStyle === "combined"}
+          icon={Activity}
+          title="Style: Combined"
+          label="All"
         />
       </ControlGroup>
 

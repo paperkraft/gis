@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import { layerType } from '@/constants/map';
+export type FlowAnimationStyle = 'dashes' | 'particles' | 'glow' | 'combined';
 
 interface UIState {
 
@@ -45,6 +46,11 @@ interface UIState {
     // Search
     searchFocused: boolean;
 
+    // Animation
+    isFlowAnimating: boolean;
+    flowAnimationSpeed: number;
+    flowAnimationStyle: FlowAnimationStyle;
+
     // Actions - Sidebar
     setShowPipeArrows: (show: boolean) => void;
     setShowLabels: (show: boolean) => void;
@@ -82,6 +88,11 @@ interface UIState {
     // Actions - Search
     setSearchFocused: (focused: boolean) => void;
     setShowLocationSearch: (focused: boolean) => void;
+
+    // Action - Animation
+    setIsFlowAnimating: (animating: boolean) => void;
+    setFlowAnimationSpeed: (speed: number) => void;
+    setFlowAnimationStyle: (style: FlowAnimationStyle) => void;
 
     // Actions - Tab navigation
     setActiveTab: (tab: string) => void;
@@ -126,6 +137,9 @@ const DEFAULT_STATE = {
     showPipeArrows: true,
     showLabels: true,
     activeTab: 'network-editor',
+    isFlowAnimating: false,
+    flowAnimationSpeed: 1.0,
+    flowAnimationStyle: 'combined' as FlowAnimationStyle,
 };
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -141,25 +155,19 @@ export const useUIStore = create<UIState>((set, get) => ({
     setDataManagerModalOpen: (open) => set({ dataManagerModalOpen: open }),
     setControlManagerModalOpen: (open) => set({ controlManagerModalOpen: open }),
 
-    setSimulationReportModalOpen: (open) => {
-        set({ simulationReportModalOpen: open });
-    },
+    setSimulationReportModalOpen: (open) => { set({ simulationReportModalOpen: open }) },
 
-    setValidationModalOpen: (open) => {
-        set({ validationModalOpen: open });
-    },
+    setValidationModalOpen: (open) => { set({ validationModalOpen: open }) },
 
-    setShowAutoElevation: (open) => {
-        set({ showAutoElevation: open });
-    },
+    setShowAutoElevation: (open) => { set({ showAutoElevation: open }) },
 
-    setShowLocationSearch: (open) => {
-        set({ showLocationSearch: open });
-    },
+    setShowLocationSearch: (open) => { set({ showLocationSearch: open }) },
 
-    setDeleteModalOpen: (open) => {
-        set({ deleteModalOpen: open });
-    },
+    setIsFlowAnimating: (animating) => set({ isFlowAnimating: animating }),
+    setFlowAnimationSpeed: (speed) => set({ flowAnimationSpeed: speed }),
+    setFlowAnimationStyle: (style) => set({ flowAnimationStyle: style }),
+
+    setDeleteModalOpen: (open) => { set({ deleteModalOpen: open }) },
 
     setImportModalOpen: (open) => {
         set({ importModalOpen: open });
