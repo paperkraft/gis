@@ -5,23 +5,17 @@ import { generateINP } from '@/lib/export/inpWriter';
 
 interface SimulationState {
     status: SimulationStatus;
-
-    // The "Full" dataset (all time steps)
     history: SimulationHistory | null;
-
-    // The "Current" visual state (single time step)
     results: SimulationSnapshot | null;
-
     currentTimeIndex: number;
     error: string | null;
     isPlaying: boolean;
 
-    // Actions
     runSimulation: (features: Feature[]) => Promise<void>;
     setTimeIndex: (index: number) => void;
     togglePlayback: () => void;
     resetSimulation: () => void;
-    nextStep: () => void; // For animation loop
+    nextStep: () => void;
 }
 
 export const useSimulationStore = create<SimulationState>((set, get) => ({
@@ -48,12 +42,11 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
             if (!response.ok) {
                 const errData = await response.json();
-                throw new Error(errData.error || "Server simulation failed");
+                throw new Error(errData.details || errData.error || "Server simulation failed");
             }
 
             const data: SimulationHistory = await response.json();
 
-            // Set initial state (t=0)
             set({
                 status: 'completed',
                 history: data,
@@ -73,30 +66,17 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     setTimeIndex: (index) => {
         const { history } = get();
         if (!history || !history.snapshots[index]) return;
-
-        set({
-            currentTimeIndex: index,
-            results: history.snapshots[index]
-        });
+        set({ currentTimeIndex: index, results: history.snapshots[index] });
     },
 
-    togglePlayback: () => {
-        set((state) => ({ isPlaying: !state.isPlaying }));
-    },
+    togglePlayback: () => set((state) => ({ isPlaying: !state.isPlaying })),
 
     nextStep: () => {
         const { history, currentTimeIndex, isPlaying } = get();
         if (!history || !isPlaying) return;
-
         let nextIndex = currentTimeIndex + 1;
-        if (nextIndex >= history.snapshots.length) {
-            nextIndex = 0; // Loop back to start
-        }
-
-        set({
-            currentTimeIndex: nextIndex,
-            results: history.snapshots[nextIndex]
-        });
+        if (nextIndex >= history.snapshots.length) nextIndex = 0;
+        set({ currentTimeIndex: nextIndex, results: history.snapshots[nextIndex] });
     },
 
     resetSimulation: () => {

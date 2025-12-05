@@ -34,19 +34,13 @@ export function NavigationControls({
   onToggle,
 }: NavigationControlsProps) {
   const map = useMapStore((state) => state.map);
-  const {
-    baseLayer,
-    showLocationSearch,
-    setBaseLayer,
-    setShowBaseLayerMenu,
-    setShowLocationSearch,
-  } = useUIStore();
+  const { baseLayer, showLocationSearch, setBaseLayer, setShowLocationSearch } =
+    useUIStore();
 
   const handleBaseLayerChange = (layerType: layerType) => {
     if (!map) return;
     switchBaseLayer(map, layerType);
     setBaseLayer(layerType);
-    setShowBaseLayerMenu(false);
   };
 
   return (

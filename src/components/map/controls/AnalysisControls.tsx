@@ -1,21 +1,22 @@
 "use client";
 import {
-  Ruler,
-  Square,
-  Mountain,
   ActivityIcon,
-  Radar,
-  ShieldCheck,
-  Zap,
-  Activity,
+  Mountain,
   Pause,
   Play,
-  Wind,
+  Ruler,
+  ShieldPlus,
   Sparkles,
+  Square,
+  Wand2Icon,
+  Waves,
+  Zap,
 } from "lucide-react";
-import { useUIStore } from "@/store/uiStore";
+
 import { useTopologyValidation } from "@/hooks/useTopologyValidation";
-import { ControlGroup, ToolBtn, Divider } from "./Shared";
+import { useUIStore } from "@/store/uiStore";
+
+import { ControlGroup, Divider, ToolBtn } from "./Shared";
 
 interface AnalysisControlsProps {
   activeGroup: string | null;
@@ -121,20 +122,20 @@ export function AnalysisControls({
         <ToolBtn
           onClick={() => setFlowAnimationStyle("dashes")}
           isActive={flowAnimationStyle === "dashes"}
-          icon={Wind}
-          title="Style: Dashes"
+          icon={Waves}
+          title="Dashes"
         />
         <ToolBtn
           onClick={() => setFlowAnimationStyle("particles")}
           isActive={flowAnimationStyle === "particles"}
           icon={Sparkles}
-          title="Style: Particles"
+          title="Particles"
         />
         <ToolBtn
           onClick={() => setFlowAnimationStyle("combined")}
           isActive={flowAnimationStyle === "combined"}
-          icon={Activity}
-          title="Style: Combined"
+          icon={Wand2Icon}
+          title="Combined"
           label="All"
         />
       </ControlGroup>
@@ -142,7 +143,7 @@ export function AnalysisControls({
       {/* Tools */}
       <ControlGroup
         id="analysis-tools"
-        icon={ActivityIcon}
+        icon={ShieldPlus}
         label="Validation & Tools"
         activeGroup={activeGroup}
         onToggle={onToggle}
@@ -154,7 +155,7 @@ export function AnalysisControls({
         />
         <ToolBtn
           onClick={validate}
-          icon={ShieldCheck}
+          icon={ActivityIcon}
           title="Validate Network"
         />
       </ControlGroup>

@@ -3,7 +3,6 @@ import { Point, LineString } from 'ol/geom';
 import { NetworkFeatureProperties, ProjectSettings, TimePattern, PumpCurve, NetworkControl } from '@/types/network';
 import { useNetworkStore } from '@/store/networkStore';
 
-
 function getId(f: Feature): string {
     const id = f.getId() || f.get('id');
     return id ? String(id).trim() : 'UNKNOWN_ID';
@@ -31,14 +30,12 @@ export function generateINP(
     const curves = customCurves || store.curves || [];
     const controls = customControls || store.controls || [];
 
-    // Ensure Pattern 1 exists (Default)
     const hasPattern1 = patterns.some(p => p.id === "1");
     const safePatterns = [...patterns];
     if (!hasPattern1) {
         safePatterns.push({ id: "1", description: "Default", multipliers: Array(24).fill(1.0) });
     }
 
-    // Filter Features
     const junctions = features.filter(f => f.get('type') === 'junction');
     const reservoirs = features.filter(f => f.get('type') === 'reservoir');
     const tanks = features.filter(f => f.get('type') === 'tank');
@@ -105,8 +102,7 @@ export function generateINP(
         lines.push('');
     }
 
-    // --- 6. NETWORK DATA (Must come BEFORE Controls) ---
-
+    // --- 6. NETWORK DATA (Components First!) ---
     if (junctions.length > 0) {
         lines.push('[JUNCTIONS]');
         lines.push(';ID              Elevation    Demand       Pattern');
@@ -174,39 +170,6 @@ export function generateINP(
         lines.push('');
     }
 
-    // --- 7. CONTROLS (MOVED HERE: AFTER COMPONENTS) ---
-    if (controls.length > 0) {
-        const validControls = controls.filter(c => {
-            if (!c.linkId || !allIds.has(c.linkId)) return false;
-            if (['LOW LEVEL', 'HI LEVEL'].includes(c.type)) {
-                if (!c.nodeId || !allIds.has(c.nodeId)) return false;
-            }
-            return true;
-        });
-
-        if (validControls.length > 0) {
-            lines.push('[CONTROLS]');
-            validControls.forEach(c => {
-                let line = '';
-                // Sanitize IDs (Trim)
-                const linkId = c.linkId.trim();
-                const nodeId = c.nodeId ? c.nodeId.trim() : '';
-
-                if (c.type === 'TIMER') {
-                    // LINK <ID> <STATUS> AT TIME <VALUE>
-                    line = `LINK ${linkId} ${c.status} AT TIME ${c.value}`;
-                } else {
-                    // LINK <ID> <STATUS> IF NODE <ID> <CONDITION> <VALUE>
-                    const condition = c.type === 'LOW LEVEL' ? 'BELOW' : 'ABOVE';
-                    line = `LINK ${linkId} ${c.status} IF NODE ${nodeId} ${condition} ${c.value}`;
-                }
-                lines.push(line);
-            });
-            lines.push('');
-        }
-    }
-
-    // --- 8. VISUALS ---
     lines.push('[COORDINATES]');
     lines.push(';Node            X-Coord          Y-Coord');
     [...junctions, ...reservoirs, ...tanks].forEach(f => {
@@ -226,6 +189,35 @@ export function generateINP(
         }
     });
     lines.push('');
+
+    // --- 7. CONTROLS (MOVED TO LAST SECTION) ---
+    if (controls.length > 0) {
+        const validControls = controls.filter(c => {
+            if (!c.linkId || !allIds.has(c.linkId)) return false;
+            if (['LOW LEVEL', 'HI LEVEL'].includes(c.type)) {
+                if (!c.nodeId || !allIds.has(c.nodeId)) return false;
+            }
+            return true;
+        });
+
+        if (validControls.length > 0) {
+            lines.push('[CONTROLS]');
+            validControls.forEach(c => {
+                let line = '';
+                const linkId = c.linkId.trim();
+                const nodeId = c.nodeId ? c.nodeId.trim() : '';
+
+                if (c.type === 'TIMER') {
+                    line = `LINK ${linkId} ${c.status} AT TIME ${c.value}`;
+                } else {
+                    const condition = c.type === 'LOW LEVEL' ? 'BELOW' : 'ABOVE';
+                    line = `LINK ${linkId} ${c.status} IF NODE ${nodeId} ${condition} ${c.value}`;
+                }
+                lines.push(line);
+            });
+            lines.push('');
+        }
+    }
 
     lines.push('[END]');
 

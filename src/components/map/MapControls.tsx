@@ -19,24 +19,25 @@ import { DataManagerModal } from "../modals/DataManagerModal";
 import { ControlManagerModal } from "../modals/ControlManagerModal";
 import { Settings } from "./controls/Settings";
 import { ExportModal } from "../modals/ExportModal";
+import { LocationSearch } from "./LocationSearch";
 
 export function MapControls() {
   const {
     importModalOpen,
     exportModalOpen,
-    validationModalOpen,
     showAutoElevation,
-    simulationReportModalOpen,
+    validationModalOpen,
     dataManagerModalOpen,
-    projectSettingsModalOpen,
     controlManagerModalOpen,
+    projectSettingsModalOpen,
+    simulationReportModalOpen,
 
     setImportModalOpen,
     setExportModalOpen,
-    setValidationModalOpen,
     setShowAutoElevation,
-    setSimulationReportModalOpen,
+    setValidationModalOpen,
     setDataManagerModalOpen,
+    setSimulationReportModalOpen,
     setProjectSettingsModalOpen,
     setControlManagerModalOpen,
     setShowLocationSearch,
@@ -90,6 +91,8 @@ export function MapControls() {
       </div>
 
       {/* Modals */}
+      <LocationSearch />
+
       <ImportModal
         isOpen={importModalOpen}
         onClose={() => setImportModalOpen(false)}

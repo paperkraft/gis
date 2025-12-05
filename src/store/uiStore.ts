@@ -6,11 +6,10 @@ export type FlowAnimationStyle = 'dashes' | 'particles' | 'glow' | 'combined';
 interface UIState {
 
     // Sidebar
+    showLabels: boolean;
     sidebarOpen: boolean;
     showPipeArrows: boolean;
-    showLabels: boolean;
     sidebarCollapsed: boolean;
-    propertyPanelOpen: boolean;
 
     // Tab navigation
     activeTab: string;
@@ -20,21 +19,19 @@ interface UIState {
     importModalOpen: boolean;
     exportModalOpen: boolean;
     showAutoElevation: boolean;
-    keyboardShortcutsModalOpen: boolean;
-    componentSelectionModalOpen: boolean;
-    simulationReportModalOpen: boolean;
     validationModalOpen: boolean;
-    projectSettingsModalOpen: boolean;
     dataManagerModalOpen: boolean;
     controlManagerModalOpen: boolean;
+    projectSettingsModalOpen: boolean;
+    simulationReportModalOpen: boolean;
+    keyboardShortcutsModalOpen: boolean;
+    componentSelectionModalOpen: boolean;
 
     // Map control states
     activeTool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | 'pan' | null;
     measurementType: 'distance' | 'area';
-    showBaseLayerMenu: boolean;
     measurementActive: boolean;
     showAttributeTable: boolean;
-    showMeasurementMenu: boolean;
     showLocationSearch: boolean;
 
     // Layer visibility
@@ -43,17 +40,14 @@ interface UIState {
     // Base layer
     baseLayer: layerType;
 
-    // Search
-    searchFocused: boolean;
-
     // Animation
     isFlowAnimating: boolean;
     flowAnimationSpeed: number;
     flowAnimationStyle: FlowAnimationStyle;
 
     // Actions - Sidebar
-    setShowPipeArrows: (show: boolean) => void;
     setShowLabels: (show: boolean) => void;
+    setShowPipeArrows: (show: boolean) => void;
 
     // Actions - Modals
     setComponentSelectionModalOpen: (open: boolean) => void;
@@ -64,7 +58,6 @@ interface UIState {
     setImportModalOpen: (open: boolean) => void;
     setExportModalOpen: (open: boolean) => void;
     setSidebarCollapsed: (collapsed: boolean) => void;
-    togglePropertyPanel: () => void;
     setValidationModalOpen: (open: boolean) => void;
     setProjectSettingsModalOpen: (open: boolean) => void;
     setDataManagerModalOpen: (open: boolean) => void;
@@ -72,12 +65,10 @@ interface UIState {
 
     // Actions - Map Controls
     setActiveTool: (tool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | 'pan' | null) => void;
-    setShowBaseLayerMenu: (open: boolean) => void;
     setShowAttributeTable: (open: boolean) => void;
 
     setMeasurementType: (type: 'distance' | 'area') => void;
     setMeasurementActive: (active: boolean) => void;
-    setShowMeasurementMenu: (open: boolean) => void;
 
     // Actions - Layers
     setBaseLayer: (layer: layerType) => void;
@@ -86,7 +77,6 @@ interface UIState {
     setAllLayersVisibility: (visible: boolean) => void;
 
     // Actions - Search
-    setSearchFocused: (focused: boolean) => void;
     setShowLocationSearch: (focused: boolean) => void;
 
     // Action - Animation
@@ -103,91 +93,79 @@ interface UIState {
 }
 
 const DEFAULT_STATE = {
+
+    // Modal
     componentSelectionModalOpen: false,
     keyboardShortcutsModalOpen: false,
     simulationReportModalOpen: false,
-    validationModalOpen: false,
-    showAutoElevation: false,
-    showLocationSearch: false,
-    projectSettingsModalOpen: false,
     controlManagerModalOpen: false,
+    projectSettingsModalOpen: false,
     dataManagerModalOpen: false,
-    propertyPanelOpen: false,
+    validationModalOpen: false,
     deleteModalOpen: false,
+
     importModalOpen: false,
     exportModalOpen: false,
-    activeTool: 'pan' as const,
-    measurementActive: false,
-    measurementType: 'distance' as const,
+
+    showLocationSearch: false,
+    showAutoElevation: false,
     showAttributeTable: false,
-    showBaseLayerMenu: false,
-    showMeasurementMenu: false,
-    sidebarCollapsed: false,
-    layerVisibility: {
-        junction: true,
-        tank: true,
-        reservoir: true,
-        pipe: true,
-        pump: true,
-        valve: true,
-    },
-    baseLayer: 'osm' as const,
-    searchFocused: false,
-    sidebarOpen: true,
-    showPipeArrows: true,
-    showLabels: true,
-    activeTab: 'network-editor',
+
+    measurementType: 'distance' as const,
+    measurementActive: false,
+
     isFlowAnimating: false,
     flowAnimationSpeed: 1.0,
-    flowAnimationStyle: 'combined' as FlowAnimationStyle,
+    flowAnimationStyle: 'dashes' as FlowAnimationStyle,
+
+    activeTab: 'network-editor',
+    activeTool: 'pan' as const,
+    baseLayer: 'osm' as const,
+    sidebarOpen: true,
+    sidebarCollapsed: false,
+
+    layerVisibility: {
+        reservoir: true,
+        junction: true,
+        valve: true,
+        tank: true,
+        pipe: true,
+        pump: true,
+    },
+    showLabels: true,
+    showPipeArrows: true,
+
+
+
 };
 
 export const useUIStore = create<UIState>((set, get) => ({
+
+    // default state
     ...DEFAULT_STATE,
 
     // Modal actions
-    setComponentSelectionModalOpen: (open) => {
-        set({ componentSelectionModalOpen: open });
-    },
-
+    setComponentSelectionModalOpen: (open) => set({ componentSelectionModalOpen: open }),
+    setKeyboardShortcutsModalOpen: (open) => set({ keyboardShortcutsModalOpen: open }),
+    setSimulationReportModalOpen: (open) => set({ simulationReportModalOpen: open }),
     setProjectSettingsModalOpen: (open) => set({ projectSettingsModalOpen: open }),
-
-    setDataManagerModalOpen: (open) => set({ dataManagerModalOpen: open }),
     setControlManagerModalOpen: (open) => set({ controlManagerModalOpen: open }),
+    setDataManagerModalOpen: (open) => set({ dataManagerModalOpen: open }),
 
-    setSimulationReportModalOpen: (open) => { set({ simulationReportModalOpen: open }) },
+    setIsFlowAnimating: (animate) => set({ isFlowAnimating: animate }),
+    setShowLocationSearch: (open) => set({ showLocationSearch: open }),
+    setShowAutoElevation: (open) => set({ showAutoElevation: open }),
 
-    setValidationModalOpen: (open) => { set({ validationModalOpen: open }) },
-
-    setShowAutoElevation: (open) => { set({ showAutoElevation: open }) },
-
-    setShowLocationSearch: (open) => { set({ showLocationSearch: open }) },
-
-    setIsFlowAnimating: (animating) => set({ isFlowAnimating: animating }),
+    setValidationModalOpen: (open) => set({ validationModalOpen: open }),
     setFlowAnimationSpeed: (speed) => set({ flowAnimationSpeed: speed }),
     setFlowAnimationStyle: (style) => set({ flowAnimationStyle: style }),
 
-    setDeleteModalOpen: (open) => { set({ deleteModalOpen: open }) },
-
-    setImportModalOpen: (open) => {
-        set({ importModalOpen: open });
-    },
-
-    setExportModalOpen: (open) => {
-        set({ exportModalOpen: open });
-    },
-
-    setKeyboardShortcutsModalOpen: (open) => {
-        set({ keyboardShortcutsModalOpen: open });
-    },
-
-    setShowPipeArrows: (show) => {
-        set({ showPipeArrows: show });
-    },
-
-    setShowLabels: (show) => {
-        set({ showLabels: show });
-    },
+    setDeleteModalOpen: (open) => set({ deleteModalOpen: open }),
+    setImportModalOpen: (open) => set({ importModalOpen: open }),
+    setExportModalOpen: (open) => set({ exportModalOpen: open }),
+    setMeasurementType: (type) => set({ measurementType: type }),
+    setShowPipeArrows: (show) => set({ showPipeArrows: show }),
+    setShowLabels: (show) => set({ showLabels: show }),
 
     // Map control actions
     setActiveTool: (tool) => {
@@ -223,25 +201,11 @@ export const useUIStore = create<UIState>((set, get) => ({
         set({ measurementActive: active });
     },
 
-    setMeasurementType: (type) => {
-        set({ measurementType: type });
-    },
-
     setShowAttributeTable: () => {
         set((state) => ({ showAttributeTable: !state.showAttributeTable }));
     },
 
-    setShowBaseLayerMenu: () => {
-        set((state) => ({ showBaseLayerMenu: !state.showBaseLayerMenu }));
-    },
-
-    setShowMeasurementMenu: () => {
-        set((state) => ({ showMeasurementMenu: !state.showMeasurementMenu }));
-    },
-
-    setSidebarCollapsed: (collapsed) => {
-        set({ sidebarCollapsed: collapsed });
-    },
+    setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
 
     // Layer actions
     toggleLayerVisibility: (layerId) => {
@@ -277,37 +241,20 @@ export const useUIStore = create<UIState>((set, get) => ({
     },
 
     // Base layer actions
-    setBaseLayer: (layer: layerType) => {
-        set({ baseLayer: layer });
-    },
-
-    // Search actions
-    setSearchFocused: (focused) => {
-        set({ searchFocused: focused });
-    },
+    setBaseLayer: (layer: layerType) => set({ baseLayer: layer }),
 
     // Tab navigation actions
-    setActiveTab: (tab) => {
-        set({ activeTab: tab });
-    },
+    setActiveTab: (tab) => set({ activeTab: tab }),
 
     // Utility actions
     resetAllTools: () => {
         set({
             activeTool: 'pan',
             measurementActive: false,
-            showMeasurementMenu: false,
-            componentSelectionModalOpen: false,
             showAttributeTable: false,
-            propertyPanelOpen: false
+            componentSelectionModalOpen: false,
         });
-
     },
 
-    resetToDefaultState: () => {
-        set({ ...DEFAULT_STATE });
-    },
-
-    togglePropertyPanel: () => set((state) => ({ propertyPanelOpen: !state.propertyPanelOpen })),
-
+    resetToDefaultState: () => set({ ...DEFAULT_STATE }),
 }));

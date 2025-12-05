@@ -1,11 +1,11 @@
 "use client";
 
-import { Loader2, MapPin, Search, X } from 'lucide-react';
-import { fromLonLat } from 'ol/proj';
-import { useEffect, useRef, useState } from 'react';
+import { Loader2, MapPin, Search, X } from "lucide-react";
+import { fromLonLat } from "ol/proj";
+import { useEffect, useRef, useState } from "react";
 
-import { useMapStore } from '@/store/mapStore';
-import { useUIStore } from '@/store/uiStore';
+import { useMapStore } from "@/store/mapStore";
+import { useUIStore } from "@/store/uiStore";
 
 interface SearchResult {
   place_id: number;
@@ -18,13 +18,15 @@ interface SearchResult {
 }
 
 export function LocationSearch() {
+
   const map = useMapStore((state) => state.map);
   const { showLocationSearch, setShowLocationSearch } = useUIStore();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+
   const searchTimeoutRef = useRef<NodeJS.Timeout>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -185,7 +187,7 @@ export function LocationSearch() {
     setShowResults(false);
   };
 
-  // 4. Conditional Render based on Store
+  // Conditional Render based on Store
   if (!showLocationSearch) return null;
 
   return (

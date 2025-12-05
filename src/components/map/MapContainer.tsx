@@ -104,8 +104,8 @@ export function MapContainer() {
     <div className="relative w-full h-full">
       {/* Map Target */}
       <div ref={mapRef} className="w-full h-full" />
+
       <MapControls />
-      <LocationSearch />
       <Cordinates />
 
       {/* Panels */}

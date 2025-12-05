@@ -47,16 +47,16 @@ export function Settings({ activeGroup, onToggle }: SettingsProps) {
           title="Project Settings"
         />
         <ToolBtn
-          onClick={() => setDataManagerModalOpen(true)}
-          isActive={dataManagerModalOpen}
-          icon={Database}
-          title="Database"
-        />
-        <ToolBtn
           onClick={() => setControlManagerModalOpen(true)}
           isActive={controlManagerModalOpen}
           icon={Cpu}
           title="Controls"
+        />
+        <ToolBtn
+          onClick={() => setDataManagerModalOpen(true)}
+          isActive={dataManagerModalOpen}
+          icon={Database}
+          title="Data Manager"
         />
       </ControlGroup>
 

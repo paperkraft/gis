@@ -1,14 +1,17 @@
-import { useCallback, useEffect, useRef } from 'react';
 import { Feature } from 'ol';
+import { useCallback, useEffect, useRef } from 'react';
+
+import { DeleteManager } from '@/lib/topology/deleteManager';
+import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
 import { useUIStore } from '@/store/uiStore';
-import { useMapStore } from '@/store/mapStore';
-import { DeleteManager } from '@/lib/topology/deleteManager';
 
 export function useDeleteHandler() {
-    const { map, vectorSource } = useMapStore();
+    const map = useMapStore(state => state.map);
+    const vectorSource = useMapStore(state => state.vectorSource);
     const { selectFeature, setSelectedFeature, selectedFeature } = useNetworkStore();
     const { setDeleteModalOpen } = useUIStore();
+
     const deleteManagerRef = useRef<DeleteManager | null>(null);
 
     // Initialize DeleteManager
