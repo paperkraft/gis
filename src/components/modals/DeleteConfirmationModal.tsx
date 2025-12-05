@@ -7,11 +7,9 @@ interface DeleteConfirmationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  // Single feature props (optional if count > 1)
   featureName?: string;
   featureType?: string;
   featureId?: string;
-  // Multi feature prop
   count?: number;
   cascadeInfo?: {
     willCascade: boolean;
@@ -34,7 +32,7 @@ export function DeleteConfirmationModal({
   const isMulti = count > 1;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-10000 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full animate-in fade-in zoom-in duration-200">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">

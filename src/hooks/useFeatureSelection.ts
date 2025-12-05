@@ -91,19 +91,16 @@ export function useFeatureSelection({
         const selectInteraction = new Select({
             layers: [vectorLayer],
             // Disable click selection while drawing polygon to prevent conflicts
-            condition: (e) => {
-                // DISABLE user selection if tool is 'pan' or 'draw' or 'modify'
-                if (activeTool === 'pan' || activeTool === 'draw' || activeTool === 'modify' || activeTool === 'zoom-box') {
-                    return false;
-                }
+            condition: activeTool === 'select-polygon' ? never : (e) => click(e) || (click(e) && (shiftKeyOnly(e) || platformModifierKeyOnly(e))),
 
-                // Normal selection logic for 'select' tool
-                if (activeTool === 'select-polygon' || activeTool === 'select-box') return false;
-                return click(e) || (click(e) && (shiftKeyOnly(e) || platformModifierKeyOnly(e)));
-            },
+            // Use the new Multi-Style function
             style: (feature) => getSelectedStyle(feature as Feature),
+
             filter: (feature) => !feature.get("isPreview") && !feature.get("isVertexMarker") && !feature.get("isVisualLink"),
             multi: true,
+
+            // Add Hit Tolerance (makes selecting small nodes easier)
+            hitTolerance: 5,
         });
 
         selectInteraction.on("select", (event) => {
