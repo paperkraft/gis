@@ -1,11 +1,12 @@
 "use client";
 
 import {
-  Eye,
   Globe,
   Home,
   Layers,
   Map as MapIcon,
+  MapPin,
+  MapPinnedIcon,
   Mountain,
   Search,
   SquareMousePointer,
@@ -105,9 +106,17 @@ export function NavigationControls({
         <ToolBtn
           onClick={() => handleBaseLayerChange("osm")}
           isActive={baseLayer === "osm"}
-          icon={Eye}
+          icon={MapPin}
           title="OpenStreetMap"
           label="OSM"
+        />
+
+        <ToolBtn
+          onClick={() => handleBaseLayerChange("mapbox")}
+          isActive={baseLayer === "mapbox"}
+          icon={MapPinnedIcon}
+          title="Mapbox"
+          label="Box"
         />
         <ToolBtn
           onClick={() => handleBaseLayerChange("satellite")}

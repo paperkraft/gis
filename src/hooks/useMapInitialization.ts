@@ -6,7 +6,7 @@ import View from 'ol/View';
 import { useEffect, useRef, useState } from 'react';
 
 import { handleZoomToExtent } from '@/lib/interactions/map-controls';
-import { createBaseLayers } from '@/lib/map/baseLayers';
+import { createBaseLayers, indiaBoundaryLayer } from '@/lib/map/baseLayers';
 import { getFeatureStyle } from '@/lib/styles/featureStyles';
 import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
@@ -44,7 +44,7 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
         // 3. Create Map
         const map = new Map({
             target: mapTargetRef.current,
-            layers: [...baseLayers, vecLayer],
+            layers: [...baseLayers, vecLayer, indiaBoundaryLayer],
             view: new View({
                 // center: fromLonLat([74.2381, 16.7012]),
                 center: fromLonLat([78.6677, 22.3511]),
