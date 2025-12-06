@@ -133,7 +133,22 @@
 }
 /* Added: Style for DragBox selection */
 .ol-dragbox {
-  background-color: rgba(59, 130, 246, 0.2);
-  border: 2px solid #3b82f6;
-  border-radius: 4px;
+  background-color: rgba(59, 130, 246, 0.1) !important; /* Faint light blue */
+  border: 1.5px solid rgba(59, 130, 246, 0.6) !important; /* Semi-transparent border */
+  border-radius: 4px !important;
+}
+
+/* Option 1: Make lines WHITE (Good for Satellite view) */
+/* .bhuvan-layer-filter {
+  filter: invert(1) brightness(2);
+} */
+
+/* Option 2: Make lines BLUE (Uncomment to use) */
+/* .bhuvan-layer-filter {
+  filter: invert(1) sepia(1) saturate(500%) hue-rotate(190deg) brightness(0.8);
+}  */
+
+/* Option 3: Make lines RED (Uncomment to use) */
+.bhuvan-layer-filter {
+  filter: invert(1) sepia(1) saturate(500%) hue-rotate(-50deg) brightness(0.5);
 }

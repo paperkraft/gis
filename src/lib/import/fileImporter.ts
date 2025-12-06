@@ -1,7 +1,7 @@
 import { Feature } from 'ol';
 import VectorSource from 'ol/source/Vector';
 import { useNetworkStore } from '@/store/networkStore';
-import { parseINP } from './inpParser';
+import { parseINP, ParsedProjectData } from './inpParser';
 
 export type ImportFormat = 'inp' | 'geojson' | 'shapefile' | 'kml';
 
@@ -9,6 +9,11 @@ export interface ImportResult {
     success: boolean;
     features: Feature[];
     message: string;
+    // Extended fields
+    settings?: any;
+    patterns?: any[];
+    curves?: any[];
+    controls?: any[]; // NEW
     stats?: {
         junctions: number;
         tanks: number;
@@ -58,7 +63,7 @@ export class FileImporter {
             }
 
             if (result.success) {
-                this.addFeaturesToMap(result.features);
+                this.handleSuccess(result);
             }
 
             return result;
@@ -77,7 +82,30 @@ export class FileImporter {
      */
     private async importINP(file: File): Promise<ImportResult> {
         const text = await file.text();
-        return parseINP(text);
+
+        // 1. Parse using the new robust parser
+        const projectData: ParsedProjectData = parseINP(text);
+
+        // 2. Generate stats
+        const stats = {
+            junctions: projectData.features.filter(f => f.get('type') === 'junction').length,
+            tanks: projectData.features.filter(f => f.get('type') === 'tank').length,
+            reservoirs: projectData.features.filter(f => f.get('type') === 'reservoir').length,
+            pipes: projectData.features.filter(f => f.get('type') === 'pipe').length,
+            pumps: projectData.features.filter(f => f.get('type') === 'pump').length,
+            valves: projectData.features.filter(f => f.get('type') === 'valve').length,
+        };
+
+        // 3. Wrap in ImportResult
+        return {
+            success: true,
+            features: projectData.features,
+            message: "Project imported successfully",
+            stats,
+            settings: projectData.settings,
+            patterns: projectData.patterns,
+            curves: projectData.curves
+        };
     }
 
     /**
@@ -86,16 +114,23 @@ export class FileImporter {
     private async importGeoJSON(file: File): Promise<ImportResult> {
         const text = await file.text();
         const data = JSON.parse(text);
-        // return parseGeoJSON(data);
-        return data
+
+        // NOTE: You'll need a GeoJSON parser here similar to parseINP 
+        // that converts GeoJSON features to OpenLayers Features with correct types.
+        // For now, assuming your previous implementation or standard OL GeoJSON read.
+        // Returning dummy/empty for now to fix type error if you haven't implemented parseGeoJSON yet.
+        // Ideally:
+        // import GeoJSON from 'ol/format/GeoJSON';
+        // const features = new GeoJSON().readFeatures(data, { featureProjection: 'EPSG:3857' });
+
+        return {
+            success: false,
+            features: [],
+            message: "GeoJSON import logic needs update to match new types"
+        };
     }
 
-    /**
-     * Import Shapefile (zipped)
-     */
     private async importShapefile(file: File): Promise<ImportResult> {
-        const arrayBuffer = await file.arrayBuffer();
-        // TODO: Implement KML parser
         return {
             success: false,
             features: [],
@@ -103,12 +138,7 @@ export class FileImporter {
         };
     }
 
-    /**
-     * Import KML file
-     */
     private async importKML(file: File): Promise<ImportResult> {
-        const text = await file.text();
-        // TODO: Implement KML parser
         return {
             success: false,
             features: [],
@@ -117,17 +147,40 @@ export class FileImporter {
     }
 
     /**
-     * Add imported features to map and store
+     * Smart Handler: Decides whether to Replace (Project) or Merge (Data)
      */
-    private addFeaturesToMap(features: Feature[]) {
+    private handleSuccess(result: ImportResult) {
         const store = useNetworkStore.getState();
 
-        features.forEach(feature => {
-            this.vectorSource.addFeature(feature);
-            store.addFeature(feature);
-        });
+        // CASE A: Full Project Import (INP) -> Replace Everything
+        if (result.settings) {
+            console.log("🔄 Loading full project...");
+            store.loadProject({
+                features: result.features,
+                settings: result.settings,
+                patterns: result.patterns || [],
+                curves: result.curves || [],
+                controls: result.controls || [] // Load controls
+            });
 
-        this.vectorSource.changed();
+            this.vectorSource.clear();
+            this.vectorSource.addFeatures(result.features);
+        }
+        // CASE B: Simple Geometry Import (GeoJSON/etc) -> Merge/Add
+        else {
+            console.log("➕ Merging features...");
+
+            result.features.forEach(feature => {
+                // Ensure ID
+                if (!feature.getId()) {
+                    const type = feature.get('type') || 'junction';
+                    feature.setId(store.generateUniqueId(type));
+                }
+
+                this.vectorSource.addFeature(feature);
+                store.addFeature(feature);
+            });
+        }
     }
 
     /**

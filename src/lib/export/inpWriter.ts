@@ -1,41 +1,49 @@
 import { Feature } from 'ol';
 import { Point, LineString } from 'ol/geom';
-import { NetworkFeatureProperties } from '@/types/network';
+import { NetworkFeatureProperties, ProjectSettings, TimePattern, PumpCurve, NetworkControl } from '@/types/network';
 import { useNetworkStore } from '@/store/networkStore';
 
-/**
- * Robust helper to get ID from feature
- */
 function getId(f: Feature): string {
     const id = f.getId() || f.get('id');
-    return id ? String(id) : 'UNKNOWN_ID';
+    return id ? String(id).trim() : 'UNKNOWN_ID';
 }
 
-/**
- * Helper to pad strings for columnar alignment
- */
 function pad(val: any, width: number = 16): string {
     const str = String(val);
     if (str.length >= width) return str + ' ';
     return str.padEnd(width, ' ');
 }
 
-/**
- * Generates EPANET INP file content from network features
- */
-export function generateINP(features: Feature[]): string {
+export function generateINP(
+    features: Feature[],
+    customSettings?: ProjectSettings,
+    customPatterns?: TimePattern[],
+    customCurves?: PumpCurve[],
+    customControls?: NetworkControl[]
+): string {
     const lines: string[] = [];
 
-    // GET DYNAMIC SETTINGS
-    const { settings, patterns, curves } = useNetworkStore.getState();
+    // 1. Resolve Data Sources
+    const store = useNetworkStore.getState();
+    const settings = customSettings || store.settings;
+    const patterns = customPatterns || store.patterns || [];
+    const curves = customCurves || store.curves || [];
+    const controls = customControls || store.controls || [];
 
-    // Separate features by type
+    const hasPattern1 = patterns.some(p => p.id === "1");
+    const safePatterns = [...patterns];
+    if (!hasPattern1) {
+        safePatterns.push({ id: "1", description: "Default", multipliers: Array(24).fill(1.0) });
+    }
+
     const junctions = features.filter(f => f.get('type') === 'junction');
     const reservoirs = features.filter(f => f.get('type') === 'reservoir');
     const tanks = features.filter(f => f.get('type') === 'tank');
     const pipes = features.filter(f => f.get('type') === 'pipe');
     const pumps = features.filter(f => f.get('type') === 'pump');
     const valves = features.filter(f => f.get('type') === 'valve');
+
+    const allIds = new Set(features.map(getId));
 
     // --- 1. HEADER ---
     lines.push('[TITLE]');
@@ -50,7 +58,6 @@ export function generateINP(features: Feature[]): string {
     lines.push(`Viscosity          ${settings.viscosity}`);
     lines.push(`Trials             ${settings.trials}`);
     lines.push(`Accuracy           ${settings.accuracy}`);
-    lines.push(`DEMAND MULTIPLIER  ${settings.demandMultiplier}`);
     lines.push('CHECKFREQ          2');
     lines.push('MAXCHECK           10');
     lines.push('DAMPLIMIT          0');
@@ -58,7 +65,7 @@ export function generateINP(features: Feature[]): string {
     lines.push('PATTERN            1');
     lines.push('');
 
-    // --- 3. TIMES (FIXED: Using HH:MM format) ---
+    // --- 3. TIMES ---
     lines.push('[TIMES]');
     lines.push('Duration           24:00');
     lines.push('Hydraulic Timestep 1:00');
@@ -69,20 +76,20 @@ export function generateINP(features: Feature[]): string {
     lines.push('Statistic          None');
     lines.push('');
 
-    // --- 4. PATTERNS CURVES ---
+    // --- 4. PATTERNS ---
     lines.push('[PATTERNS]');
     lines.push(';ID   Multipliers');
-    patterns.forEach(p => {
-        // EPANET allows multiline patterns. We'll split into 2 lines of 12 for readability
-        const row1 = p.multipliers.slice(0, 12).map(v => v.toFixed(2)).join(' ');
-        const row2 = p.multipliers.slice(12, 24).map(v => v.toFixed(2)).join(' ');
-
+    safePatterns.forEach(p => {
+        const mults = [...p.multipliers];
+        while (mults.length < 24) mults.push(1.0);
+        const row1 = mults.slice(0, 12).map(v => v.toFixed(2)).join(' ');
+        const row2 = mults.slice(12, 24).map(v => v.toFixed(2)).join(' ');
         lines.push(`${p.id}     ${row1}`);
         lines.push(`${p.id}     ${row2}`);
     });
     lines.push('');
 
-    // [CURVES]
+    // --- 5. CURVES ---
     if (curves.length > 0) {
         lines.push('[CURVES]');
         lines.push(';ID   X-Value  Y-Value');
@@ -95,21 +102,18 @@ export function generateINP(features: Feature[]): string {
         lines.push('');
     }
 
-    // --- 5. NETWORK DATA ---
-
-    // [JUNCTIONS]
+    // --- 6. NETWORK DATA (Components First!) ---
     if (junctions.length > 0) {
         lines.push('[JUNCTIONS]');
         lines.push(';ID              Elevation    Demand       Pattern');
         junctions.forEach(f => {
             const props = f.getProperties() as NetworkFeatureProperties;
-            // Force Pattern 1
-            lines.push(`${pad(getId(f))} ${pad(props.elevation || 0)} ${pad(props.demand || 0)}                1   ;`);
+            const pat = hasPattern1 ? "1" : "";
+            lines.push(`${pad(getId(f))} ${pad(props.elevation || 0)} ${pad(props.demand || 0)}                ${pat}   ;`);
         });
         lines.push('');
     }
 
-    // [RESERVOIRS]
     if (reservoirs.length > 0) {
         lines.push('[RESERVOIRS]');
         lines.push(';ID              Head         Pattern');
@@ -120,7 +124,6 @@ export function generateINP(features: Feature[]): string {
         lines.push('');
     }
 
-    // [TANKS]
     if (tanks.length > 0) {
         lines.push('[TANKS]');
         lines.push(';ID              Elevation    InitLevel    MinLevel     MaxLevel     Diameter     MinVol       VolCurve');
@@ -131,7 +134,6 @@ export function generateINP(features: Feature[]): string {
         lines.push('');
     }
 
-    // [PIPES]
     if (pipes.length > 0) {
         lines.push('[PIPES]');
         lines.push(';ID              Node1           Node2           Length       Diameter     Roughness    MinorLoss    Status');
@@ -144,7 +146,6 @@ export function generateINP(features: Feature[]): string {
         lines.push('');
     }
 
-    // [PUMPS]
     if (pumps.length > 0) {
         lines.push('[PUMPS]');
         lines.push(';ID              Node1           Node2           Parameters');
@@ -157,7 +158,6 @@ export function generateINP(features: Feature[]): string {
         lines.push('');
     }
 
-    // [VALVES]
     if (valves.length > 0) {
         lines.push('[VALVES]');
         lines.push(';ID              Node1           Node2           Diameter     Type         Setting      MinorLoss');
@@ -170,7 +170,6 @@ export function generateINP(features: Feature[]): string {
         lines.push('');
     }
 
-    // [COORDINATES]
     lines.push('[COORDINATES]');
     lines.push(';Node            X-Coord          Y-Coord');
     [...junctions, ...reservoirs, ...tanks].forEach(f => {
@@ -180,7 +179,6 @@ export function generateINP(features: Feature[]): string {
     });
     lines.push('');
 
-    // [VERTICES]
     lines.push('[VERTICES]');
     lines.push(';Link            X-Coord          Y-Coord');
     [...pipes].forEach(f => {
@@ -192,7 +190,35 @@ export function generateINP(features: Feature[]): string {
     });
     lines.push('');
 
-    // End of file
+    // --- 7. CONTROLS (MOVED TO LAST SECTION) ---
+    if (controls.length > 0) {
+        const validControls = controls.filter(c => {
+            if (!c.linkId || !allIds.has(c.linkId)) return false;
+            if (['LOW LEVEL', 'HI LEVEL'].includes(c.type)) {
+                if (!c.nodeId || !allIds.has(c.nodeId)) return false;
+            }
+            return true;
+        });
+
+        if (validControls.length > 0) {
+            lines.push('[CONTROLS]');
+            validControls.forEach(c => {
+                let line = '';
+                const linkId = c.linkId.trim();
+                const nodeId = c.nodeId ? c.nodeId.trim() : '';
+
+                if (c.type === 'TIMER') {
+                    line = `LINK ${linkId} ${c.status} AT TIME ${c.value}`;
+                } else {
+                    const condition = c.type === 'LOW LEVEL' ? 'BELOW' : 'ABOVE';
+                    line = `LINK ${linkId} ${c.status} IF NODE ${nodeId} ${condition} ${c.value}`;
+                }
+                lines.push(line);
+            });
+            lines.push('');
+        }
+    }
+
     lines.push('[END]');
 
     return lines.join('\n');

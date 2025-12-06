@@ -64,7 +64,7 @@ export function ImportModal({ isOpen, onClose }: ImportModalProps) {
           const extent = vectorSource.getExtent();
           map
             .getView()
-            .fit(extent, { padding: [50, 50, 50, 50], duration: 1000 });
+            ?.fit(extent, { padding: [50, 50, 50, 50], duration: 1000 });
         }, 300);
       }
     } catch (error) {

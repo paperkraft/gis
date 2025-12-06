@@ -7,11 +7,12 @@ import { useMapInitialization } from "@/hooks/useMapInitialization";
 import { useMapEvents } from "@/hooks/useMapEvents";
 import { useMapInteractions } from "@/hooks/useMapInteractions";
 import { useLayerManager } from "@/hooks/useLayerManager";
-import { useFlowAnimation } from "@/hooks/useFlowAnimation";
 import { useFeatureSelection } from "@/hooks/useFeatureSelection";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useDeleteHandler } from "@/hooks/useDeleteHandler";
 import { useNetworkExport } from "@/hooks/useNetworkExport";
+import { useHistoryManager } from "@/hooks/useHistoryManager";
+import { useMeasurement } from "@/hooks/useMeasurement";
 
 // Stores & Types
 import { useMapStore } from "@/store/mapStore";
@@ -22,47 +23,42 @@ import { FeatureType } from "@/types/network";
 // Components
 import { MapControls } from "./MapControls";
 import { LocationSearch } from "./LocationSearch";
-import { FlowAnimationControls } from "./FlowAnimationControls";
 import { AttributeTable } from "./AttributeTable";
 import { PropertyPanel } from "./PropertyPanel";
 import { ComponentSelectionModal } from "@/components/modals/ComponentSelectionModal";
 import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 import { Cordinates } from "./Cordinates";
-import { useHistoryManager } from "@/hooks/useHistoryManager";
-import { SimulationReportModal } from "../modals/SimulationReportModal";
-import { ValidationModal } from "../modals/ValidationModal";
+import { useSnapping } from "@/hooks/useSnapping";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
 
-  // 1. Initialize Map & Layers
+  // Initialize Map & Layers
+  const map = useMapStore((state) => state.map);
+  const vectorSource = useMapStore((state) => state.vectorSource);
+
   const { vectorLayer } = useMapInitialization(mapRef);
-  const { map, vectorSource } = useMapStore();
   const {
     activeTool,
     deleteModalOpen,
     showAttributeTable,
-    validationModalOpen,
-    simulationReportModalOpen,
     componentSelectionModalOpen,
     setActiveTool,
     setDeleteModalOpen,
     setShowAttributeTable,
-    setValidationModalOpen,
-    setSimulationReportModalOpen,
     setComponentSelectionModalOpen,
   } = useUIStore();
 
   // Get setSelectedFeature to update global state when selection changes
   const { selectedFeature, setSelectedFeature } = useNetworkStore();
 
-  // 2. Setup Interactions (Drawing, Modifying, Managers)
+  // Setup Interactions (Drawing, Modifying, Managers)
   const { pipeDrawingManager, startComponentPlacement } = useMapInteractions({
     map,
     vectorSource,
   });
 
-  // 3. Handle Feature Selection
+  // Handle Feature Selection
   useFeatureSelection({
     map,
     vectorLayer,
@@ -70,31 +66,33 @@ export function MapContainer() {
     onFeatureSelect: setSelectedFeature,
   });
 
-  // 4. Handle Map Events (Coordinates, Fit)
+  // Handle Map Events (Coordinates, Fit)
   useMapEvents({ map });
 
-  // 5. Setup Flow Animation
-  const flowAnimation = useFlowAnimation(vectorLayer, {
-    enabled: false,
-    speed: 1,
-    style: "dashes",
-  });
+  // Manage Layers & Styling
+  useLayerManager({ vectorLayer });
 
-  // 6. Manage Layers & Styling
-  useLayerManager({ vectorLayer, flowAnimation });
-
-  // 7. Keyboard Shortcuts
+  // Keyboard Shortcuts
   useKeyboardShortcuts();
 
-  // 8. Delete Handling
-  const { handleDeleteRequestFromPanel, handleDeleteConfirm, cascadeInfo } =
-    useDeleteHandler();
+  // Delete Handling
+  const {
+    handleDeleteRequestFromPanel,
+    handleDeleteConfirm,
+    cascadeInfo,
+    deleteCount,
+  } = useDeleteHandler();
 
-  // 9. Export Handling (New)
+  // Export Handling
   useNetworkExport();
 
-  // 10. History Manager (Undo/Redo)
+  // History Manager (Undo/Redo)
   useHistoryManager();
+
+  // Measurement
+  useMeasurement();
+
+  useSnapping();
 
   // --- Handlers ---
 
@@ -114,26 +112,16 @@ export function MapContainer() {
       {/* Map Target */}
       <div ref={mapRef} className="w-full h-full" />
 
-      {/* Overlays & Controls */}
       <MapControls />
-      <LocationSearch />
+      <Cordinates />
 
-      <FlowAnimationControls
-        isAnimating={flowAnimation.isAnimating}
-        speed={flowAnimation.options.speed}
-        style={flowAnimation.options.style}
-        onToggle={flowAnimation.toggleAnimation}
-        onSpeedChange={flowAnimation.setSpeed}
-        onStyleChange={flowAnimation.setStyle}
-      />
-
+      {/* Panels */}
       <AttributeTable
         isOpen={showAttributeTable}
         onClose={() => setShowAttributeTable(false)}
         vectorSource={vectorSource || undefined}
       />
 
-      {/* Panels */}
       {selectedFeature && activeTool === "select" && (
         <PropertyPanel
           properties={selectedFeature.getProperties() as any}
@@ -152,24 +140,11 @@ export function MapContainer() {
         isOpen={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
         onConfirm={handleDeleteConfirm}
+        count={deleteCount}
         featureName={selectedFeature?.get("label") || "Unknown"}
         featureType={selectedFeature?.get("type") || "Feature"}
         featureId={selectedFeature?.getId()?.toString() || "Unknown"}
         cascadeInfo={cascadeInfo}
-      />
-
-      <SimulationReportModal
-        isOpen={simulationReportModalOpen}
-        onClose={() => setSimulationReportModalOpen(false)}
-      />
-
-      {/* Coordinate Display */}
-      <Cordinates />
-
-      {/* Render Validation Modal */}
-      <ValidationModal
-        isOpen={validationModalOpen}
-        onClose={() => setValidationModalOpen(false)}
       />
     </div>
   );

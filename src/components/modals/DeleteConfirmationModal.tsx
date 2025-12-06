@@ -1,15 +1,16 @@
 "use client";
 import React from "react";
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle, X, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface DeleteConfirmationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  featureName: string;
-  featureType: string;
-  featureId: string;
+  featureName?: string;
+  featureType?: string;
+  featureId?: string;
+  count?: number;
   cascadeInfo?: {
     willCascade: boolean;
     message: string;
@@ -23,9 +24,12 @@ export function DeleteConfirmationModal({
   featureName,
   featureType,
   featureId,
+  count = 1,
   cascadeInfo,
 }: DeleteConfirmationModalProps) {
   if (!isOpen) return null;
+
+  const isMulti = count > 1;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-10000 p-4">
@@ -35,7 +39,9 @@ export function DeleteConfirmationModal({
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-red-600 dark:text-red-500 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5" />
-              <span>Confirm Deletion</span>
+              <span>
+                {isMulti ? "Delete Multiple Items" : "Confirm Deletion"}
+              </span>
             </h3>
             <button
               onClick={onClose}
@@ -48,17 +54,36 @@ export function DeleteConfirmationModal({
 
         {/* Body */}
         <div className="p-6">
-          <p className="text-gray-700 dark:text-gray-300 mb-4">
-            Are you sure you want to delete <strong>{featureType}</strong> "
-            <strong>{featureName}</strong>" (ID:{" "}
-            <code className="text-sm bg-gray-100 dark:bg-gray-700 px-1 rounded">
-              {featureId}
-            </code>
-            )?
-          </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            This action cannot be undone.
-          </p>
+          {isMulti ? (
+            <div className="flex items-start gap-3 mb-4">
+              <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-full">
+                <Layers className="w-6 h-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <p className="text-gray-700 dark:text-gray-300 font-medium">
+                  Are you sure you want to delete <strong>{count}</strong>{" "}
+                  selected items?
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  This will remove all selected components from the network.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="text-gray-700 dark:text-gray-300 mb-4">
+                Are you sure you want to delete <strong>{featureType}</strong> "
+                <strong>{featureName}</strong>" (ID:{" "}
+                <code className="text-sm bg-gray-100 dark:bg-gray-700 px-1 rounded">
+                  {featureId}
+                </code>
+                )?
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                This action cannot be undone.
+              </p>
+            </>
+          )}
 
           {/* Cascade Warning */}
           {cascadeInfo?.willCascade && (
@@ -82,7 +107,7 @@ export function DeleteConfirmationModal({
             onClick={onConfirm}
             className="bg-red-600 hover:bg-red-700 text-white"
           >
-            Delete
+            Delete {isMulti ? `(${count})` : ""}
           </Button>
         </div>
       </div>

@@ -10,6 +10,10 @@ import { createSegmentArrows } from './pipeArrowStyles';
 import { useSimulationStore } from '@/store/simulationStore';
 import { getColorForValue, PRESSURE_COLORS, VELOCITY_COLORS } from './styleUtils';
 
+const isFeatureInactive = (status: any) => {
+    return status === "closed" || status === "inactive" || status === "stopped";
+};
+
 export const getFeatureStyle = (feature: Feature): Style | Style[] => {
     const featureType = feature.get("type") as FeatureType;
     const isHidden = feature.get("hidden");
@@ -29,39 +33,30 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
 
     let label = feature.get("label") || feature.getId();
     const status = feature.get("status");
-    const isInactive = status === "closed" || status === "inactive" || status === "stopped";
-
-    // --- NEW: FETCH SIMULATION RESULTS ---
-    const { results } = useSimulationStore.getState(); // Access store directly without hook rules
+    const isInactive = isFeatureInactive(status);
 
     // Use gray color if inactive, otherwise component color
     let color = isInactive ? "#9CA3AF" : config.color;
 
-    // Apply Simulation Styling if results exist
-    if (results && !isInactive) {
-        if (['junction'].includes(featureType)) {
+    // Simulation coloring
+    const { results, status: simStatus } = useSimulationStore.getState();
+    if (simStatus === 'completed' && results && !isInactive) {
+        if (['junction', 'tank', 'reservoir'].includes(featureType)) {
             const nodeResult = results.nodes[featureId];
-            if (nodeResult) {
-                // Color by Pressure
-                color = getColorForValue(nodeResult.pressure, PRESSURE_COLORS);
-                // Optional: Append pressure to label
-                label += `\n${nodeResult.pressure.toFixed(1)} psi`;
-            }
+            if (nodeResult) color = getColorForValue(nodeResult.pressure, PRESSURE_COLORS);
         } else if (featureType === 'pipe') {
             const linkResult = results.links[featureId];
-            if (linkResult) {
-                // Color by Velocity
-                color = getColorForValue(linkResult.velocity, VELOCITY_COLORS);
-            }
+            if (linkResult) color = getColorForValue(linkResult.velocity, VELOCITY_COLORS);
         }
     }
+
 
     // Check if labels are enabled
     const { showPipeArrows, showLabels } = useUIStore.getState();
 
     // Text Style for Labels
     const textStyle = showLabels ? new Text({
-        text: label,
+        text: label?.toString(),
         font: '10px "Inter", sans-serif',
         fill: new Fill({ color: '#374151' }),
         stroke: new Stroke({ color: '#FFFFFF', width: 3 }),
@@ -87,7 +82,6 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
 
         // Add Arrows if enabled
         if (showPipeArrows && !isInactive) {
-            // For now defaulting to segments as it's clearer
             const arrowStyles = createSegmentArrows(feature);
             return [baseStyle, ...arrowStyles];
         }
@@ -111,7 +105,7 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
 
         return new Style({
             image: new CircleStyle({
-                radius: 8,
+                radius: 6,
                 fill: new Fill({ color: color }),
                 stroke: new Stroke({ color: "#FFFFFF", width: 2 }),
             }),
@@ -142,7 +136,7 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
                 fill: new Fill({ color: color }),
                 stroke: new Stroke({ color: "#ffffff", width: 2 }),
                 points: 6,
-                radius: 14,
+                radius: 12,
                 angle: 0,
                 rotation: 0,
             }),
@@ -188,27 +182,44 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
 
 
 // Style for the selection highlight (Gold/Orange halo)
-export const getSelectedStyle = (feature: Feature): Style => {
+export const getSelectedStyle = (feature: Feature): Style[] => {
     const featureType = feature.get("type");
+    const styles: Style[] = [];
 
+    // 1. Create the Halo (Highlight)
     if (featureType === "pipe") {
-        return new Style({
+        styles.push(new Style({
             stroke: new Stroke({
-                color: "rgba(250, 204, 21, 0.8)", // Yellow-400
-                width: 10, // Wide halo
+                color: "rgba(250, 204, 21, 0.6)", // Yellow-400, semi-transparent
+                width: 12, // Wider than the pipe
             }),
-            zIndex: 90,
-        });
+            zIndex: 199, // Draw behind the pipe (conceptually, but in same array order matters)
+        }));
+    } else {
+        // Large yellow circle/glow for Nodes
+        styles.push(new Style({
+            image: new CircleStyle({
+                radius: 18, // Larger than the icon
+                fill: new Fill({ color: "rgba(250, 204, 21, 0.5)" }),
+                stroke: new Stroke({ color: "rgba(250, 204, 21, 1)", width: 2 }),
+            }),
+            zIndex: 199,
+        }));
     }
 
-    return new Style({
-        image: new CircleStyle({
-            radius: 16,
-            fill: new Fill({ color: "rgba(250, 204, 21, 0.4)" }),
-            stroke: new Stroke({ color: "rgba(250, 204, 21, 1)", width: 2 }),
-        }),
-        zIndex: 90,
-    });
+    // 2. Get the Original Look
+    const baseStyles = getFeatureStyle(feature);
+
+    if (Array.isArray(baseStyles)) {
+        // Boost zIndex of base style so it sits ON TOP of the halo
+        baseStyles.forEach(s => s.setZIndex(200));
+        styles.push(...baseStyles);
+    } else {
+        baseStyles.setZIndex(200);
+        styles.push(baseStyles);
+    }
+
+    return styles;
 };
 
 // Helper for visual link lines (dashed line connecting pump/valve nodes)

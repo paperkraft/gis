@@ -92,9 +92,15 @@ export function useFeatureSelection({
             layers: [vectorLayer],
             // Disable click selection while drawing polygon to prevent conflicts
             condition: activeTool === 'select-polygon' ? never : (e) => click(e) || (click(e) && (shiftKeyOnly(e) || platformModifierKeyOnly(e))),
+
+            // Use the new Multi-Style function
             style: (feature) => getSelectedStyle(feature as Feature),
+
             filter: (feature) => !feature.get("isPreview") && !feature.get("isVertexMarker") && !feature.get("isVisualLink"),
             multi: true,
+
+            // Add Hit Tolerance (makes selecting small nodes easier)
+            hitTolerance: 5,
         });
 
         selectInteraction.on("select", (event) => {
@@ -198,7 +204,7 @@ export function useFeatureSelection({
     // 2. HOVER INTERACTION
     useEffect(() => {
         if (!map || !vectorLayer || !enableHover) return;
-        if (activeTool === 'select-polygon' || activeTool === 'select-box') return;
+        if (activeTool === 'pan' || activeTool === 'select-polygon' || activeTool === 'select-box') return;
 
         let hoveredFeature: Feature | null = null;
 

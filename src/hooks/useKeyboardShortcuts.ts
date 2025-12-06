@@ -1,22 +1,21 @@
 "use client";
 
-import { useEffect } from "react";
-import { useMapStore } from "@/store/mapStore";
-import { useUIStore } from "@/store/uiStore";
-import { useNetworkStore } from "@/store/networkStore";
-import { handleZoomToExtent } from "@/lib/interactions/map-controls";
+import { useEffect } from 'react';
+
+import { handleZoomToExtent } from '@/lib/interactions/map-controls';
+import { useMapStore } from '@/store/mapStore';
+import { useNetworkStore } from '@/store/networkStore';
+import { useUIStore } from '@/store/uiStore';
 
 export function useKeyboardShortcuts() {
-    const { map } = useMapStore();
-    const { selectedFeature } = useNetworkStore();
+    const map = useMapStore(state => state.map);
+    const { selectedFeatureIds } = useNetworkStore();
     const {
         setActiveTool,
         setDeleteModalOpen,
         setComponentSelectionModalOpen,
         setKeyboardShortcutsModalOpen,
         setShowAttributeTable,
-        setShowBaseLayerMenu,
-        setShowMeasurementMenu,
         setExportModalOpen,
         setImportModalOpen
     } = useUIStore();
@@ -49,7 +48,7 @@ export function useKeyboardShortcuts() {
 
             // ESC - Exit current tool / Clear selection
             if (key === "escape") {
-                setActiveTool("select");
+                setActiveTool("pan");
                 return;
             }
 
@@ -76,7 +75,7 @@ export function useKeyboardShortcuts() {
             // DELETE - Delete selected feature
             // NOTE: This relies on selectedFeature dependency
             if (key === "delete" || key === "backspace") {
-                if (selectedFeature) {
+                if (selectedFeatureIds.length > 0) {
                     event.preventDefault(); // Prevent browser back navigation
                     setDeleteModalOpen(true);
                 }
@@ -111,18 +110,6 @@ export function useKeyboardShortcuts() {
             // T - Toggle Attribute Table
             if (key === "t" && !ctrl) {
                 setShowAttributeTable(true);
-                return;
-            }
-
-            // L - Toggle Base Layer Map
-            if (key === "l" && !ctrl) {
-                setShowBaseLayerMenu(true);
-                return;
-            }
-
-            // R - Ruler/Measure tool
-            if (key === "r" && !ctrl) {
-                setShowMeasurementMenu(true);
                 return;
             }
 
@@ -194,14 +181,12 @@ export function useKeyboardShortcuts() {
         };
     }, [
         map,
-        selectedFeature, // Vital dependency: ensures Delete works on currently selected item
+        selectedFeatureIds,
         setActiveTool,
         setDeleteModalOpen,
         setComponentSelectionModalOpen,
         setKeyboardShortcutsModalOpen,
         setShowAttributeTable,
-        setShowBaseLayerMenu,
-        setShowMeasurementMenu,
         setExportModalOpen,
         setImportModalOpen
     ]);

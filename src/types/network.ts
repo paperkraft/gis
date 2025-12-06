@@ -70,11 +70,23 @@ export interface ProjectSettings {
 export interface TimePattern {
     id: string;
     description?: string;
-    multipliers: number[]; // Array of 24 multipliers
+    multipliers: number[];
 }
 export interface PumpCurve {
     id: string;
     description?: string;
     type: 'PUMP' | 'VOLUME' | 'HEADLOSS';
     points: { x: number; y: number }[];
+}
+
+export type ControlType = 'LOW LEVEL' | 'HI LEVEL' | 'TIMER' | 'TIMEOFDAY';
+export type ControlAction = 'OPEN' | 'CLOSED' | 'ACTIVE';
+
+export interface NetworkControl {
+    id: string;
+    linkId: string;
+    status: ControlAction;
+    nodeId?: string;
+    value: number;
+    type: ControlType;
 }

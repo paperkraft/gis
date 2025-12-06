@@ -1,18 +1,18 @@
-import { useEffect, useRef, useCallback } from 'react';
 import { Feature, MapBrowserEvent } from 'ol';
 import { Point } from 'ol/geom';
-import VectorSource from 'ol/source/Vector';
 import Map from 'ol/Map';
+import VectorSource from 'ol/source/Vector';
+import { useCallback, useEffect, useRef } from 'react';
 
-import { useUIStore } from '@/store/uiStore';
-import { useNetworkStore } from '@/store/networkStore';
-import { useMapStore } from '@/store/mapStore';
-import { PipeDrawingManager } from '@/lib/topology/pipeDrawingManager';
-import { ModifyManager } from '@/lib/topology/modifyManager';
-import { ContextMenuManager } from '@/lib/topology/contextMenuManager';
-import { VertexLayerManager } from '@/lib/topology/vertexManager';
 import { COMPONENT_TYPES } from '@/constants/networkComponents';
+import { ContextMenuManager } from '@/lib/topology/contextMenuManager';
+import { ModifyManager } from '@/lib/topology/modifyManager';
+import { PipeDrawingManager } from '@/lib/topology/pipeDrawingManager';
+import { VertexLayerManager } from '@/lib/topology/vertexManager';
+import { useNetworkStore } from '@/store/networkStore';
+import { useUIStore } from '@/store/uiStore';
 import { FeatureType } from '@/types/network';
+import { DragBox } from 'ol/interaction';
 
 interface UseMapInteractionsProps {
     map: Map | null;
@@ -27,6 +27,8 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
     const modifyManagerRef = useRef<ModifyManager | null>(null);
     const contextMenuManagerRef = useRef<ContextMenuManager | null>(null);
     const vertexLayerManagerRef = useRef<VertexLayerManager | null>(null);
+
+    const zoomBoxRef = useRef<DragBox | null>(null);
 
     // Initialize Managers
     useEffect(() => {
@@ -74,7 +76,15 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
         // Reset
         modifyManagerRef.current.cleanup();
 
+        if (zoomBoxRef.current) {
+            map.removeInteraction(zoomBoxRef.current);
+            zoomBoxRef.current = null;
+        }
+
         switch (activeTool) {
+            case 'pan':
+                map.getViewport().style.cursor = 'grab';
+                break;
             case 'select':
                 map.getViewport().style.cursor = 'default';
                 break;
@@ -83,6 +93,27 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
                 break;
             case 'draw':
                 pipeDrawingManagerRef.current.startDrawing();
+                break;
+            case 'zoom-box':
+                map.getViewport().style.cursor = 'crosshair';
+
+                const dragBox = new DragBox({
+                    className: 'ol-dragbox',
+                });
+
+                dragBox.on('boxend', () => {
+                    const geometry = dragBox.getGeometry();
+                    const view = map.getView();
+                    if (geometry) {
+                        view.fit(geometry, {
+                            padding: [50, 50, 50, 50],
+                            duration: 500
+                        });
+                    }
+                });
+
+                map.addInteraction(dragBox);
+                zoomBoxRef.current = dragBox;
                 break;
         }
     }, [activeTool, map]);
