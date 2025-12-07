@@ -104,14 +104,34 @@ export function useFeatureSelection({
         });
 
         selectInteraction.on("select", (event) => {
-            const selectedFeatures = event.target.getFeatures().getArray();
-            const ids = selectedFeatures.map((f: Feature) => f.getId() as string);
+            const collection = event.target.getFeatures();
+            const selectedFeatures = collection.getArray();
+
+            // If selection contains both Nodes and Links, prioritize Nodes
+            const hasNode = selectedFeatures.some((f: Feature) =>
+                ['junction', 'tank', 'reservoir'].includes(f.get('type'))
+            );
+
+            if (hasNode) {
+                // Find any links (pipes/pumps/valves) that were accidentally selected
+                const linksToRemove = selectedFeatures.filter((f: Feature) =>
+                    ['pipe', 'pump', 'valve'].includes(f.get('type'))
+                );
+
+                // Remove them from the OpenLayers selection collection immediately
+                linksToRemove.forEach((link: Feature) => {
+                    collection.remove(link);
+                });
+            }
+            // Re-fetch the cleaned array
+            const finalSelection = collection.getArray();
+            const ids = finalSelection.map((f: Feature) => f.getId() as string);
 
             selectFeatures(ids);
 
             // Update primary selection (last selected)
-            if (selectedFeatures.length > 0) {
-                const feature = selectedFeatures[selectedFeatures.length - 1];
+            if (finalSelection.length > 0) {
+                const feature = finalSelection[finalSelection.length - 1];
                 selectedFeatureRef.current = feature;
                 onFeatureSelect?.(feature);
             } else {
