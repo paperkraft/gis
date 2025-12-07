@@ -743,6 +743,23 @@ export class PipeDrawingManager {
                 this.cancelCurrentPipe();
                 this.stopDrawing();
             }
+
+            if ((e.key === "Backspace" || (e.key === "z" && e.ctrlKey)) && this.isDrawingMode) {
+                if (this.drawingCoordinates.length > 1) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    // Remove last coordinate
+                    this.drawingCoordinates.pop();
+
+                    // Remove last vertex marker
+                    const lastMarker = this.vertexMarkers.pop();
+                    if (lastMarker) {
+                        this.vectorSource.removeFeature(lastMarker);
+                    }
+                    this.showHelpMessage("Removed last vertex");
+                }
+            }
         };
         document.addEventListener("keydown", this.escKeyHandler);
 
@@ -845,7 +862,23 @@ export class PipeDrawingManager {
             this.vectorSource.removeFeature(this.previewLine);
         }
 
+        let currentCoord = event.coordinate;
+        const lastFixedCoord = this.drawingCoordinates[this.drawingCoordinates.length - 1];
+
+        // ---Orthogonal Constraint ---
+        if (event.originalEvent && event.originalEvent.shiftKey) {
+            currentCoord = this.getOrthogonalCoordinate(lastFixedCoord, currentCoord);
+        }
+
         const previewCoords = [...this.drawingCoordinates, event.coordinate];
+
+        const segmentLength = Math.sqrt(
+            Math.pow(currentCoord[0] - lastFixedCoord[0], 2) +
+            Math.pow(currentCoord[1] - lastFixedCoord[1], 2)
+        );
+
+        this.showHelpMessage(`Length: ${segmentLength.toFixed(2)}m | Hold Shift for Orthogonal`);
+
         this.previewLine = new Feature({
             geometry: new LineString(previewCoords)
         });
@@ -1050,6 +1083,18 @@ export class PipeDrawingManager {
         if (this.helpTooltipElement) {
             this.helpTooltipElement.remove();
             this.helpTooltipElement = null;
+        }
+    }
+
+    private getOrthogonalCoordinate(start: number[], current: number[]): number[] {
+        const dx = Math.abs(current[0] - start[0]);
+        const dy = Math.abs(current[1] - start[1]);
+
+        // If dy > dx, lock to Vertical (X stays same), else Horizontal (Y stays same)
+        if (dy > dx) {
+            return [start[0], current[1]];
+        } else {
+            return [current[0], start[1]];
         }
     }
 }

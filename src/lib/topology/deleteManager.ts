@@ -182,13 +182,25 @@ export class DeleteManager {
         const endNodeId = link.get("endNodeId");
         const networkStore = useNetworkStore.getState();
 
-        if (startNodeId) {
-            networkStore.updateNodeConnections(startNodeId, linkId, "remove");
-        }
+        [startNodeId, endNodeId].forEach(nodeId => {
+            if (nodeId) {
+                const node = networkStore.getFeatureById(nodeId);
+                if (node) {
+                    const conns = node.get("connectedLinks") || [];
+                    const newConns = conns.filter((id: string) => id !== linkId);
 
-        if (endNodeId) {
-            networkStore.updateNodeConnections(endNodeId, linkId, "remove");
-        }
+                    // Update OpenLayers Feature
+                    node.set("connectedLinks", newConns);
+
+                    // Update Store (triggers reactivity)
+                    networkStore.updateNodeConnections(nodeId, linkId, "remove");
+
+                    // OPTIONAL: Auto-delete orphan nodes?
+                    // GIS tools often ask: "Delete isolated nodes?" 
+                    // If newConns.length === 0, you might highlight this node as an orphan.
+                }
+            }
+        });
     }
 
     /**
