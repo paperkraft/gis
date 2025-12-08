@@ -1,3 +1,4 @@
+import { defaults as defaultControls, ScaleLine } from 'ol/control';
 import VectorLayer from 'ol/layer/Vector';
 import Map from 'ol/Map';
 import { fromLonLat } from 'ol/proj';
@@ -46,11 +47,12 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
             target: mapTargetRef.current,
             layers: [...baseLayers, vecLayer, indiaBoundaryLayer],
             view: new View({
-                // center: fromLonLat([74.2381, 16.7012]),
                 center: fromLonLat([78.6677, 22.3511]),
                 zoom: 5,
             }),
-            controls: [], // Custom controls only
+            controls: defaultControls({ zoom: false, attribution: true }).extend([
+                new ScaleLine({ units: 'metric' }),
+            ]),
         });
 
         // 4. Update Stores & State

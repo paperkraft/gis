@@ -41,6 +41,7 @@ export interface ComponentConfig {
     description: string;
     defaultProperties: Record<string, any>;
     createsJunction?: boolean;
+    prefix: string; // <--- Add this line
 }
 export interface NetworkValidation {
     isValid: boolean;

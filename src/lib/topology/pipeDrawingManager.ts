@@ -207,13 +207,13 @@ export class PipeDrawingManager {
         const p1Id = store.generateUniqueId('pipe');
         const p1 = new Feature({ geometry: new LineString(coords1) });
         p1.setId(p1Id);
-        p1.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p1Id, startNodeId: startNodeId, endNodeId: j1Id, label: `P-${p1Id}`, length: this.calculatePipeLength(p1.getGeometry() as LineString) });
+        p1.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p1Id, startNodeId: startNodeId, endNodeId: j1Id, label: p1Id, length: this.calculatePipeLength(p1.getGeometry() as LineString) });
 
         const coords2 = [point2, ...coords.slice(splitIndex + 1)];
         const p2Id = store.generateUniqueId('pipe');
         const p2 = new Feature({ geometry: new LineString(coords2) });
         p2.setId(p2Id);
-        p2.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p2Id, startNodeId: j2Id, endNodeId: endNodeId, label: `P-${p2Id}`, length: this.calculatePipeLength(p2.getGeometry() as LineString) });
+        p2.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p2Id, startNodeId: j2Id, endNodeId: endNodeId, label: p2Id, length: this.calculatePipeLength(p2.getGeometry() as LineString) });
 
         this.createLinkBetweenNodes(j1, j2, type);
 
@@ -558,7 +558,7 @@ export class PipeDrawingManager {
         const store = useNetworkStore.getState();
         const id = store.generateUniqueId(type);
         feature.setId(id);
-        feature.setProperties({ ...COMPONENT_TYPES[type].defaultProperties, type: type, isNew: true, id: id, label: `${COMPONENT_TYPES[type].name}-${id}`, connectedLinks: [] });
+        feature.setProperties({ ...COMPONENT_TYPES[type].defaultProperties, type: type, isNew: true, id: id, label: id, connectedLinks: [] });
         this.vectorSource.addFeature(feature);
         store.addFeature(feature);
         return feature;
@@ -570,7 +570,7 @@ export class PipeDrawingManager {
         const id = store.generateUniqueId("pipe");
         feature.setId(id);
         feature.setProperties({
-            ...COMPONENT_TYPES.pipe.defaultProperties, type: 'pipe', isNew: true, id: id, label: `P-${id}`,
+            ...COMPONENT_TYPES.pipe.defaultProperties, type: 'pipe', isNew: true, id: id, label: id,
             startNodeId: startNode.getId(), endNodeId: endNode.getId(),
             length: this.calculatePipeLength(feature.getGeometry() as LineString),
         });
@@ -590,7 +590,7 @@ export class PipeDrawingManager {
         const feature = new Feature({ geometry: new Point(mid) });
         feature.setId(id);
         feature.setProperties({
-            ...COMPONENT_TYPES[type].defaultProperties, type: type, isNew: true, id: id, label: `${COMPONENT_TYPES[type].name}-${id}`,
+            ...COMPONENT_TYPES[type].defaultProperties, type: type, isNew: true, id: id, label: id, //`${COMPONENT_TYPES[type].name}-${id}`,
             startNodeId: node1.getId(), endNodeId: node2.getId()
         });
         this.vectorSource.addFeature(feature);

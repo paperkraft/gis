@@ -13,10 +13,17 @@ interface UseMapEventsProps {
 
 export function useMapEvents({ map }: UseMapEventsProps) {
     const setCoordinates = useMapStore((state) => state.setCoordinates); // Use selector
+    const setZoom = useMapStore((state) => state.setZoom); // Use selector
+    const setProjection = useMapStore((state) => state.setProjection); // Use selector
     const lastUpdate = useRef(0); // For throttling
 
     useEffect(() => {
         if (!map) return;
+
+        // 1. Initial State
+        const view = map.getView();
+        setZoom(view.getZoom() || 0);
+        setProjection(view.getProjection().getCode());
 
         // 1. Coordinate Tracking
         const handlePointerMove = (event: any) => {
@@ -55,7 +62,13 @@ export function useMapEvents({ map }: UseMapEventsProps) {
             }
         };
 
+        const handleMoveEnd = () => {
+            const z = map.getView().getZoom();
+            if (z !== undefined) setZoom(z);
+        };
+
         map.on('pointermove', handlePointerMove);
+        map.on('moveend', handleMoveEnd);
 
         // 2. Custom Event Listeners
         const handleFitToExtent = () => handleZoomToExtent(map);
@@ -68,5 +81,5 @@ export function useMapEvents({ map }: UseMapEventsProps) {
             window.removeEventListener('triggerFitToExtent', handleFitToExtent);
             window.removeEventListener('fitToExtent', handleFitToExtent);
         };
-    }, [map, setCoordinates]);
+    }, [map, setCoordinates, setZoom, setProjection]);
 }

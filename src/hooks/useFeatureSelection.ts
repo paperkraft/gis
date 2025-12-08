@@ -107,22 +107,36 @@ export function useFeatureSelection({
             const collection = event.target.getFeatures();
             const selectedFeatures = collection.getArray();
 
-            // If selection contains both Nodes and Links, prioritize Nodes
-            const hasNode = selectedFeatures.some((f: Feature) =>
-                ['junction', 'tank', 'reservoir'].includes(f.get('type'))
+            // 1. Check for High Priority Features (Pumps/Valves)
+            const hasDevice = selectedFeatures.some((f: Feature) =>
+                ['pump', 'valve'].includes(f.get('type'))
             );
 
-            if (hasNode) {
-                // Find any links (pipes/pumps/valves) that were accidentally selected
-                const linksToRemove = selectedFeatures.filter((f: Feature) =>
-                    ['pipe', 'pump', 'valve'].includes(f.get('type'))
+            if (hasDevice) {
+                // If a device is clicked, prioritize it over everything else (Nodes/Pipes)
+                // Remove anything that is NOT a pump or valve
+                const toRemove = selectedFeatures.filter((f: Feature) =>
+                    !['pump', 'valve'].includes(f.get('type'))
+                );
+                toRemove.forEach((f: Feature) => collection.remove(f));
+            } else {
+                // 2. If no device, check for Nodes
+                const hasNode = selectedFeatures.some((f: Feature) =>
+                    ['junction', 'tank', 'reservoir'].includes(f.get('type'))
                 );
 
-                // Remove them from the OpenLayers selection collection immediately
-                linksToRemove.forEach((link: Feature) => {
-                    collection.remove(link);
-                });
+                if (hasNode) {
+                    // If a Node is clicked, prioritize it over Pipes
+                    // Remove only Pipes
+                    const linksToRemove = selectedFeatures.filter((f: Feature) =>
+                        f.get('type') === 'pipe'
+                    );
+                    linksToRemove.forEach((link: Feature) => {
+                        collection.remove(link);
+                    });
+                }
             }
+
             // Re-fetch the cleaned array
             const finalSelection = collection.getArray();
             const ids = finalSelection.map((f: Feature) => f.getId() as string);

@@ -3,6 +3,7 @@ import { ComponentConfig } from "@/types/network";
 export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
     junction: {
         name: "Junction",
+        prefix: "J",
         icon: "circle",
         color: "#28a745",
         description: "Network connection point",
@@ -16,6 +17,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
     },
     tank: {
         name: "Storage Tank",
+        prefix: "T",
         icon: "square",
         color: "#0066cc",
         description: "Water storage facility",
@@ -30,6 +32,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
     },
     reservoir: {
         name: "Reservoir",
+        prefix: "R",
         icon: "hexagon",
         color: "#8b5cf6",
         description: "Infinite water source",
@@ -42,6 +45,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
     },
     pump: {
         name: "Pump Station",
+        prefix: "PU",
         icon: "triangle-up",
         color: "#ef4444",
         description: "Water pumping facility",
@@ -55,6 +59,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
     },
     valve: {
         name: "Valve",
+        prefix: "V",
         icon: "square-dot",
         color: "#f97316",
         description: "Flow control device",
@@ -68,6 +73,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
     },
     pipe: {
         name: "Pipe",
+        prefix: "P",
         icon: "minus",
         color: "#0066cc",
         description: "Water transmission line",

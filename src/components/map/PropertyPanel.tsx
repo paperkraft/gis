@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Mountain,
   Activity,
+  FocusIcon,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { Point } from "ol/geom";
@@ -18,6 +19,7 @@ import { useNetworkStore } from "@/store/networkStore";
 import { useSimulationStore } from "@/store/simulationStore";
 import { NetworkFeatureProperties } from "@/types/network";
 import { ResultChart } from "@/components/simulation/ResultChart";
+import { useMapStore } from "@/store/mapStore";
 
 interface PropertyPanelProps {
   properties: NetworkFeatureProperties;
@@ -28,9 +30,15 @@ export function PropertyPanel({
   properties,
   onDeleteRequest,
 }: PropertyPanelProps) {
-  const { selectedFeatureId, selectedFeature, updateFeature } =
-    useNetworkStore();
+  const {
+    selectedFeatureId,
+    selectedFeature,
+    updateFeature,
+    patterns,
+    curves,
+  } = useNetworkStore();
   const { history, results } = useSimulationStore();
+  const map = useMapStore((state) => state.map);
 
   const [editedProperties, setEditedProperties] =
     useState<NetworkFeatureProperties>(properties);
@@ -40,8 +48,6 @@ export function PropertyPanel({
   // Sync state when selection changes AND polyfill missing status
   useEffect(() => {
     const initialProps = { ...properties };
-
-    // FIX: If status is missing (legacy feature), default it so it shows in the panel
     if (!initialProps.status) {
       if (["pipe", "pump", "valve"].includes(properties.type)) {
         initialProps.status = "open";
@@ -69,6 +75,19 @@ export function PropertyPanel({
 
   const handleDelete = () => onDeleteRequest && onDeleteRequest();
   const handleClose = () => useNetworkStore.getState().selectFeature(null);
+
+  const handleZoomToFeature = () => {
+    if (!map || !selectedFeature) return;
+
+    const geometry = selectedFeature.getGeometry();
+    if (geometry) {
+      map.getView().fit(geometry.getExtent(), {
+        padding: [100, 100, 100, 100], // Padding to keep context
+        maxZoom: 19, // Prevent zooming too close for points
+        duration: 600, // Smooth animation
+      });
+    }
+  };
 
   const handleAutoElevate = async () => {
     if (!selectedFeature) return;
@@ -109,17 +128,25 @@ export function PropertyPanel({
   const connectionInfo = getConnectedInfo();
   const componentConfig = COMPONENT_TYPES[properties.type];
 
-  const basicProperties = ["elevation", "demand", "population"];
+  // Define Property Groups
+  const basicProperties = ["elevation", "demand", "pattern"];
   const hydraulicProperties = [
     "diameter",
     "length",
     "roughness",
     "capacity",
     "head",
-    "headGain",
-    "efficiency",
+    "power",
+    "curve",
   ];
-  const operationalProperties = ["status", "valveType", "setting", "material"];
+  const operationalProperties = [
+    "status",
+    "valveType",
+    "setting",
+    "initLevel",
+    "minLevel",
+    "maxLevel",
+  ];
 
   const renderPropertyInput = (key: string, value: any) => {
     const isBoolean = typeof value === "boolean";
@@ -149,6 +176,79 @@ export function PropertyPanel({
           <option value="closed">Closed</option>
           <option value="running">Running</option>
           <option value="stopped">Stopped</option>
+        </select>
+      );
+    }
+
+    if (key === "pattern") {
+      return (
+        <select
+          value={value || ""}
+          onChange={(e) => handlePropertyChange(key, e.target.value)}
+          className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+        >
+          <option value="">None</option>
+          {patterns?.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.id} - {p.description || "Pattern"}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    // 3. CURVE DROPDOWN (Pumps)
+    // Assuming 'curve' property or sometimes mapped to 'power' field in UI if mode matches
+    if (key === "curve" || (key === "power" && properties.type === "pump")) {
+      // Logic: If user wants to switch between Power (constant) and Curve, we might need a toggle.
+      // For now, let's treat "power" as a generic field that can take a Curve ID string OR a number.
+      // EPANET allows both in the same field "Parameters".
+
+      const isNumber = !isNaN(parseFloat(value));
+
+      return (
+        <div className="flex flex-col gap-1">
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => handlePropertyChange(key, e.target.value)}
+            placeholder="Value or Curve ID"
+            className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md"
+          />
+          <select
+            onChange={(e) => handlePropertyChange(key, e.target.value)}
+            className="w-full px-3 py-1 text-xs border border-gray-300 rounded-md bg-gray-50"
+            value="" // Always reset
+          >
+            <option value="" disabled>
+              Select Curve...
+            </option>
+            {curves
+              ?.filter((c) => c.type === "PUMP")
+              ?.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.id} - {c.description}
+                </option>
+              ))}
+          </select>
+        </div>
+      );
+    }
+
+    // 4. VALVE TYPE
+    if (key === "valveType") {
+      return (
+        <select
+          value={value}
+          onChange={(e) => handlePropertyChange(key, e.target.value)}
+          className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+        >
+          <option value="PRV">PRV (Pressure Reducing)</option>
+          <option value="PSV">PSV (Pressure Sustaining)</option>
+          <option value="PBV">PBV (Pressure Breaker)</option>
+          <option value="FCV">FCV (Flow Control)</option>
+          <option value="TCV">TCV (Throttle Control)</option>
+          <option value="GPV">GPV (General Purpose)</option>
         </select>
       );
     }
@@ -306,12 +406,29 @@ export function PropertyPanel({
             </p>
           </div>
         </div>
-        <button
-          onClick={handleClose}
-          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
-        >
-          <X className="w-5 h-5 text-gray-500" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleDelete}
+            className="p-1.5 border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+            title="Delete Feature"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={handleZoomToFeature}
+            className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            title="Zoom to Feature"
+          >
+            <FocusIcon className="w-4 h-4" />
+          </button>
+          <button
+            onClick={handleClose}
+            className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            title="Close Panel"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -407,13 +524,6 @@ export function PropertyPanel({
         >
           <Save className="w-4 h-4" />{" "}
           <span>{hasChanges ? "Save Changes" : "Saved"}</span>
-        </Button>
-        <Button
-          onClick={handleDelete}
-          variant="outline"
-          className="border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 px-3"
-        >
-          <Trash2 className="w-4 h-4" />
         </Button>
       </div>
     </div>

@@ -165,7 +165,7 @@ export class ModifyManager {
                 id: pipe1Id,
                 startNodeId: startId,
                 endNodeId: nodeId,
-                label: `P-${pipe1Id}`,
+                label: `${pipe1Id}`,
                 length: Math.round(new LineString(coords1).getLength())
             });
 
@@ -179,7 +179,7 @@ export class ModifyManager {
                 id: pipe2Id,
                 startNodeId: nodeId,
                 endNodeId: endId,
-                label: `P-${pipe2Id}`,
+                label: `${pipe2Id}`,
                 length: Math.round(new LineString(coords2).getLength())
             });
 

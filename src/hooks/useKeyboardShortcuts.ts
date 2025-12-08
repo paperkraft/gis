@@ -54,7 +54,7 @@ export function useKeyboardShortcuts() {
 
             // TOOLS
             // S - Select tool
-            if (key === "s" && !ctrl) {
+            if ((key === "s" || key === "v") && !ctrl) {
                 setActiveTool("select");
                 return;
             }
@@ -62,6 +62,12 @@ export function useKeyboardShortcuts() {
             // M - Modify tool
             if (key === "m" && !ctrl) {
                 setActiveTool("modify");
+                return;
+            }
+
+            // H - Pan
+            if (key === "h" && !ctrl) {
+                setActiveTool('pan');
                 return;
             }
 
@@ -99,8 +105,9 @@ export function useKeyboardShortcuts() {
                     return;
                 }
 
-                // H - Home / Fit to extent
-                if (key === "h" && !ctrl) {
+
+                // F - Home / Fit to extent
+                if (key === 'f' && !ctrl) {
                     handleZoomToExtent(map);
                     return;
                 }
@@ -159,16 +166,14 @@ export function useKeyboardShortcuts() {
             // NUMBER KEYS - Quick component selection
             if (!ctrl && !shift && ["1", "2", "3", "4", "5", "6"].includes(key)) {
                 const componentMap: Record<string, string> = {
-                    "1": "junction",
-                    "2": "tank",
-                    "3": "reservoir",
-                    "4": "pipe",
-                    "5": "pump",
-                    "6": "valve",
+                    "1": "add-junction",
+                    "2": "add-tank",
+                    "3": "add-reservoir",
+                    "4": "draw-pipe",
+                    "5": "add-pump",
+                    "6": "add-valve",
                 };
-                window.dispatchEvent(new CustomEvent("quickAddComponent", {
-                    detail: { componentType: componentMap[key] }
-                }));
+                setActiveTool(componentMap[key] as any);
                 return;
             }
         };

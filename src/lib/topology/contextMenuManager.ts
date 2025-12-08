@@ -225,14 +225,13 @@ export class ContextMenuManager {
         }
 
         // INSERT COMPONENTS
-        this.addSectionHeader('Insert Component');
-
+        this.addSectionHeader('Nodes');
         this.addPipeInsertMenuItem('Junction', 'junction', () => this.insertNodeOnPipe('junction'));
         this.addPipeInsertMenuItem('Tank', 'tank', () => this.insertNodeOnPipe('tank'));
         this.addPipeInsertMenuItem('Reservoir', 'reservoir', () => this.insertNodeOnPipe('reservoir'));
 
         // LINKS
-        this.addSectionHeader('Insert Link');
+        this.addSectionHeader('Links');
         this.addPipeInsertMenuItem('Pump', 'pump', () => this.insertLinkOnPipe('pump'));
         this.addPipeInsertMenuItem('Valve', 'valve', () => this.insertLinkOnPipe('valve'));
     }
@@ -458,7 +457,7 @@ export class ContextMenuManager {
         item.style.cssText = `padding: 10px 16px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: background 0.2s;`;
         const config = COMPONENT_TYPES[type];
         const isLink = type === 'pump' || type === 'valve';
-        item.innerHTML = `<div style="width: 12px; height: 12px; border-radius: ${isLink ? '2px' : '50%'}; background: ${config.color};"></div><span style="font-size: 14px; color: #333; font-weight: 500;">Insert ${label}</span><span style="margin-left: auto; font-size: 11px; color: #999;">Split pipe</span>`;
+        item.innerHTML = `<div style="width: 12px; height: 12px; border-radius: ${isLink ? '2px' : '50%'}; background: ${config.color};"></div><span style="font-size: 14px; color: #333; font-weight: 500;">Insert ${label}</span>`;
         item.addEventListener('mouseenter', () => item.style.background = '#f5f5f5');
         item.addEventListener('mouseleave', () => item.style.background = 'transparent');
         item.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
@@ -480,7 +479,7 @@ export class ContextMenuManager {
         const store = useNetworkStore.getState();
         const id = store.generateUniqueId(componentType);
         feature.setId(id);
-        feature.setProperties({ ...COMPONENT_TYPES[componentType].defaultProperties, type: componentType, isNew: true, id: id, label: `${COMPONENT_TYPES[componentType].name}-${id}`, connectedLinks: [] });
+        feature.setProperties({ ...COMPONENT_TYPES[componentType].defaultProperties, type: componentType, isNew: true, id: id, label: id, connectedLinks: [] });
         this.vectorSource.addFeature(feature);
         store.addFeature(feature);
         return feature;

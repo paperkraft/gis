@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { Feature } from "ol";
 import { FeatureType, NetworkControl, NetworkFeatureProperties, ProjectSettings, PumpCurve, TimePattern } from "@/types/network";
 import { ParsedProjectData } from "@/lib/import/inpParser";
+import { COMPONENT_TYPES } from "@/constants/networkComponents";
 
 interface NetworkState {
     features: Map<string, Feature>;
@@ -51,7 +52,7 @@ interface NetworkState {
 
     // Project Actions
     loadProject: (data: ParsedProjectData) => void;
-    
+
     setPatterns: (patterns: TimePattern[]) => void;
     setCurves: (curves: PumpCurve[]) => void;
     setControls: (controls: NetworkControl[]) => void;
@@ -263,7 +264,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
                 [type]: counter + 1,
             },
         }));
-        return `${type.toUpperCase()}-${counter}`;
+        const prefix = COMPONENT_TYPES[type]?.prefix || type.toUpperCase();
+        return `${prefix}-${counter}`;
     },
 
     updateNodeConnections: (nodeId, linkId, action) => {
