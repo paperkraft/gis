@@ -91,3 +91,66 @@ export const handleZoomToExtent = (map: Map | null) => {
         maxZoom: 18, // Don't zoom in too much
     });
 };
+
+export const handlePrint = (map: Map | null) => {
+    if (!map) return;
+
+    map.once('rendercomplete', () => {
+        const mapCanvas = document.createElement('canvas');
+        const size = map.getSize();
+        if (!size) return;
+
+        mapCanvas.width = size[0];
+        mapCanvas.height = size[1];
+        const mapContext = mapCanvas.getContext('2d');
+        if (!mapContext) return;
+
+        // Draw background
+        mapContext.fillStyle = 'white';
+        mapContext.fillRect(0, 0, mapCanvas.width, mapCanvas.height);
+
+        // Composite all OpenLayers canvases
+        Array.prototype.forEach.call(
+            map.getViewport().querySelectorAll('.ol-layer canvas, canvas.ol-layer'),
+            function (canvas: HTMLCanvasElement) {
+                if (canvas.width > 0) {
+                    const opacity = (canvas.parentNode as HTMLElement).style.dopacity || canvas.style.dopacity;
+                    mapContext.globalAlpha = opacity === '' ? 1 : Number(opacity);
+
+                    const transform = canvas.style.transform;
+                    const matrix = transform
+                        .match(/^matrix\(([^\(]*)\)$/)?.[1]
+                        .split(',')
+                        .map(Number);
+
+                    if (matrix) {
+                        mapContext.setTransform(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
+                        mapContext.drawImage(canvas, 0, 0);
+                    }
+                }
+            }
+        );
+
+        // Open print window
+        const printWindow = window.open('', 'Print', 'height=600,width=800');
+        if (printWindow) {
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Network Map Print</title>
+                        <style>
+                            body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+                            img { max-width: 100%; max-height: 100%; object-fit: contain; }
+                        </style>
+                    </head>
+                    <body>
+                        <img src="${mapCanvas.toDataURL()}" onload="window.print();window.close()" />
+                    </body>
+                </html>
+            `);
+            printWindow.document.close();
+        }
+    });
+
+    map.renderSync();
+};

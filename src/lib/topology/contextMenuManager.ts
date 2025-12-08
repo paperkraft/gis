@@ -426,7 +426,7 @@ export class ContextMenuManager {
     private addMenuItem(label: string, icon: string, description: string, onClick: () => void) {
         const item = document.createElement('div');
         item.style.cssText = `padding: 10px 16px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: background 0.2s;`;
-        item.innerHTML = `<div style="font-size: 18px; width: 20px; text-align: center;">${icon}</div><div style="flex: 1;"><div style="font-size: 14px; color: #333; font-weight: 500;">${label}</div><div style="font-size: 11px; color: #666; margin-top: 2px;">${description}</div></div>`;
+        item.innerHTML = `<div style="font-size: 18px; width: 20px; text-align: center;">${icon}</div><div style="flex: 1;"><div style="font-size: 14px; color: #333; font-weight: 500;">${label}</div></div>`;
         item.addEventListener('mouseenter', () => item.style.background = '#f5f5f5');
         item.addEventListener('mouseleave', () => item.style.background = 'transparent');
         item.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });

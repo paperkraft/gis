@@ -5,8 +5,8 @@ export const VertexStyles = {
     default: new Style({
         image: new CircleStyle({
             radius: 4,
-            fill: new Fill({ color: '#1FB8CD' }),
-            stroke: new Stroke({ color: '#FFFFFF', width: 1.5 }),
+            fill: new Fill({ color: '#FFFFFF' }),
+            stroke: new Stroke({ color: '#1FB8CD', width: 1.5 }),
         }),
         zIndex: 100,
     }),

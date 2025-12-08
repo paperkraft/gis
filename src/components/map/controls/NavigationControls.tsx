@@ -8,6 +8,7 @@ import {
   MapPin,
   MapPinnedIcon,
   Mountain,
+  Printer,
   Search,
   SquareMousePointer,
   ZoomIn,
@@ -16,6 +17,7 @@ import {
 
 import { layerType } from "@/constants/map";
 import {
+  handlePrint,
   handleZoomIn,
   handleZoomOut,
   handleZoomToExtent,
@@ -92,6 +94,11 @@ export function NavigationControls({
           onClick={() => handleZoomToExtent(map)}
           icon={Home}
           title="Zoom Extent"
+        />
+        <ToolBtn
+          onClick={() => handlePrint(map)}
+          icon={Printer}
+          title="Print Map"
         />
       </ControlGroup>
 

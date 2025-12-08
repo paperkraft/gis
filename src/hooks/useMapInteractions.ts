@@ -1,4 +1,4 @@
-import { Feature, MapBrowserEvent } from 'ol';
+import { Feature } from 'ol';
 import { Point } from 'ol/geom';
 import Map from 'ol/Map';
 import VectorSource from 'ol/source/Vector';
@@ -74,13 +74,10 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
         if (!map || !vectorSource || !pipeDrawingManagerRef.current) return;
 
         // 1. Check for Snap-to-Pipe (Split)
-        // @ts-ignore
         const pipeUnderCursor = pipeDrawingManagerRef.current.findPipeAtCoordinate(coordinate);
 
         if (pipeUnderCursor) {
-            console.log("Snapping to pipe:", pipeUnderCursor.getId());
-
-            // FIX: If placing Pump/Valve, use insertLinkOnPipe logic!
+            // If Pump/Valve, use insertLinkOnPipe logic
             if (componentType === 'pump' || componentType === 'valve') {
                 pipeDrawingManagerRef.current.insertLinkOnPipe(pipeUnderCursor, coordinate, componentType);
             } else {
@@ -99,7 +96,7 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
         feature.set('isNew', true);
         feature.setProperties({
             ...COMPONENT_TYPES[componentType].defaultProperties,
-            label: `${COMPONENT_TYPES[componentType].name}-${id}`,
+            label: `${id}`,
         });
         feature.set('connectedLinks', []);
 
@@ -107,6 +104,18 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
         addFeature(feature);
 
     }, [map, vectorSource, addFeature, generateUniqueId]);
+
+    // Click handler for simple components (Nodes)
+    const handlePlacementClick = useCallback((event: any) => {
+        const { activeTool } = useUIStore.getState();
+        if (!activeTool || !activeTool.startsWith('add-')) return;
+        const componentType = activeTool.replace('add-', '') as FeatureType;
+
+        // Skip links, they are handled by PipeDrawingManager
+        if (componentType === 'pump' || componentType === 'valve') return;
+
+        placeComponent(componentType, event.coordinate);
+    }, [placeComponent]);
 
     // -------------------------------------------------------------------------
     // TOOL SWITCHING EFFECT
@@ -116,6 +125,7 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
 
         modifyManagerRef.current.cleanup();
         pipeDrawingManagerRef.current.stopDrawing();
+        map.un('click', handlePlacementClick);
         map.getViewport().style.cursor = 'default';
 
         if (zoomBoxRef.current) {
@@ -132,6 +142,7 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
                 map.getViewport().style.cursor = 'grab';
                 break;
             case 'select':
+                // Handled by useFeatureSelection
                 break;
             case 'modify':
                 modifyManagerRef.current.startModifying();
@@ -165,37 +176,15 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
 
                 if (activeTool === 'add-pump' || activeTool === 'add-valve') {
                     const type = activeTool === 'add-pump' ? 'pump' : 'valve';
-
-                    // Start drawing mode to allow "Node A -> Node B" creation
                     pipeDrawingManagerRef.current.startDrawing(type);
 
-                    // ALSO attach the single-click placement handler for "Snap to Pipe"
-                    // We need a Draw interaction for snapping, but we only execute if we hit a pipe.
-                    const draw = new Draw({ type: 'Point', source: undefined, stopClick: false }); // stopClick false allows propagation to PipeDrawingManager
-
-                    draw.on('drawend', (e) => {
-                        const coords = (e.feature.getGeometry() as Point).getCoordinates();
-                        // @ts-ignore
-                        const pipe = pipeDrawingManagerRef.current.findPipeAtCoordinate(coords);
-                        if (pipe) {
-                            // If we hit a pipe, intercept and place on pipe
-                            placeComponent(type, coords);
-                            // Reset tool to avoid double-action
-                            pipeDrawingManagerRef.current?.stopDrawing();
-                            pipeDrawingManagerRef.current?.startDrawing(type); // Restart for next action
-                        }
-                        // If no pipe, let PipeDrawingManager handle the Node-to-Node logic
-                    });
-
-                    map.addInteraction(draw);
-                    drawInteractionRef.current = draw;
                 } else {
                     // Nodes: Standard single click
                     const componentType = activeTool.replace('add-', '') as FeatureType;
                     const draw = new Draw({ type: 'Point', source: undefined, stopClick: true });
                     draw.on('drawend', (e) => {
-                        const coords = (e.feature.getGeometry() as Point).getCoordinates();
-                        placeComponent(componentType, coords);
+                        const geom = e.feature.getGeometry() as Point;
+                        placeComponent(componentType, geom.getCoordinates());
                     });
                     map.addInteraction(draw);
                     drawInteractionRef.current = draw;

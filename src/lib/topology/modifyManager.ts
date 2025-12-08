@@ -6,6 +6,7 @@ import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style';
 import { LineString, Point } from 'ol/geom';
 import { VertexStyles, getVertexStyle } from '@/lib/styles/vertexStyles';
 import { LinkModifyManager } from './linkModifyManager';
+import { getSelectedStyle } from '../styles/featureStyles';
 
 export class ModifyManager {
     private map: Map;
@@ -28,7 +29,7 @@ export class ModifyManager {
         // Select interaction for regular nodes/pipes
         this.selectInteraction = new Select({
             condition: click,
-            style: (feature) => this.getModifySelectionStyle(feature as Feature),
+            style: (feature) => getSelectedStyle(feature as Feature),
             filter: (feature) => {
                 const type = feature.get('type');
                 if (feature.get('isPreview') || feature.get('isVertexMarker') || feature.get('isVisualLink')) return false;
@@ -261,7 +262,7 @@ export class ModifyManager {
     private setupLinkModification() {
         this.linkSelectInteraction = new Select({
             condition: click,
-            style: (feature) => this.getLinkSelectionStyle(feature as Feature),
+            style: (feature) => getSelectedStyle(feature as Feature),
             filter: (feature) => ['pump', 'valve'].includes(feature.get('type'))
         });
         this.map.addInteraction(this.linkSelectInteraction);
@@ -271,12 +272,38 @@ export class ModifyManager {
         });
     }
 
-    private getModifySelectionStyle(feature: Feature) {
-        if (feature.get('type') === 'pipe') return new Style({ stroke: new Stroke({ color: '#10B981', width: 5 }) });
-        return new Style({ image: new CircleStyle({ radius: 10, fill: new Fill({ color: '#10B981' }), stroke: new Stroke({ color: '#fff', width: 3 }) }) });
+    private getVertexStyleForFeature(feature: Feature): Style | Style[] {
+        const geometry = feature.getGeometry();
+        if (!geometry) return VertexStyles.default;
+
+        const type = geometry.getType();
+
+        // For LineString (pipes)
+        if (type === 'LineString') {
+            const coords = (geometry as any).getCoordinates();
+
+            // Return function that styles each vertex based on index
+            const vertexCoordinates = (feature.getGeometry() as any).getCoordinates();
+            const vertexIndex = coords.findIndex((coord: number[]) =>
+                coord[0] === vertexCoordinates[0] && coord[1] === vertexCoordinates[1]
+            );
+
+            // Endpoint vertices (start and end)
+            if (vertexIndex === 0 || vertexIndex === coords.length - 1) {
+                return getVertexStyle({ isEndpoint: true });
+            }
+
+            // Regular vertices
+            return getVertexStyle({});
+        }
+
+        // For Point (nodes)
+        if (type === 'Point') {
+            return getVertexStyle({ isHighlighted: true });
+        }
+
+        return VertexStyles.default;
     }
-    private getLinkSelectionStyle(feature: Feature) { return new Style({ image: new CircleStyle({ radius: 12, fill: new Fill({ color: '#F59E0B' }), stroke: new Stroke({ color: '#fff', width: 3 }) }), zIndex: 200 }); }
-    private getVertexStyleForFeature(feature: Feature) { return VertexStyles.default; }
 
     public cleanup() {
         if (this.modifyInteraction) this.map.removeInteraction(this.modifyInteraction);

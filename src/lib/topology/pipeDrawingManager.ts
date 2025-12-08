@@ -237,6 +237,7 @@ export class PipeDrawingManager {
 
     public insertNodeOnPipe(pipe: Feature, coordinate: number[], type: FeatureType): Feature {
         const store = useNetworkStore.getState();
+        window.dispatchEvent(new CustomEvent('takeSnapshot'));
         const geometry = pipe.getGeometry() as LineString;
         const coords = geometry.getCoordinates();
         const startNodeId = pipe.get('startNodeId');
@@ -308,6 +309,30 @@ export class PipeDrawingManager {
         this.map.on("dblclick", this.doubleClickHandler);
 
         this.escKeyHandler = (e: KeyboardEvent) => {
+            if (e.key === "Backspace" && this.isDrawingMode) {
+                if (this.drawingCoordinates.length > 1) { // Need at least start node
+                    // Remove last coordinate
+                    this.drawingCoordinates.pop();
+
+                    // Remove last marker
+                    const lastMarker = this.vertexMarkers.pop();
+                    if (lastMarker) {
+                        this.vectorSource.removeFeature(lastMarker);
+                    }
+
+                    // Update preview
+                    // We need a synthetic event or just call update with last known
+                    // Since we can't easily get mouse position here without tracking it globally,
+                    // we'll wait for next mouse move to update preview line destination.
+                    // But we should at least refresh the source to remove the old line.
+                    if (this.previewLine) {
+                        this.vectorSource.removeFeature(this.previewLine);
+                        this.previewLine = null;
+                    }
+                    this.showHelpMessage("Vertex removed");
+                }
+            }
+
             if (e.key === "Escape" && this.isDrawingMode) {
                 if (this.drawingCoordinates.length > 0) {
                     this.resetState();
@@ -641,7 +666,6 @@ export class PipeDrawingManager {
         }
     }
 
-    // Compatibility wrappers
     public registerWithContextMenu(contextMenuManager: any) {
         contextMenuManager.setComponentPlacedCallback((component: Feature) => {
             if (this.isDrawingMode && this.activeType === 'pipe') {
@@ -649,6 +673,7 @@ export class PipeDrawingManager {
             }
         });
     }
+
     public continueDrawingFromNode(node: Feature) {
         if (!this.isDrawingMode) this.startDrawing('pipe');
         if (this.drawingCoordinates.length === 0) {
