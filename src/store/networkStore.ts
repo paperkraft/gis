@@ -108,11 +108,41 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
     loadProject: (data) => {
         const featureMap = new Map<string, Feature>();
+
+        // Reset counters to default base
+        const newCounters = {
+            junction: 100,
+            tank: 100,
+            reservoir: 100,
+            pump: 100,
+            valve: 100,
+            pipe: 100,
+        };
+
         data.features.forEach(f => {
             const id = f.getId() as string;
-            if (id) f.set('id', id);
-            featureMap.set(id, f);
+            const type = f.get('type') as FeatureType;
+
+            if (id) {
+                f.set('id', id);
+                featureMap.set(id, f);
+
+                // FIX: Scan ID to update counters
+                // Matches "J-105", "P-100", "PIPE-500", etc.
+                const match = id.match(/^[a-zA-Z]+-(\d+)$/);
+                if (match && type && newCounters[type] !== undefined) {
+                    const num = parseInt(match[1], 10);
+                    if (!isNaN(num)) {
+                        // Ensure counter is always 1 higher than the highest existing ID
+                        if (num >= newCounters[type]) {
+                            newCounters[type] = num + 1;
+                        }
+                    }
+                }
+            }
         });
+
+        console.log("Loaded Counters:", newCounters);
 
         set({
             features: featureMap,
@@ -124,6 +154,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
             controls: data.controls || [],
             selectedFeature: null,
             selectedFeatureId: null,
+            nextIdCounter: newCounters, // Apply updated counters
         });
     },
 
@@ -183,8 +214,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
     addFeature: (feature) => {
         const id = feature.getId() as string;
-
-        // FIX: Explicitly set 'id' in properties to match TypeScript interface and ensure availability
         if (id) {
             feature.set('id', id);
         }
@@ -216,7 +245,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         }
     },
 
-    // NEW: Batch update function
     updateFeatures: (updates) => {
         set((state) => {
             const newFeatures = new Map(state.features);
@@ -248,7 +276,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         });
     },
 
-
     getFeatureById: (id) => get().features.get(id),
 
     getFeaturesByType: (type) =>
@@ -264,6 +291,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
                 [type]: counter + 1,
             },
         }));
+
         const prefix = COMPONENT_TYPES[type]?.prefix || type.toUpperCase();
         return `${prefix}-${counter}`;
     },
@@ -295,23 +323,18 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         );
     },
 
-    // --- History Implementation ---
-
     snapshot: () => {
         const currentFeatures = Array.from(get().features.values());
-        // Clone features to preserve their state at this moment
         const clonedFeatures = currentFeatures.map(f => {
             const clone = f.clone();
-            clone.setId(f.getId()); // Clone doesn't always copy ID automatically
+            clone.setId(f.getId());
             return clone;
         });
 
         set((state) => ({
             past: [...state.past, clonedFeatures],
-            future: [] // Clear future on new action
+            future: []
         }));
-
-        console.log("📸 Snapshot taken. History size:", get().past.length);
     },
 
     undo: () => {
@@ -321,14 +344,12 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         const previousState = past[past.length - 1];
         const newPast = past.slice(0, past.length - 1);
 
-        // Save current state to future
         const currentSnapshot = Array.from(features.values()).map(f => {
             const c = f.clone();
             c.setId(f.getId());
             return c;
         });
 
-        // Rebuild map
         const newFeaturesMap = new Map();
         previousState.forEach(f => newFeaturesMap.set(f.getId(), f));
 
@@ -336,7 +357,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
             past: newPast,
             future: [currentSnapshot, ...future],
             features: newFeaturesMap,
-            selectedFeature: null, // Clear selection to avoid ghost references
+            selectedFeature: null,
             selectedFeatureId: null
         });
 
@@ -350,14 +371,12 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         const nextState = future[0];
         const newFuture = future.slice(1);
 
-        // Save current to past
         const currentSnapshot = Array.from(features.values()).map(f => {
             const c = f.clone();
             c.setId(f.getId());
             return c;
         });
 
-        // Rebuild map
         const newFeaturesMap = new Map();
         nextState.forEach(f => newFeaturesMap.set(f.getId(), f));
 
