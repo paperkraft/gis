@@ -3,6 +3,22 @@ import { create } from 'zustand';
 import { layerType } from '@/constants/map';
 export type FlowAnimationStyle = 'dashes' | 'particles' | 'glow' | 'combined';
 
+export type ToolType =
+    | 'select'
+    | 'select-box'
+    | 'select-polygon'
+    | 'modify'
+    | 'pan'
+    | 'zoom-box'
+    // Add specific drawing tools
+    | 'draw'
+    | 'draw-pipe'
+    | 'add-junction'
+    | 'add-reservoir'
+    | 'add-tank'
+    | 'add-pump'
+    | 'add-valve';
+
 interface UIState {
 
     // Sidebar
@@ -31,7 +47,7 @@ interface UIState {
     componentSelectionModalOpen: boolean;
 
     // Map control states
-    activeTool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | 'pan' | 'zoom-box' | null;
+    activeTool: ToolType | null;
     measurementType: 'distance' | 'area';
     measurementActive: boolean;
     showAttributeTable: boolean;
@@ -49,6 +65,8 @@ interface UIState {
     flowAnimationStyle: FlowAnimationStyle;
 
     // Actions - Sidebar
+    toggleSidebar: () => void;
+    setSidebarCollapsed: (collapsed: boolean) => void;
     setShowLabels: (show: boolean) => void;
     setShowPipeArrows: (show: boolean) => void;
 
@@ -60,14 +78,13 @@ interface UIState {
     setDeleteModalOpen: (open: boolean) => void;
     setImportModalOpen: (open: boolean) => void;
     setExportModalOpen: (open: boolean) => void;
-    setSidebarCollapsed: (collapsed: boolean) => void;
     setValidationModalOpen: (open: boolean) => void;
     setProjectSettingsModalOpen: (open: boolean) => void;
     setDataManagerModalOpen: (open: boolean) => void;
     setControlManagerModalOpen: (open: boolean) => void;
 
     // Actions - Map Controls
-    setActiveTool: (tool: 'select' | 'select-box' | 'select-polygon' | 'modify' | 'draw' | 'pan' | 'zoom-box' | null) => void;
+    setActiveTool: (tool: ToolType | null) => void;
     setShowAttributeTable: (open: boolean) => void;
 
     setMeasurementType: (type: 'distance' | 'area') => void;
@@ -188,7 +205,7 @@ export const useUIStore = create<UIState>((set, get) => ({
         };
 
         // If switching away from pipe, close component selection
-        if (currentTool === 'draw' && tool !== 'draw') {
+        if (currentTool === 'draw-pipe' && tool !== 'draw-pipe') {
             updates.componentSelectionModalOpen = false;
         }
 
@@ -211,6 +228,7 @@ export const useUIStore = create<UIState>((set, get) => ({
         set((state) => ({ showAttributeTable: !state.showAttributeTable }));
     },
 
+    toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
     setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
 
     // Layer actions

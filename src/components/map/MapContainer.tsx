@@ -29,6 +29,7 @@ import { ComponentSelectionModal } from "@/components/modals/ComponentSelectionM
 import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 import { Cordinates } from "./Cordinates";
 import { useSnapping } from "@/hooks/useSnapping";
+import { DrawingToolbar } from "./DrawingToolbar";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -98,12 +99,12 @@ export function MapContainer() {
 
   const handleComponentSelection = (componentType: FeatureType | "skip") => {
     setComponentSelectionModalOpen(false);
-    setActiveTool("draw");
+    setActiveTool("draw-pipe");
 
     if (componentType === "skip") {
-      pipeDrawingManager?.startDrawing();
+      pipeDrawingManager?.startDrawing("pipe");
     } else {
-      startComponentPlacement(componentType);
+      startComponentPlacement(componentType, []);
     }
   };
 
@@ -112,6 +113,7 @@ export function MapContainer() {
       {/* Map Target */}
       <div ref={mapRef} className="w-full h-full" />
 
+      <DrawingToolbar />
       <MapControls />
       <Cordinates />
 
