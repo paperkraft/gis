@@ -57,8 +57,9 @@ export function useKeyboardShortcuts() {
                     case "m":
                         setActiveTool("modify");
                         return;
-                    case "h": // Hand/Pan
+                    case "h":
                         setActiveTool("pan");
+                        return;
                     case "z":
                         setActiveTool("zoom-box");
                         return;
