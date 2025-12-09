@@ -7,32 +7,34 @@ import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style';
 import { COMPONENT_TYPES, SNAPPING_TOLERANCE } from '@/constants/networkComponents';
 import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
-import { useUIStore } from '@/store/uiStore'; // Added Import
+import { useUIStore } from '@/store/uiStore';
 import { FeatureType } from '@/types/network';
 
 export class PipeDrawingManager {
     private map: Map;
     private vectorSource: VectorSource;
     private isDrawingMode: boolean = false;
+
+    // State
     private drawingCoordinates: number[][] = [];
-    private previewLine: Feature | null = null;
     private startNode: Feature | null = null;
     private endNode: Feature | null = null;
+    private activeType: 'pipe' | 'pump' | 'valve' = 'pipe';
 
-    // Changed from Overlay to HTMLElement for direct DOM control
-    private helpTooltipElement: HTMLElement | null = null;
-
+    // Visuals
+    private previewLine: Feature | null = null;
     private vertexMarkers: Feature[] = [];
+    private helpTooltipElement: HTMLElement | null = null;
+    private helpMessageTimeout: any = null;
 
+    // Handlers
     private clickHandler: ((event: any) => void) | null = null;
     private pointerMoveHandler: ((event: any) => void) | null = null;
     private doubleClickHandler: ((event: any) => void) | null = null;
     private escKeyHandler: ((event: any) => void) | null = null;
 
-    private helpMessageTimeout: any = null;
-
-    private readonly MAX_VERTICES = 100;
-    private readonly MIN_PIPE_LENGTH = 0.5;
+    // Updated Constraint: 1 meter for pumps/valves
+    private readonly MIN_PIPE_LENGTH = 1.0;
 
     constructor(map: Map, vectorSource: VectorSource) {
         this.map = map;
@@ -43,691 +45,259 @@ export class PipeDrawingManager {
     // PUBLIC API
     // ============================================
 
-    public startDrawing() {
+    public startDrawing(type: 'pipe' | 'pump' | 'valve' = 'pipe') {
+        const previousStartNode = this.startNode;
+        const wasDrawing = this.isDrawingMode;
+
+        if (this.isDrawingMode) {
+            this.stopDrawing(false);
+        }
+
+        this.activeType = type;
         this.removeEventHandlers();
 
         this.isDrawingMode = true;
         this.drawingCoordinates = [];
         this.vertexMarkers = [];
-        this.startNode = null;
         this.endNode = null;
+
+        // Restore start node if chaining
+        if (wasDrawing && previousStartNode) {
+            this.startNode = previousStartNode;
+            const startCoord = (this.startNode.getGeometry() as Point).getCoordinates();
+            this.drawingCoordinates.push(startCoord);
+            this.addVertexMarker(startCoord);
+        } else {
+            this.startNode = null;
+        }
 
         useMapStore.getState().setIsDrawingPipe(true);
         this.map.getViewport().style.cursor = "crosshair";
 
         this.setupClickHandlers();
-        this.showHelpMessage("Click nodes to draw pipes | Right-click to add junction | Double-click to finish");
+
+        const helpText = this.startNode
+            ? `Select End Node for ${type}`
+            : (type === 'pipe' ? "Click start node/pipe | Dbl-click finish" : `Click 2 nodes for ${type}`);
+        this.showHelpMessage(helpText);
     }
 
-    public stopDrawing() {
+    public stopDrawing(fullReset: boolean = true) {
         if (!this.isDrawingMode) return;
 
         this.isDrawingMode = false;
-        this.drawingCoordinates = [];
-        this.startNode = null;
-        this.endNode = null;
-
-        this.vertexMarkers.forEach(marker => this.vectorSource.removeFeature(marker));
-        this.vertexMarkers = [];
-
-        if (this.previewLine) {
-            this.vectorSource.removeFeature(this.previewLine);
-            this.previewLine = null;
+        if (fullReset) {
+            this.resetState();
+            this.startNode = null;
+        } else {
+            // Partial reset
+            this.vertexMarkers.forEach(m => this.vectorSource.removeFeature(m));
+            this.vertexMarkers = [];
+            if (this.previewLine) {
+                this.vectorSource.removeFeature(this.previewLine);
+                this.previewLine = null;
+            }
         }
 
         this.hideHelpMessage();
         this.removeEventHandlers();
+
         this.map.getViewport().style.cursor = "default";
-
         useMapStore.getState().setIsDrawingPipe(false);
-
-        // FIX: Explicitly switch tool back to 'select' to update UI state
-        useUIStore.getState().setActiveTool('select');
-    }
-
-    public continueDrawingFromNode(node: Feature) {
-        if (!this.isDrawingMode) {
-            this.startDrawing();
-        }
-
-        const geometry = node.getGeometry();
-        if (!geometry) return;
-
-        const coordinate = (geometry as Point).getCoordinates();
-
-        if (this.drawingCoordinates.length === 0) {
-            // Starting new pipe segment
-            this.startNode = node;
-            this.drawingCoordinates.push(coordinate);
-            this.addVertexMarker(coordinate);
-            this.showHelpMessage(`Drawing from ${node.get('label')} | Right-click to add junction`);
-            return;
-        } else {
-            // Ending current pipe segment
-
-            // Check if the last drawn vertex is very close to this new node.
-            // If so, replace the last vertex with this node to avoid tiny pipe segments.
-            const lastCoord = this.drawingCoordinates[this.drawingCoordinates.length - 1];
-            const distance = this.distance(lastCoord, coordinate);
-
-            // We only remove the vertex if we have more than 1 point (don't remove the start node)
-            if (distance < this.MIN_PIPE_LENGTH && this.drawingCoordinates.length > 1) {
-                // Remove the last coordinate
-                this.drawingCoordinates.pop();
-
-                // Remove the corresponding vertex marker
-                const lastMarker = this.vertexMarkers.pop();
-                if (lastMarker) {
-                    this.vectorSource.removeFeature(lastMarker);
-                }
-            }
-
-            this.drawingCoordinates.push(coordinate);
-            this.endNode = node;
-
-            this.createPipeSegment();
-            this.resetForNextSegment(node);
-        }
-    }
-
-    public isDrawing(): boolean {
-        return this.isDrawingMode;
     }
 
     public cleanup() {
-        if (this.helpMessageTimeout) {
-            clearTimeout(this.helpMessageTimeout);
-            this.helpMessageTimeout = null;
-        }
-        this.hideHelpMessage();
         this.stopDrawing();
     }
 
-    public registerWithContextMenu(contextMenuManager: any) {
-        contextMenuManager.setComponentPlacedCallback((component: Feature) => {
-            if (this.isDrawingMode) {
-                this.continueDrawingFromNode(component);
-            }
-        });
-    }
-
     // ============================================
-    // NODE/LINK INSERTION (Unchanged)
+    // CONTEXT MENU / EXTERNAL ACTIONS
     // ============================================
 
-    public insertNodeOnPipe(
-        pipe: Feature,
-        coordinate: number[],
-        nodeType: FeatureType = 'junction'
-    ): Feature {
-        const store = useNetworkStore.getState();
-
-        const tempNode = new Feature({
-            geometry: new Point(coordinate),
-        });
-
-        const result = this.splitPipe(pipe, tempNode);
-
-        if (!result || result.splitedPipes.length !== 2) {
-            const node = this.createNodeOfType(nodeType, coordinate);
-            return node;
+    public addLinkWhileDrawing(linkType: 'pump' | 'valve', coordinate?: number[]) {
+        if (!coordinate) {
+            this.startDrawing(linkType);
+            return;
         }
 
-        const { splitedPipes } = result;
-        const snappedCoordinate = (tempNode.getGeometry() as Point).getCoordinates();
+        if (this.isDrawingMode && this.startNode) {
+            // 1. Create INTERMEDIATE Junction at click location
+            const midNode = this.createNode(coordinate, 'junction');
 
-        const node = this.createNodeOfType(nodeType, snappedCoordinate);
-        const nodeId = node.getId() as string;
+            // 2. Complete pending pipe
+            const pipePath = [...this.drawingCoordinates, coordinate];
+            const uniquePath = pipePath.filter((c, i, a) => i === 0 || this.distance(c, a[i - 1]) > 0.01);
 
-        const originalStartNodeId = pipe.get('startNodeId');
-        const originalEndNodeId = pipe.get('endNodeId');
-
-        this.vectorSource.removeFeature(pipe);
-        store.removeFeature(pipe.getId() as string);
-
-        const pipe1Id = store.generateUniqueId("pipe");
-        const pipe1 = splitedPipes[0];
-        pipe1.setId(pipe1Id);
-        pipe1.set("type", "pipe");
-        pipe1.set("isNew", true);
-        pipe1.set("startNodeId", originalStartNodeId);
-        pipe1.set("endNodeId", nodeId);
-        pipe1.setProperties({
-            ...COMPONENT_TYPES.pipe.defaultProperties,
-            length: this.calculatePipeLength(pipe1.getGeometry() as LineString),
-        });
-
-        this.vectorSource.addFeature(pipe1);
-        store.addFeature(pipe1);
-
-        const pipe2Id = store.generateUniqueId("pipe");
-        const pipe2 = splitedPipes[1];
-        pipe2.setId(pipe2Id);
-        pipe2.set("type", "pipe");
-        pipe2.set("isNew", true);
-        pipe2.set("startNodeId", nodeId);
-        pipe2.set("endNodeId", originalEndNodeId);
-        pipe2.setProperties({
-            ...COMPONENT_TYPES.pipe.defaultProperties,
-            length: this.calculatePipeLength(pipe2.getGeometry() as LineString),
-        });
-
-        this.vectorSource.addFeature(pipe2);
-        store.addFeature(pipe2);
-
-        store.updateNodeConnections(nodeId, pipe1Id, "add");
-        store.updateNodeConnections(nodeId, pipe2Id, "add");
-
-        this.vectorSource.changed();
-
-        return node;
-    }
-
-    public insertLinkOnPipe(
-        pipe: Feature,
-        coordinate: number[],
-        linkType: 'pump' | 'valve'
-    ): { link: Feature; startJunction: Feature; endJunction: Feature } {
-        const store = useNetworkStore.getState();
-
-        const geometry = pipe.getGeometry() as LineString;
-        const originalCoords = geometry.getCoordinates();
-        const closestPoint = geometry.getClosestPoint(coordinate);
-
-        const { angle, segmentIndex, pointOnSegment } = this.findPipeSegmentAtPoint(
-            geometry,
-            closestPoint
-        );
-
-        const LINK_LENGTH = 1;
-
-        const startJunctionCoord = [
-            pointOnSegment[0] - Math.cos(angle) * (LINK_LENGTH / 2),
-            pointOnSegment[1] - Math.sin(angle) * (LINK_LENGTH / 2),
-        ];
-
-        const endJunctionCoord = [
-            pointOnSegment[0] + Math.cos(angle) * (LINK_LENGTH / 2),
-            pointOnSegment[1] + Math.sin(angle) * (LINK_LENGTH / 2),
-        ];
-
-        const startJunction = this.createJunction(startJunctionCoord);
-        const endJunction = this.createJunction(endJunctionCoord);
-
-        const linkMidpoint = pointOnSegment;
-
-        const link = new Feature({
-            geometry: new Point(linkMidpoint)
-        });
-
-        const linkId = store.generateUniqueId(linkType);
-        link.setId(linkId);
-        link.set("type", linkType);
-        link.set("isNew", true);
-        link.setProperties({
-            ...COMPONENT_TYPES[linkType].defaultProperties,
-            label: `${COMPONENT_TYPES[linkType].name}-${linkId}`,
-            startNodeId: startJunction.getId(),
-            endNodeId: endJunction.getId(),
-        });
-
-        this.vectorSource.addFeature(link);
-        store.addFeature(link);
-
-        this.createVisualLinkLine(startJunctionCoord, endJunctionCoord, linkId, linkType);
-
-        store.updateNodeConnections(startJunction.getId() as string, linkId, "add");
-        store.updateNodeConnections(endJunction.getId() as string, linkId, "add");
-
-        const originalStartNodeId = pipe.get('startNodeId');
-        const originalEndNodeId = pipe.get('endNodeId');
-
-        const { firstPipeCoords, secondPipeCoords } = this.insertPointsInPipe(
-            originalCoords,
-            segmentIndex,
-            startJunctionCoord,
-            endJunctionCoord
-        );
-
-        this.vectorSource.removeFeature(pipe);
-        store.removeFeature(pipe.getId() as string);
-
-        if (firstPipeCoords.length >= 2) {
-            const pipe1 = new Feature({
-                geometry: new LineString(firstPipeCoords)
-            });
-            const pipe1Id = store.generateUniqueId("pipe");
-            pipe1.setId(pipe1Id);
-            pipe1.set("type", "pipe");
-            pipe1.set("isNew", true);
-            pipe1.set("startNodeId", originalStartNodeId);
-            pipe1.set("endNodeId", startJunction.getId());
-            pipe1.setProperties({
-                ...COMPONENT_TYPES.pipe.defaultProperties,
-                label: `P-${pipe1Id}`,
-                diameter: pipe.get('diameter') || 300,
-                roughness: pipe.get('roughness') || 100,
-                length: this.calculatePipeLength(pipe1.getGeometry() as LineString),
-            });
-
-            this.vectorSource.addFeature(pipe1);
-            store.addFeature(pipe1);
-            store.updateNodeConnections(startJunction.getId() as string, pipe1Id, "add");
-        }
-
-        if (secondPipeCoords.length >= 2) {
-            const pipe2 = new Feature({
-                geometry: new LineString(secondPipeCoords)
-            });
-            const pipe2Id = store.generateUniqueId("pipe");
-            pipe2.setId(pipe2Id);
-            pipe2.set("type", "pipe");
-            pipe2.set("isNew", true);
-            pipe2.set("startNodeId", endJunction.getId());
-            pipe2.set("endNodeId", originalEndNodeId);
-            pipe2.setProperties({
-                ...COMPONENT_TYPES.pipe.defaultProperties,
-                label: `P-${pipe2Id}`,
-                diameter: pipe.get('diameter') || 300,
-                roughness: pipe.get('roughness') || 100,
-                length: this.calculatePipeLength(pipe2.getGeometry() as LineString),
-            });
-
-            this.vectorSource.addFeature(pipe2);
-            store.addFeature(pipe2);
-            store.updateNodeConnections(endJunction.getId() as string, pipe2Id, "add");
-        }
-
-        return { link, startJunction, endJunction };
-    }
-
-    public addLinkWhileDrawing(linkType: 'pump' | 'valve'): Feature {
-        if (!this.isDrawingMode || this.drawingCoordinates.length === 0) {
-            throw new Error("Cannot add link - not drawing");
-        }
-
-        const store = useNetworkStore.getState();
-        const lastCoord = this.drawingCoordinates[this.drawingCoordinates.length - 1];
-
-        // First, complete the current pipe segment if we have a start node
-        let actualStartJunction: Feature;
-
-        if (this.startNode && this.drawingCoordinates.length >= 2) {
-            // Create junction at the last drawing coordinate
-            actualStartJunction = this.createJunction(lastCoord);
-
-            // Create pipe from startNode to this junction
-            const pipe = this.createPipe(
-                this.drawingCoordinates,
-                this.startNode,
-                actualStartJunction
-            );
-
-            // Clear preview
-            if (this.previewLine) {
-                this.vectorSource.removeFeature(this.previewLine);
-                this.previewLine = null;
+            if (uniquePath.length >= 2) {
+                this.createPipe(uniquePath, this.startNode, midNode);
             }
 
-            this.vertexMarkers.forEach(m => this.vectorSource.removeFeature(m));
-            this.vertexMarkers = [];
-        } else {
-            // No previous pipe, just create start junction at current position
-            actualStartJunction = this.createJunction(lastCoord);
+            // 3. Create END NODE for the Pump
+            const offset = [coordinate[0] + this.MIN_PIPE_LENGTH, coordinate[1]];
+            const endNode = this.createNode(offset, 'junction');
+
+            // 4. Create the PUMP/VALVE
+            const savedType = this.activeType;
+            this.activeType = linkType;
+            this.createLinkBetweenNodes(midNode, endNode, linkType);
+            this.activeType = savedType;
+
+            // 5. Continue Drawing
+            const nextStart = endNode;
+            this.resetState();
+
+            this.startNode = nextStart;
+            const startCoord = (nextStart.getGeometry() as Point).getCoordinates();
+            this.drawingCoordinates = [startCoord];
+            this.addVertexMarker(startCoord);
+            this.endNode = null;
+            this.showHelpMessage(`${linkType} added. Continue drawing...`);
         }
-
-        // Calculate link direction
-        const LINK_LENGTH = 1;
-        let angle = 0;
-
-        if (this.drawingCoordinates.length >= 2) {
-            const prevCoord = this.drawingCoordinates[this.drawingCoordinates.length - 2];
-            angle = Math.atan2(
-                lastCoord[1] - prevCoord[1],
-                lastCoord[0] - prevCoord[0]
-            );
-        }
-
-        // Create end junction (1 meter away)
-        const endJunctionCoord = [
-            lastCoord[0] + Math.cos(angle) * LINK_LENGTH,
-            lastCoord[1] + Math.sin(angle) * LINK_LENGTH,
-        ];
-
-        const endJunction = this.createJunction(endJunctionCoord);
-
-        // Create the link at midpoint
-        const midPoint = [
-            (lastCoord[0] + endJunctionCoord[0]) / 2,
-            (lastCoord[1] + endJunctionCoord[1]) / 2,
-        ];
-
-        const link = new Feature({
-            geometry: new Point(midPoint)
-        });
-
-        const linkId = store.generateUniqueId(linkType);
-
-        link.setId(linkId);
-        link.set("type", linkType);
-        link.set("isNew", true);
-        link.setProperties({
-            ...COMPONENT_TYPES[linkType].defaultProperties,
-            label: `${COMPONENT_TYPES[linkType].name}-${linkId}`,
-            startNodeId: actualStartJunction.getId(),
-            endNodeId: endJunction.getId(),
-        });
-
-        this.vectorSource.addFeature(link);
-        store.addFeature(link);
-
-        // Create visual link line
-        this.createVisualLinkLine(lastCoord, endJunctionCoord, linkId, linkType);
-
-        // Update connections
-        store.updateNodeConnections(actualStartJunction.getId() as string, linkId, "add");
-        store.updateNodeConnections(endJunction.getId() as string, linkId, "add");
-
-        // Reset for next segment from end junction
-        this.startNode = endJunction;
-        this.endNode = null;
-        this.drawingCoordinates = [endJunctionCoord];
-        this.addVertexMarker(endJunctionCoord);
-
-        this.showHelpMessage(`${linkType.toUpperCase()} added | Continue drawing from end junction`);
-
-        return endJunction;
     }
 
-    // ============================================
-    // PRIVATE METHODS
-    // ============================================
-
-    private createPipeSegment() {
-        if (!this.startNode || !this.endNode) return;
+    public insertLinkOnPipe(pipe: Feature, coordinate: number[], type: 'pump' | 'valve') {
+        const store = useNetworkStore.getState();
         window.dispatchEvent(new CustomEvent('takeSnapshot'));
 
-        // Validate pipe length
-        const pipeLength = this.calculatePipeLength(new LineString(this.drawingCoordinates));
-
-        if (pipeLength < this.MIN_PIPE_LENGTH) {
-            console.warn(`⚠️ Pipe too short: ${pipeLength.toFixed(2)}m (min: ${this.MIN_PIPE_LENGTH}m)`);
-            this.showHelpMessage(`⚠️ Pipe too short. Minimum ${this.MIN_PIPE_LENGTH}m.`);
-
-            // Reset without creating pipe
-            this.drawingCoordinates = [];
-            this.startNode = null;
-            this.endNode = null;
-            this.vertexMarkers.forEach(m => this.vectorSource.removeFeature(m));
-            this.vertexMarkers = [];
-            if (this.previewLine) {
-                this.vectorSource.removeFeature(this.previewLine);
-                this.previewLine = null;
-            }
-            return;
-        }
-
-        // Validate coordinates
-        if (this.drawingCoordinates.length < 2) {
-            console.error("❌ Not enough coordinates");
-            return;
-        }
-
-        // Check for duplicate coordinates
-        const uniqueCoords = this.drawingCoordinates.filter((coord, index, self) => {
-            return index === 0 || this.distance(coord, self[index - 1]) > 0.01;
-        });
-
-        if (uniqueCoords.length < 2) {
-            console.error("❌ All coordinates are the same");
-            return;
-        }
-
-        // Clear preview and markers
-        if (this.previewLine) {
-            this.vectorSource.removeFeature(this.previewLine);
-            this.previewLine = null;
-        }
-
-        this.vertexMarkers.forEach(m => this.vectorSource.removeFeature(m));
-        this.vertexMarkers = [];
-
-        this.createPipe(
-            // this.drawingCoordinates,
-            uniqueCoords,
-            this.startNode,
-            this.endNode
-        );
-    }
-
-    private resetForNextSegment(newStartNode: Feature) {
-        const newStartCoord = (newStartNode.getGeometry() as Point).getCoordinates();
-
-        this.startNode = newStartNode;
-        this.endNode = null;
-        this.drawingCoordinates = [newStartCoord];
-
-        this.addVertexMarker(newStartCoord);
-        this.showHelpMessage(`Continue from ${newStartNode.get('label')} | Right-click to add junction | Double-click to finish`);
-    }
-
-    private createNodeOfType(nodeType: FeatureType, coordinate: number[]): Feature {
-        const feature = new Feature({
-            geometry: new Point(coordinate),
-        });
-
-        const store = useNetworkStore.getState();
-        const id = store.generateUniqueId(nodeType);
-
-        feature.setId(id);
-        feature.set("type", nodeType);
-        feature.set("isNew", true);
-        feature.setProperties({
-            ...COMPONENT_TYPES[nodeType].defaultProperties,
-            label: `${COMPONENT_TYPES[nodeType].name}-${id}`,
-        });
-        feature.set("connectedLinks", []);
-
-        this.vectorSource.addFeature(feature);
-        store.addFeature(feature);
-
-        return feature;
-    }
-
-    private createJunction(coordinate: number[]): Feature {
-        const feature = new Feature({
-            geometry: new Point(coordinate),
-        });
-
-        const store = useNetworkStore.getState();
-        const id = store.generateUniqueId('junction');
-
-        feature.setId(id);
-        feature.set("type", 'junction');
-        feature.set("isNew", true);
-        feature.setProperties({
-            ...COMPONENT_TYPES.junction.defaultProperties,
-            label: `J-${id}`,
-        });
-        feature.set("connectedLinks", []);
-
-        this.vectorSource.addFeature(feature);
-        store.addFeature(feature);
-
-        return feature;
-    }
-
-    private createVisualLinkLine(
-        startCoord: number[],
-        endCoord: number[],
-        linkId: string,
-        linkType: 'pump' | 'valve'
-    ) {
-        const visualLine = new Feature({
-            geometry: new LineString([startCoord, endCoord]),
-        });
-
-        visualLine.set('isVisualLink', true);
-        visualLine.set('parentLinkId', linkId);
-        visualLine.set('linkType', linkType);
-
-        const color = linkType === 'pump' ? '#F59E0B' : '#EC4899';
-
-        visualLine.setStyle(new Style({
-            stroke: new Stroke({
-                color: color,
-                width: 3,
-                lineDash: [8, 4],
-            }),
-            zIndex: 99,
-        }));
-
-        this.vectorSource.addFeature(visualLine);
-    }
-
-    private findPipeSegmentAtPoint(
-        geometry: LineString,
-        point: number[]
-    ): { angle: number; segmentIndex: number; pointOnSegment: number[] } {
+        const geometry = pipe.getGeometry() as LineString;
         const coords = geometry.getCoordinates();
+        const startNodeId = pipe.get('startNodeId');
+        const endNodeId = pipe.get('endNodeId');
+        const originalId = pipe.getId() as string;
 
-        let closestSegmentIndex = 0;
-        let minDistance = Infinity;
-        let closestPointOnSegment: number[] = point;
+        const pipeProps = { ...pipe.getProperties() };
+        delete pipeProps.geometry;
+        delete pipeProps.id;
+        delete pipeProps.length;
+        delete pipeProps.startNodeId;
+        delete pipeProps.endNodeId;
+        delete pipeProps.label;
+
+        const point1 = geometry.getClosestPoint(coordinate);
+        let splitIndex = 0;
 
         for (let i = 0; i < coords.length - 1; i++) {
-            const segment = new LineString([coords[i], coords[i + 1]]);
-            const pointOnSegment = segment.getClosestPoint(point);
-            const distance = this.distance(pointOnSegment, point);
-
-            if (distance < minDistance) {
-                minDistance = distance;
-                closestSegmentIndex = i;
-                closestPointOnSegment = pointOnSegment;
-            }
-        }
-
-        const p1 = coords[closestSegmentIndex];
-        const p2 = coords[closestSegmentIndex + 1];
-        const angle = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
-
-        return {
-            angle,
-            segmentIndex: closestSegmentIndex,
-            pointOnSegment: closestPointOnSegment
-        };
-    }
-
-    private insertPointsInPipe(
-        originalCoords: number[][],
-        segmentIndex: number,
-        point1: number[],
-        point2: number[]
-    ): { firstPipeCoords: number[][]; secondPipeCoords: number[][] } {
-        const firstPipeCoords = [
-            ...originalCoords.slice(0, segmentIndex + 1),
-            point1,
-        ];
-
-        const secondPipeCoords = [
-            point2,
-            ...originalCoords.slice(segmentIndex + 1),
-        ];
-
-        return { firstPipeCoords, secondPipeCoords };
-    }
-
-    private splitPipe(
-        pipeFeature: Feature,
-        splitPointFeature: Feature
-    ): {
-        splitedPipes: Feature[];
-    } | null {
-        const pipeCoordinates = (pipeFeature.getGeometry() as LineString).getCoordinates();
-        const splitCoord = (splitPointFeature.getGeometry() as Point).getCoordinates();
-
-        const pipeGeometry = pipeFeature.getGeometry() as LineString;
-        const closestPoint = pipeGeometry.getClosestPoint(splitCoord);
-
-        (splitPointFeature.getGeometry() as Point).setCoordinates(closestPoint);
-
-        let splitSegmentIndex = -1;
-        let minDistance = Infinity;
-
-        for (let i = 0; i < pipeCoordinates.length - 1; i++) {
-            const segment = new LineString([pipeCoordinates[i], pipeCoordinates[i + 1]]);
-            const pointOnSegment = segment.getClosestPoint(closestPoint);
-            const distance = this.distance(pointOnSegment, closestPoint);
-
-            if (distance < minDistance) {
-                minDistance = distance;
-                splitSegmentIndex = i;
-            }
-        }
-
-        if (splitSegmentIndex === -1) {
-            return null;
-        }
-
-        const VERTEX_TOLERANCE = 0.1;
-        let isOnVertex = false;
-        let vertexIndex = -1;
-
-        for (let i = 0; i < pipeCoordinates.length; i++) {
-            if (this.distance(pipeCoordinates[i], closestPoint) < VERTEX_TOLERANCE) {
-                isOnVertex = true;
-                vertexIndex = i;
+            const dist = this.distance(coords[i], point1) + this.distance(point1, coords[i + 1]);
+            const segLen = this.distance(coords[i], coords[i + 1]);
+            if (Math.abs(dist - segLen) < 0.01) {
+                splitIndex = i;
                 break;
             }
         }
 
-        let firstLineCoords: number[][];
-        let secondLineCoords: number[][];
+        const pStart = coords[splitIndex];
+        const pEnd = coords[splitIndex + 1];
+        const dx = pEnd[0] - pStart[0];
+        const dy = pEnd[1] - pStart[1];
+        const len = Math.sqrt(dx * dx + dy * dy);
 
-        if (isOnVertex && vertexIndex > 0 && vertexIndex < pipeCoordinates.length - 1) {
-            firstLineCoords = pipeCoordinates.slice(0, vertexIndex + 1);
-            secondLineCoords = pipeCoordinates.slice(vertexIndex);
-        } else {
-            firstLineCoords = [...pipeCoordinates.slice(0, splitSegmentIndex + 1), closestPoint];
-            secondLineCoords = [closestPoint, ...pipeCoordinates.slice(splitSegmentIndex + 1)];
-        }
+        const GAP = this.MIN_PIPE_LENGTH;
+        const safeOffset = Math.min(GAP, len * 0.4);
 
-        if (firstLineCoords.length < 2 || secondLineCoords.length < 2) {
-            return null;
-        }
+        const offsetX = (dx / len) * safeOffset;
+        const offsetY = (dy / len) * safeOffset;
+        const point2 = [point1[0] + offsetX, point1[1] + offsetY];
 
-        const line1 = new Feature({ geometry: new LineString(firstLineCoords) });
-        const line2 = new Feature({ geometry: new LineString(secondLineCoords) });
+        const j1 = this.createNode(point1, 'junction');
+        const j2 = this.createNode(point2, 'junction');
+        const j1Id = j1.getId() as string;
+        const j2Id = j2.getId() as string;
 
-        return {
-            splitedPipes: [line1, line2],
-        };
+        const coords1 = [...coords.slice(0, splitIndex + 1), point1];
+        const p1Id = store.generateUniqueId('pipe');
+        const p1 = new Feature({ geometry: new LineString(coords1) });
+        p1.setId(p1Id);
+        p1.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p1Id, startNodeId: startNodeId, endNodeId: j1Id, label: p1Id, length: this.calculatePipeLength(p1.getGeometry() as LineString) });
+
+        const coords2 = [point2, ...coords.slice(splitIndex + 1)];
+        const p2Id = store.generateUniqueId('pipe');
+        const p2 = new Feature({ geometry: new LineString(coords2) });
+        p2.setId(p2Id);
+        p2.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p2Id, startNodeId: j2Id, endNodeId: endNodeId, label: p2Id, length: this.calculatePipeLength(p2.getGeometry() as LineString) });
+
+        this.createLinkBetweenNodes(j1, j2, type);
+
+        this.vectorSource.removeFeature(pipe);
+        store.removeFeature(originalId);
+
+        this.vectorSource.addFeatures([p1, p2]);
+        store.addFeature(p1);
+        store.addFeature(p2);
+
+        store.updateNodeConnections(startNodeId, originalId, "remove");
+        store.updateNodeConnections(endNodeId, originalId, "remove");
+        store.updateNodeConnections(startNodeId, p1Id, "add");
+        store.updateNodeConnections(j1Id, p1Id, "add");
+        store.updateNodeConnections(j2Id, p2Id, "add");
+        store.updateNodeConnections(endNodeId, p2Id, "add");
+
+        this.vectorSource.changed();
+        return { link: null, startJunction: j1, endJunction: j2 };
     }
 
-    private createPipe(coords: number[][], startNode: Feature, endNode: Feature): Feature {
-        const feature = new Feature({ geometry: new LineString(coords) });
+    public insertNodeOnPipe(pipe: Feature, coordinate: number[], type: FeatureType): Feature {
         const store = useNetworkStore.getState();
-        const id = store.generateUniqueId("pipe");
+        window.dispatchEvent(new CustomEvent('takeSnapshot'));
+        const geometry = pipe.getGeometry() as LineString;
+        const coords = geometry.getCoordinates();
+        const startNodeId = pipe.get('startNodeId');
+        const endNodeId = pipe.get('endNodeId');
+        const originalId = pipe.getId() as string;
 
-        feature.setId(id);
-        feature.set("type", "pipe");
-        feature.set("isNew", true);
-        feature.setProperties({
-            ...COMPONENT_TYPES.pipe.defaultProperties,
-            startNodeId: startNode.getId(),
-            endNodeId: endNode.getId(),
-            length: this.calculatePipeLength(feature.getGeometry() as LineString),
-            vertices: coords.length,
-        });
+        const pipeProps = { ...pipe.getProperties() };
+        delete pipeProps.geometry;
+        delete pipeProps.id;
+        delete pipeProps.length;
+        delete pipeProps.startNodeId;
+        delete pipeProps.endNodeId;
+        delete pipeProps.label;
 
-        this.vectorSource.addFeature(feature);
-        store.addFeature(feature);
+        const closestPoint = geometry.getClosestPoint(coordinate);
+        let splitIndex = 0;
+        for (let i = 0; i < coords.length - 1; i++) {
+            const dist = this.distance(coords[i], closestPoint) + this.distance(closestPoint, coords[i + 1]);
+            const segLen = this.distance(coords[i], coords[i + 1]);
+            if (Math.abs(dist - segLen) < 0.01) {
+                splitIndex = i;
+                break;
+            }
+        }
 
-        store.updateNodeConnections(startNode.getId() as string, id, "add");
-        store.updateNodeConnections(endNode.getId() as string, id, "add");
+        const newNode = this.createNode(closestPoint, type);
+        const newNodeId = newNode.getId() as string;
 
-        return feature;
+        const coords1 = [...coords.slice(0, splitIndex + 1), closestPoint];
+        const coords2 = [closestPoint, ...coords.slice(splitIndex + 1)];
+
+        const p1Id = store.generateUniqueId('pipe');
+        const p1 = new Feature({ geometry: new LineString(coords1) });
+        p1.setId(p1Id);
+        p1.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p1Id, startNodeId: startNodeId, endNodeId: newNodeId, label: `${p1Id}`, length: this.calculatePipeLength(p1.getGeometry() as LineString) });
+
+        const p2Id = store.generateUniqueId('pipe');
+        const p2 = new Feature({ geometry: new LineString(coords2) });
+        p2.setId(p2Id);
+        p2.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p2Id, startNodeId: newNodeId, endNodeId: endNodeId, label: `${p2Id}`, length: this.calculatePipeLength(p2.getGeometry() as LineString) });
+
+        this.vectorSource.removeFeature(pipe);
+        store.removeFeature(originalId);
+        this.vectorSource.addFeatures([p1, p2]);
+        store.addFeature(p1);
+        store.addFeature(p2);
+
+        store.updateNodeConnections(startNodeId, originalId, "remove");
+        store.updateNodeConnections(endNodeId, originalId, "remove");
+        store.updateNodeConnections(startNodeId, p1Id, "add");
+        store.updateNodeConnections(newNodeId, p1Id, "add");
+        store.updateNodeConnections(newNodeId, p2Id, "add");
+        store.updateNodeConnections(endNodeId, p2Id, "add");
+
+        return newNode;
     }
+
+    // ============================================
+    // EVENT HANDLERS
+    // ============================================
 
     private setupClickHandlers() {
         this.clickHandler = this.handleClick.bind(this);
@@ -739,34 +309,42 @@ export class PipeDrawingManager {
         this.map.on("dblclick", this.doubleClickHandler);
 
         this.escKeyHandler = (e: KeyboardEvent) => {
-            if (e.key === "Escape" && this.isDrawingMode) {
-                this.cancelCurrentPipe();
-                this.stopDrawing();
-            }
-
-            if ((e.key === "Backspace" || (e.key === "z" && e.ctrlKey)) && this.isDrawingMode) {
-                if (this.drawingCoordinates.length > 1) {
-                    e.preventDefault();
-                    e.stopPropagation();
-
+            if (e.key === "Backspace" && this.isDrawingMode) {
+                if (this.drawingCoordinates.length > 1) { // Need at least start node
                     // Remove last coordinate
                     this.drawingCoordinates.pop();
 
-                    // Remove last vertex marker
+                    // Remove last marker
                     const lastMarker = this.vertexMarkers.pop();
                     if (lastMarker) {
                         this.vectorSource.removeFeature(lastMarker);
                     }
-                    this.showHelpMessage("Removed last vertex");
+
+                    // Update preview
+                    // We need a synthetic event or just call update with last known
+                    // Since we can't easily get mouse position here without tracking it globally,
+                    // we'll wait for next mouse move to update preview line destination.
+                    // But we should at least refresh the source to remove the old line.
+                    if (this.previewLine) {
+                        this.vectorSource.removeFeature(this.previewLine);
+                        this.previewLine = null;
+                    }
+                    this.showHelpMessage("Vertex removed");
+                }
+            }
+
+            if (e.key === "Escape" && this.isDrawingMode) {
+                if (this.drawingCoordinates.length > 0) {
+                    this.resetState();
+                    this.showHelpMessage("Drawing cancelled");
+                } else {
+                    this.stopDrawing();
                 }
             }
         };
         document.addEventListener("keydown", this.escKeyHandler);
-
-        this.map.getInteractions().forEach(interaction => {
-            if (interaction.constructor.name === 'DoubleClickZoom') {
-                interaction.setActive(false);
-            }
+        this.map.getInteractions().forEach(i => {
+            if (i.constructor.name === 'DoubleClickZoom') i.setActive(false);
         });
     }
 
@@ -775,326 +353,338 @@ export class PipeDrawingManager {
         if (this.pointerMoveHandler) this.map.un("pointermove", this.pointerMoveHandler);
         if (this.doubleClickHandler) this.map.un("dblclick", this.doubleClickHandler);
         if (this.escKeyHandler) document.removeEventListener("keydown", this.escKeyHandler);
-
-        this.map.getInteractions().forEach(interaction => {
-            if (interaction.constructor.name === 'DoubleClickZoom') {
-                interaction.setActive(true);
-            }
+        this.map.getInteractions().forEach(i => {
+            if (i.constructor.name === 'DoubleClickZoom') i.setActive(true);
         });
-
         this.clickHandler = null;
-        this.pointerMoveHandler = null;
-        this.doubleClickHandler = null;
-        this.escKeyHandler = null;
     }
 
     private handleClick(event: any) {
         if (!this.isDrawingMode) return;
-        this.processClick(event);
-    }
-
-    private processClick(event: any) {
         const coordinate = event.coordinate;
         const existingNode = this.findNodeAtCoordinate(coordinate);
 
-        // FIRST CLICK
-        if (this.drawingCoordinates.length === 0) {
+        // 1. STARTING
+        if (!this.startNode) {
             if (existingNode) {
                 this.startNode = existingNode;
-                this.drawingCoordinates.push((existingNode.getGeometry() as Point).getCoordinates());
-                this.addVertexMarker(this.drawingCoordinates[0]);
-                this.showHelpMessage(`Drawing from ${existingNode.get('label')} | Click to add vertices | Double-click to finish`);
             } else {
-                this.showHelpMessage("⚠️ Click on a node to start");
+                const pipeUnderCursor = this.findPipeAtCoordinate(coordinate);
+                if (pipeUnderCursor) {
+                    if (this.activeType !== 'pipe') {
+                        this.insertLinkOnPipe(pipeUnderCursor, coordinate, this.activeType);
+                        this.resetState();
+                        this.startNode = null;
+                        return;
+                    }
+                    else {
+                        this.startNode = this.insertNodeOnPipe(pipeUnderCursor, coordinate, 'junction');
+                    }
+                } else {
+                    this.startNode = this.createNode(coordinate, 'junction');
+                }
             }
+
+            const startCoord = (this.startNode.getGeometry() as Point).getCoordinates();
+            this.drawingCoordinates = [startCoord];
+            this.addVertexMarker(startCoord);
+            this.updatePreviewLine(event.coordinate);
             return;
         }
 
-        // SUBSEQUENT CLICKS
-        if (this.drawingCoordinates.length >= this.MAX_VERTICES) {
-            this.showHelpMessage(`⚠️ Maximum ${this.MAX_VERTICES} vertices reached. Double-click to finish.`);
-            return;
-        }
-
-        // Check if clicking on the same node as start (prevent zero-length pipe)
-        if (existingNode && existingNode.getId() === this.startNode?.getId()) {
-            this.showHelpMessage("⚠️ Cannot create pipe to the same node");
-            return;
-        }
+        // 2. CONTINUING
+        const lastCoord = this.drawingCoordinates[this.drawingCoordinates.length - 1];
+        if (this.distance(lastCoord, coordinate) < 0.1) return;
 
         if (existingNode) {
-            const nodeCoord = (existingNode.getGeometry() as Point).getCoordinates();
-            // Check if it's too close to last coordinate
-            const lastCoord = this.drawingCoordinates[this.drawingCoordinates.length - 1];
-
-            const distance = this.distance(lastCoord, nodeCoord);
-
-            if (distance < this.MIN_PIPE_LENGTH) {
-                this.showHelpMessage(`⚠️ Distance too short (${distance.toFixed(2)}m). Minimum ${this.MIN_PIPE_LENGTH}m.`);
-                return;
-            }
-
-            this.drawingCoordinates.push(nodeCoord);
+            if (existingNode.getId() === this.startNode.getId()) return;
             this.endNode = existingNode;
-            this.addVertexMarker(nodeCoord);
-
-        } else {
-            // Adding intermediate vertex
-            const lastCoord = this.drawingCoordinates[this.drawingCoordinates.length - 1];
-            const distance = this.distance(lastCoord, coordinate);
-
-            // Prevent very short segments
-            if (distance < 0.1) { // 0.1 meter minimum for vertices
-                return; // Ignore very small movements
-            }
-
-            this.drawingCoordinates.push(coordinate);
-            this.addVertexMarker(coordinate);
-        }
-    }
-
-    private handlePointerMove(event: any) {
-        if (!this.isDrawingMode || this.drawingCoordinates.length === 0) {
+            this.drawingCoordinates.push((existingNode.getGeometry() as Point).getCoordinates());
+            this.finishSegment(true);
             return;
         }
 
-        if (this.previewLine) {
-            this.vectorSource.removeFeature(this.previewLine);
+        // FIX: Check for pipe snap on continuation/finish
+        const pipeUnderCursor = this.findPipeAtCoordinate(coordinate);
+        if (pipeUnderCursor) {
+            const splitNode = this.insertNodeOnPipe(pipeUnderCursor, coordinate, 'junction');
+            this.endNode = splitNode;
+            this.drawingCoordinates.push((splitNode.getGeometry() as Point).getCoordinates());
+            this.finishSegment(true);
+            return;
         }
 
-        let currentCoord = event.coordinate;
-        const lastFixedCoord = this.drawingCoordinates[this.drawingCoordinates.length - 1];
-
-        // ---Orthogonal Constraint ---
-        if (event.originalEvent && event.originalEvent.shiftKey) {
-            currentCoord = this.getOrthogonalCoordinate(lastFixedCoord, currentCoord);
+        if (this.activeType !== 'pipe') {
+            this.endNode = this.createNode(coordinate, 'junction');
+            this.drawingCoordinates.push(coordinate);
+            this.finishSegment(false);
+            return;
         }
 
-        const previewCoords = [...this.drawingCoordinates, event.coordinate];
-
-        const segmentLength = Math.sqrt(
-            Math.pow(currentCoord[0] - lastFixedCoord[0], 2) +
-            Math.pow(currentCoord[1] - lastFixedCoord[1], 2)
-        );
-
-        this.showHelpMessage(`Length: ${segmentLength.toFixed(2)}m | Hold Shift for Orthogonal`);
-
-        this.previewLine = new Feature({
-            geometry: new LineString(previewCoords)
-        });
-
-        this.previewLine.setStyle(new Style({
-            stroke: new Stroke({
-                color: "#1FB8CD",
-                width: 3,
-                lineDash: [10, 5],
-            }),
-            zIndex: 150,
-        }));
-
-        this.previewLine.set("isPreview", true);
-        this.vectorSource.addFeature(this.previewLine);
+        this.drawingCoordinates.push(coordinate);
+        this.addVertexMarker(coordinate);
+        this.updatePreviewLine(event.coordinate);
     }
 
     private handleDoubleClick(event: any) {
         if (!this.isDrawingMode) return;
-
         event.preventDefault();
         event.stopPropagation();
 
-        // Allow finishing even if only 1 point is drawn (start node + dbl click location)
-        // because we will add the end point if it's new
-        if (this.drawingCoordinates.length < 1) {
-            this.showHelpMessage("⚠️ Need at least start node");
-            return;
-        }
+        if (this.drawingCoordinates.length > 0) {
+            const lastCoord = this.drawingCoordinates[this.drawingCoordinates.length - 1];
 
-        this.finishCurrentPipe();
-        this.stopDrawing();
-        return false;
-    }
-
-    private finishCurrentPipe() {
-        // Filter out duplicate coordinates that occur from double-click event
-        const uniqueCoords = this.drawingCoordinates.filter((coord, index, self) => {
-            if (index === 0) return true;
-            return this.distance(coord, self[index - 1]) > 0.01;
-        });
-
-        if (uniqueCoords.length < 2) {
-            this.showHelpMessage("⚠️ Need at least 2 points");
-            return;
-        }
-
-        // Auto-create end node if missing (double-click on empty space)
-        let autoCreatedEndNode = false;
-        if (this.startNode && !this.endNode) {
-            const lastCoord = uniqueCoords[uniqueCoords.length - 1];
-            this.endNode = this.createJunction(lastCoord);
-            autoCreatedEndNode = true;
-        }
-
-        if (!this.startNode || !this.endNode) {
-            this.showHelpMessage("⚠️ Pipe must connect two nodes");
-            return;
-        }
-
-        const totalLength = this.calculatePipeLength(
-            new LineString(uniqueCoords)
-        );
-
-        if (totalLength < this.MIN_PIPE_LENGTH) {
-            this.showHelpMessage(`⚠️ Pipe too short (${totalLength.toFixed(2)}m). Minimum ${this.MIN_PIPE_LENGTH}m.`);
-
-            // Cleanup if we just created the node
-            if (autoCreatedEndNode && this.endNode) {
-                this.vectorSource.removeFeature(this.endNode);
-                useNetworkStore.getState().removeFeature(this.endNode.getId() as string);
-                this.endNode = null;
+            let targetNode = this.findNodeAtCoordinate(lastCoord);
+            if (!targetNode) {
+                const pipeUnderCursor = this.findPipeAtCoordinate(lastCoord);
+                if (pipeUnderCursor) {
+                    targetNode = this.insertNodeOnPipe(pipeUnderCursor, lastCoord, 'junction');
+                } else {
+                    targetNode = this.createNode(lastCoord, 'junction');
+                }
             }
-            return;
+
+            this.endNode = targetNode;
+            this.finishSegment(false);
+        }
+    }
+
+    private finishSegment(continueChain: boolean = true) {
+        if (!this.startNode || !this.endNode) return;
+
+        if (this.activeType === 'pipe') {
+            const uniqueCoords = this.drawingCoordinates.filter((c, i, a) => i === 0 || this.distance(c, a[i - 1]) > 0.01);
+            if (uniqueCoords.length >= 2) {
+                this.createPipe(uniqueCoords, this.startNode, this.endNode);
+            }
+        } else {
+            this.createPumpOrValveSegment();
         }
 
+        const nextStartNode = continueChain ? this.endNode : null;
+        this.resetState();
+        this.startNode = null;
+
+        if (this.activeType === 'pipe' && nextStartNode) {
+            this.startNode = nextStartNode;
+            const startCoord = (this.startNode.getGeometry() as Point).getCoordinates();
+            this.drawingCoordinates = [startCoord];
+            this.addVertexMarker(startCoord);
+            this.endNode = null;
+            this.showHelpMessage("Continue drawing or Dbl-Click to finish");
+        }
+    }
+
+    private createPumpOrValveSegment() {
+        if (!this.startNode || !this.endNode) return;
+        this.createLinkBetweenNodes(this.startNode, this.endNode, this.activeType as 'pump' | 'valve');
+        this.showHelpMessage(`${this.activeType} Created`);
+    }
+
+    // ============================================
+    // VISUALS & UTILS
+    // ============================================
+
+    private resetState() {
+        this.drawingCoordinates = [];
+        this.endNode = null;
+        this.vertexMarkers.forEach(m => this.vectorSource.removeFeature(m));
+        this.vertexMarkers = [];
+        if (this.previewLine) {
+            this.vectorSource.removeFeature(this.previewLine);
+            this.previewLine = null;
+        }
+    }
+
+    private handlePointerMove(event: any) {
+        if (!this.isDrawingMode) return;
+        this.updatePreviewLine(event.coordinate);
+    }
+
+    private updatePreviewLine(currentCursor: number[]) {
         if (this.previewLine) {
             this.vectorSource.removeFeature(this.previewLine);
             this.previewLine = null;
         }
 
-        this.vertexMarkers.forEach(m => this.vectorSource.removeFeature(m));
-        this.vertexMarkers = [];
-
-        // Use uniqueCoords instead of this.drawingCoordinates
-        this.createPipe(uniqueCoords, this.startNode, this.endNode);
-
-        this.drawingCoordinates = [];
-        this.startNode = null;
-        this.endNode = null;
-
-        this.showHelpMessage("✅ Pipe created!");
-    }
-
-    private cancelCurrentPipe() {
-        this.drawingCoordinates = [];
-        this.startNode = null;
-        this.endNode = null;
-
-        this.vertexMarkers.forEach(m => this.vectorSource.removeFeature(m));
-        this.vertexMarkers = [];
-
-        if (this.previewLine) {
-            this.vectorSource.removeFeature(this.previewLine);
-            this.previewLine = null;
+        let startPoint: number[] | null = null;
+        if (this.drawingCoordinates.length > 0) {
+            startPoint = this.drawingCoordinates[this.drawingCoordinates.length - 1];
+        } else if (this.startNode) {
+            startPoint = (this.startNode.getGeometry() as Point).getCoordinates();
         }
+
+        if (!startPoint) return;
+
+        let targetCoord = currentCursor;
+        if (this.activeType === 'pipe' && window.event && (window.event as any).shiftKey) {
+            targetCoord = this.getOrthogonalCoordinate(startPoint, currentCursor);
+        }
+
+        const previewCoords = this.activeType === 'pipe'
+            ? [...this.drawingCoordinates, targetCoord]
+            : [startPoint, targetCoord];
+
+        this.previewLine = new Feature({ geometry: new LineString(previewCoords) });
+        const color = this.activeType === 'pipe' ? '#1FB8CD' : '#F59E0B';
+        const dash = this.activeType === 'pipe' ? [10, 6] : [5, 5];
+
+        this.previewLine.setStyle(new Style({
+            stroke: new Stroke({ color: color, width: 2, lineDash: dash }),
+            zIndex: 150,
+        }));
+        this.previewLine.set("isPreview", true);
+        this.vectorSource.addFeature(this.previewLine);
     }
 
-    // ============================================
-    // UTILITIES (Unchanged)
-    // ============================================
+    // --- UTILS ---
 
-    private distance(p1: number[], p2: number[]): number {
-        return Math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2);
-    }
-
-    private findNodeAtCoordinate(coordinate: number[]): Feature | null {
-        const { isSnappingEnabled } = useUIStore.getState();
-        if (!isSnappingEnabled) return null;
-
-        // if (!this.isValidCoordinate(coordinate)) return null;
-
+    public findPipeAtCoordinate(coordinate: number[]): Feature | null {
         const pixel = this.map.getPixelFromCoordinate(coordinate);
         if (!pixel) return null;
 
-        const features = this.vectorSource.getFeatures();
-        return features.find((f) => {
-            if (!["junction", "tank", "reservoir"].includes(f.get("type"))) return false;
-
-            const geom = f.getGeometry();
-            if (geom instanceof Point) {
-                const fPixel = this.map.getPixelFromCoordinate(geom.getCoordinates());
-                if (!fPixel) return false;
-
-                const dist = Math.sqrt(
-                    (pixel[0] - fPixel[0]) ** 2 +
-                    (pixel[1] - fPixel[1]) ** 2
-                );
-                return dist <= SNAPPING_TOLERANCE;
+        // FIX: Use iteration to ignore previews and markers, finding the real pipe
+        return this.map.forEachFeatureAtPixel(
+            pixel,
+            (feature) => {
+                if (feature.get('type') === 'pipe' && !feature.get('isPreview') && !feature.get('isVisualLink')) {
+                    return feature as Feature;
+                }
+                return null;
+            },
+            {
+                hitTolerance: 5,
+                layerFilter: (layer) => layer.get('name') === 'network',
             }
-            return false;
-        }) || null;
+        ) || null;
     }
 
-    private calculatePipeLength(geometry: LineString): number {
-        const coords = geometry.getCoordinates();
-        let length = 0;
-        for (let i = 0; i < coords.length - 1; i++) {
-            length += this.distance(coords[i], coords[i + 1]);
-        }
-        return Math.round(length);
+    private findNodeAtCoordinate(coordinate: number[]): Feature | null {
+        const pixel = this.map.getPixelFromCoordinate(coordinate);
+        if (!pixel) return null;
+        // Same fix for nodes
+        return this.map.forEachFeatureAtPixel(
+            pixel,
+            (feature) => {
+                if (['junction', 'tank', 'reservoir'].includes(feature.get('type'))) {
+                    return feature as Feature;
+                }
+                return null;
+            },
+            {
+                hitTolerance: 5,
+                layerFilter: (layer) => layer.get('name') === 'network',
+            }
+        ) || null;
+    }
+
+    private createNode(coordinate: number[], type: FeatureType): Feature {
+        const feature = new Feature({ geometry: new Point(coordinate) });
+        const store = useNetworkStore.getState();
+        const id = store.generateUniqueId(type);
+        feature.setId(id);
+        feature.setProperties({ ...COMPONENT_TYPES[type].defaultProperties, type: type, isNew: true, id: id, label: id, connectedLinks: [] });
+        this.vectorSource.addFeature(feature);
+        store.addFeature(feature);
+        return feature;
+    }
+
+    private createPipe(coords: number[][], startNode: Feature, endNode: Feature) {
+        const feature = new Feature({ geometry: new LineString(coords) });
+        const store = useNetworkStore.getState();
+        const id = store.generateUniqueId("pipe");
+        feature.setId(id);
+        feature.setProperties({
+            ...COMPONENT_TYPES.pipe.defaultProperties, type: 'pipe', isNew: true, id: id, label: id,
+            startNodeId: startNode.getId(), endNodeId: endNode.getId(),
+            length: this.calculatePipeLength(feature.getGeometry() as LineString),
+        });
+        this.vectorSource.addFeature(feature);
+        store.addFeature(feature);
+        store.updateNodeConnections(startNode.getId() as string, id, "add");
+        store.updateNodeConnections(endNode.getId() as string, id, "add");
+    }
+
+    private createLinkBetweenNodes(node1: Feature, node2: Feature, type: 'pump' | 'valve') {
+        const store = useNetworkStore.getState();
+        const id = store.generateUniqueId(type);
+        const start = (node1.getGeometry() as Point).getCoordinates();
+        const end = (node2.getGeometry() as Point).getCoordinates();
+        const mid = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
+
+        const feature = new Feature({ geometry: new Point(mid) });
+        feature.setId(id);
+        feature.setProperties({
+            ...COMPONENT_TYPES[type].defaultProperties, type: type, isNew: true, id: id, label: id,
+            startNodeId: node1.getId(), endNodeId: node2.getId()
+        });
+        this.vectorSource.addFeature(feature);
+        store.addFeature(feature);
+
+        const visual = new Feature({ geometry: new LineString([start, end]) });
+        visual.set('isVisualLink', true);
+        visual.set('parentLinkId', id);
+        visual.set('linkType', type);
+        this.vectorSource.addFeature(visual);
+
+        store.updateNodeConnections(node1.getId() as string, id, "add");
+        store.updateNodeConnections(node2.getId() as string, id, "add");
     }
 
     private addVertexMarker(coord: number[]) {
         const marker = new Feature({ geometry: new Point(coord) });
-        marker.setStyle(new Style({
-            image: new CircleStyle({
-                radius: 4,
-                fill: new Fill({ color: "#1FB8CD" }),
-                stroke: new Stroke({ color: "#FFFFFF", width: 2 }),
-            }),
-        }));
+        marker.setStyle(new Style({ image: new CircleStyle({ radius: 3, fill: new Fill({ color: "#1FB8CD" }) }) }));
         marker.set("isVertexMarker", true);
         this.vectorSource.addFeature(marker);
         this.vertexMarkers.push(marker);
     }
 
-    private showHelpMessage(message: string) {
-        if (this.helpMessageTimeout) {
-            clearTimeout(this.helpMessageTimeout);
-        }
+    private calculatePipeLength(geometry: LineString): number { return Math.round(geometry.getLength()); }
+    private distance(p1: number[], p2: number[]) { return Math.sqrt(Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2)); }
+    private getOrthogonalCoordinate(start: number[], current: number[]): number[] {
+        const dx = Math.abs(current[0] - start[0]);
+        const dy = Math.abs(current[1] - start[1]);
+        return dy > dx ? [start[0], current[1]] : [current[0], start[1]];
+    }
 
+    private showHelpMessage(msg: string) {
+        if (this.helpMessageTimeout) clearTimeout(this.helpMessageTimeout);
         this.hideHelpMessage();
-
         const el = document.createElement("div");
-        el.style.cssText = `
-            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-            background: linear-gradient(135deg, #1FB8CD, #0891A6);
-            color: white; padding: 12px 24px; border-radius: 8px;
-            font-size: 14px; font-weight: 500; z-index: 10000;
-            box-shadow: 0 4px 16px rgba(31,184,205,0.4);
-            transition: opacity 0.3s;
-        `;
-        el.textContent = message;
+        el.className = "drawing-help-tooltip";
+        el.style.cssText = `position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#0f172a;color:white;padding:8px 16px;border-radius:20px;font-size:12px;z-index:9999;opacity:0.9;pointer-events:none;box-shadow: 0 4px 6px rgba(0,0,0,0.1);`;
+        el.textContent = msg;
         document.body.appendChild(el);
         this.helpTooltipElement = el;
-
-        this.helpMessageTimeout = setTimeout(() => {
-            if (el) {
-                el.style.dopacity = '0';
-                setTimeout(() => this.hideHelpMessage(), 300);
-            }
-        }, 3000);
+        this.helpMessageTimeout = setTimeout(() => this.hideHelpMessage(), 4000);
     }
 
     private hideHelpMessage() {
-        if (this.helpMessageTimeout) {
-            clearTimeout(this.helpMessageTimeout);
-            this.helpMessageTimeout = null;
-        }
-
         if (this.helpTooltipElement) {
             this.helpTooltipElement.remove();
             this.helpTooltipElement = null;
         }
     }
 
-    private getOrthogonalCoordinate(start: number[], current: number[]): number[] {
-        const dx = Math.abs(current[0] - start[0]);
-        const dy = Math.abs(current[1] - start[1]);
+    public registerWithContextMenu(contextMenuManager: any) {
+        contextMenuManager.setComponentPlacedCallback((component: Feature) => {
+            if (this.isDrawingMode && this.activeType === 'pipe') {
+                this.continueDrawingFromNode(component);
+            }
+        });
+    }
 
-        // If dy > dx, lock to Vertical (X stays same), else Horizontal (Y stays same)
-        if (dy > dx) {
-            return [start[0], current[1]];
+    public continueDrawingFromNode(node: Feature) {
+        if (!this.isDrawingMode) this.startDrawing('pipe');
+        if (this.drawingCoordinates.length === 0) {
+            this.startNode = node;
+            const coord = (node.getGeometry() as Point).getCoordinates();
+            this.drawingCoordinates.push(coord);
+            this.addVertexMarker(coord);
         } else {
-            return [current[0], start[1]];
+            this.endNode = node;
+            this.drawingCoordinates.push((node.getGeometry() as Point).getCoordinates());
+            this.finishSegment(true);
         }
     }
 }

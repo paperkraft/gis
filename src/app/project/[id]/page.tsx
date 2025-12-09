@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Loader2, Network, Play } from "lucide-react";
+import { ArrowLeft, Loader2, Network, PanelLeft, Play } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -33,7 +33,7 @@ const tabs = [
 export default function ProjectEditorPage() {
   const params = useParams();
   const router = useRouter();
-  const { activeTab, setActiveTab } = useUIStore();
+  const { activeTab, setActiveTab, toggleSidebar, sidebarOpen } = useUIStore();
 
   // Subscribe to store title for the header
   const projectTitle = useNetworkStore((state) => state.settings.title);
@@ -76,6 +76,19 @@ export default function ProjectEditorPage() {
               className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
             >
               <ArrowLeft className="w-5 h-5" />
+            </button>
+
+            <button
+              onClick={toggleSidebar}
+              className={cn(
+                "p-2 rounded-lg transition-colors",
+                sidebarOpen
+                  ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                  : "text-gray-500 hover:bg-gray-100"
+              )}
+              title="Toggle Sidebar"
+            >
+              <PanelLeft className="w-5 h-5" />
             </button>
             <div>
               <h1 className="text-sm font-semibold text-gray-900 dark:text-white">

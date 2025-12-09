@@ -2,8 +2,6 @@ import Map from "ol/Map";
 import VectorSource from "ol/source/Vector";
 import { Feature } from "ol";
 import { useNetworkStore } from "@/store/networkStore";
-
-// Remove the modal DOM manipulation code completely
 export class DeleteManager {
     private map: Map;
     private vectorSource: VectorSource;
@@ -18,9 +16,6 @@ export class DeleteManager {
         this.setupKeyboardShortcuts();
     }
 
-    /**
-     * Setup keyboard shortcuts (Delete/Backspace key)
-     */
     private setupKeyboardShortcuts() {
         this.keyboardHandler = (e: KeyboardEvent) => {
             // Only trigger if not in input/textarea
@@ -41,9 +36,6 @@ export class DeleteManager {
         document.addEventListener("keydown", this.keyboardHandler);
     }
 
-    /**
-     * Delete currently selected feature
-     */
     public deleteSelectedFeature() {
         const networkStore = useNetworkStore.getState();
         const selectedFeatureId = networkStore.selectedFeatureId;
@@ -62,9 +54,6 @@ export class DeleteManager {
         }
     }
 
-    /**
-     * Get cascade deletion information
-     */
     public getCascadeInfo(feature: Feature): { willCascade: boolean; message: string } {
         const featureType = feature.get("type");
 
@@ -81,9 +70,6 @@ export class DeleteManager {
         return { willCascade: false, message: "" };
     }
 
-    /**
-     * Execute deletion (called after confirmation)
-     */
     public executeDelete(feature: Feature) {
         window.dispatchEvent(new CustomEvent('takeSnapshot'));
         const featureType = feature.get("type");
@@ -123,9 +109,6 @@ export class DeleteManager {
         }
     }
 
-    /**
-     * Handle feature deletion with topology awareness
-     */
     private handleFeatureDeletion(feature: Feature) {
         const featureType = feature.get("type");
 
@@ -136,9 +119,6 @@ export class DeleteManager {
         }
     }
 
-    /**
-     * Delete node and all connected pipes (cascade deletion)
-     */
     private deleteNodeWithConnectedPipes(node: Feature) {
         const connectedLinks = node.get("connectedLinks") || [];
         const networkStore = useNetworkStore.getState();
@@ -173,9 +153,6 @@ export class DeleteManager {
         });
     }
 
-    /**
-     * Delete link and update connected nodes
-     */
     private deleteLinkAndUpdateNodes(link: Feature) {
         const linkId = link.getId() as string;
         const startNodeId = link.get("startNodeId");
@@ -203,9 +180,6 @@ export class DeleteManager {
         });
     }
 
-    /**
-     * Delete multiple features (bulk deletion)
-     */
     public deleteFeatures(features: Feature[]) {
         if (features.length === 0) return;
 
@@ -221,9 +195,6 @@ export class DeleteManager {
         console.log(`Deleted ${features.length} features successfully`);
     }
 
-    /**
-     * Cleanup
-     */
     public cleanup() {
         if (this.keyboardHandler) {
             document.removeEventListener("keydown", this.keyboardHandler);

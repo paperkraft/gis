@@ -22,13 +22,12 @@ import { FeatureType } from "@/types/network";
 
 // Components
 import { MapControls } from "./MapControls";
-import { LocationSearch } from "./LocationSearch";
 import { AttributeTable } from "./AttributeTable";
 import { PropertyPanel } from "./PropertyPanel";
-import { ComponentSelectionModal } from "@/components/modals/ComponentSelectionModal";
-import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
-import { Cordinates } from "./Cordinates";
 import { useSnapping } from "@/hooks/useSnapping";
+import { DrawingToolbar } from "./DrawingToolbar";
+import { StatusBar } from "./StatusBar";
+import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -98,54 +97,50 @@ export function MapContainer() {
 
   const handleComponentSelection = (componentType: FeatureType | "skip") => {
     setComponentSelectionModalOpen(false);
-    setActiveTool("draw");
+    setActiveTool("draw-pipe");
 
     if (componentType === "skip") {
-      pipeDrawingManager?.startDrawing();
+      pipeDrawingManager?.startDrawing("pipe");
     } else {
-      startComponentPlacement(componentType);
+      startComponentPlacement(componentType, []);
     }
   };
 
   return (
-    <div className="relative w-full h-full">
-      {/* Map Target */}
-      <div ref={mapRef} className="w-full h-full" />
+    <div className="relative w-full h-full bg-gray-100 dark:bg-gray-900 flex flex-col">
+      <div className="flex-1 relative overflow-hidden">
+        {/* Map Target */}
+        <div ref={mapRef} className="w-full h-full" />
 
-      <MapControls />
-      <Cordinates />
+        <DrawingToolbar />
+        <MapControls />
 
-      {/* Panels */}
-      <AttributeTable
-        isOpen={showAttributeTable}
-        onClose={() => setShowAttributeTable(false)}
-        vectorSource={vectorSource || undefined}
-      />
-
-      {selectedFeature && activeTool === "select" && (
-        <PropertyPanel
-          properties={selectedFeature.getProperties() as any}
-          onDeleteRequest={handleDeleteRequestFromPanel}
+        {/* Panels */}
+        <AttributeTable
+          isOpen={showAttributeTable}
+          onClose={() => setShowAttributeTable(false)}
+          vectorSource={vectorSource || undefined}
         />
-      )}
 
-      {/* Modals */}
-      <ComponentSelectionModal
-        isOpen={componentSelectionModalOpen}
-        onClose={() => setComponentSelectionModalOpen(false)}
-        onSelectComponent={handleComponentSelection}
-      />
+        {selectedFeature && activeTool === "select" && (
+          <PropertyPanel
+            properties={selectedFeature.getProperties() as any}
+            onDeleteRequest={handleDeleteRequestFromPanel}
+          />
+        )}
 
-      <DeleteConfirmationModal
-        isOpen={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        onConfirm={handleDeleteConfirm}
-        count={deleteCount}
-        featureName={selectedFeature?.get("label") || "Unknown"}
-        featureType={selectedFeature?.get("type") || "Feature"}
-        featureId={selectedFeature?.getId()?.toString() || "Unknown"}
-        cascadeInfo={cascadeInfo}
-      />
+        <DeleteConfirmationModal
+          isOpen={deleteModalOpen}
+          onClose={() => setDeleteModalOpen(false)}
+          onConfirm={handleDeleteConfirm}
+          count={deleteCount}
+          featureName={selectedFeature?.get("label") || "Unknown"}
+          featureType={selectedFeature?.get("type") || "Feature"}
+          featureId={selectedFeature?.getId()?.toString() || "Unknown"}
+          cascadeInfo={cascadeInfo}
+        />
+      </div>
+      <StatusBar/>
     </div>
   );
 }

@@ -1,9 +1,6 @@
 "use client";
 
 import {
-  MousePointer2,
-  Edit3,
-  Network,
   Eye,
   EyeOff,
   Layers,
@@ -15,7 +12,6 @@ import {
   SquareDot,
   Minus,
   Type,
-  Hand,
 } from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
 import { KeyboardShortcutsModal } from "../modals/KeyboardShortcutsModal";
@@ -25,17 +21,14 @@ import { useNetworkStore } from "@/store/networkStore";
 
 export function Sidebar() {
   const {
-    activeTool,
     sidebarOpen,
     layerVisibility,
     showPipeArrows,
     showLabels,
     keyboardShortcutsModalOpen,
-    setActiveTool,
     setShowPipeArrows,
     setShowLabels,
     toggleLayerVisibility,
-    setComponentSelectionModalOpen,
     setKeyboardShortcutsModalOpen,
   } = useUIStore();
 
@@ -71,14 +64,6 @@ export function Sidebar() {
     setLayerCounts(counts);
   }, [features]);
 
-  const handleToolClick = (toolId: string, action?: () => void) => {
-    if (action) {
-      action();
-    } else {
-      setActiveTool(toolId as any);
-    }
-  };
-
   const handleLayerToggle = (layerId: string) => {
     if (layerId === "flow-arrows") {
       setShowPipeArrows(!showPipeArrows);
@@ -90,38 +75,6 @@ export function Sidebar() {
   };
 
   if (!sidebarOpen) return null;
-
-  const tools = [
-    {
-      id: "pan", // New Tool
-      name: "Pan",
-      icon: Hand,
-      description: "Pan the map without selecting",
-      shortcut: "H",
-    },
-    {
-      id: "select",
-      name: "Select",
-      icon: MousePointer2,
-      description: "Select and inspect features",
-      shortcut: "S",
-    },
-    {
-      id: "modify",
-      name: "Modify",
-      icon: Edit3,
-      description: "Edit feature geometry",
-      shortcut: "M",
-    },
-    {
-      id: "draw",
-      name: "Draw Network",
-      icon: Network,
-      description: "Draw pipe network",
-      action: () => setComponentSelectionModalOpen(true),
-      shortcut: "P",
-    },
-  ];
 
   const layers = [
     {
@@ -183,75 +136,18 @@ export function Sidebar() {
   return (
     <aside className="w-72 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 overflow-y-auto flex flex-col">
       <div className="p-4 space-y-6">
-        {/* TOOLS SECTION */}
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center gap-2 mb-3">
-            <MousePointer2 className="size-4 text-gray-600" />
-            <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-              Tools
-            </span>
-          </div>
-
-          <div className="space-y-2">
-            {tools.map((tool) => {
-              const Icon = tool.icon;
-              const isActive = activeTool === tool.id;
-
-              return (
-                <button
-                  key={tool.id}
-                  onClick={() => handleToolClick(tool.id, tool.action)}
-                  className={`
-                      w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg
-                      transition-all duration-200 relative group
-                      ${
-                        isActive
-                          ? "bg-blue-500 text-white shadow-md"
-                          : "hover:bg-gray-100 text-gray-700"
-                      }
-                    `}
-                  title={tool.name}
-                >
-                  <Icon className="w-5 h-5 shrink-0" />
-
-                  <div className="flex-1 text-left">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{tool.name}</span>
-                      <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded font-mono">
-                        {tool.shortcut}
-                      </span>
-                    </div>
-                    <div
-                      className={`text-xs ${
-                        isActive ? "text-blue-100" : "text-gray-500"
-                      }`}
-                    >
-                      {tool.description}
-                    </div>
-                  </div>
-
-                  {isActive && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-10 bg-blue-700 rounded-r-full" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
         {/* LAYERS SECTION */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4">
           <div className="flex items-center gap-2 mb-3">
-            <Layers className="size-4 text-gray-600" />
-            <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-              Layers
+            <Layers className="size-4 text-gray-600 dark:text-gray-400" />
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+              Layers & Legend
             </span>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             {layers.map((layer) => {
               const Icon = layer.icon;
-              // Handle special case for flow arrows vs regular layers
               const isVisible =
                 layer.id === "flow-arrows"
                   ? showPipeArrows
@@ -264,48 +160,45 @@ export function Sidebar() {
                   key={layer.id}
                   onClick={() => handleLayerToggle(layer.id)}
                   className={`
-                      w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-lg
+                      w-full flex items-center justify-center gap-3 px-3 py-2 rounded-md
                       transition-all duration-200 group relative
                       ${
                         isVisible
-                          ? "bg-gray-50 hover:bg-gray-100"
-                          : "bg-gray-100 opacity-50 hover:opacity-75"
+                          ? "hover:bg-gray-50 dark:hover:bg-gray-800"
+                          : "opacity-50 hover:opacity-75"
                       }
                     `}
                   title={layer.name}
                 >
                   <Icon className="size-4" style={{ color: layer.color }} />
-                  <span className="text-sm font-medium text-gray-700 flex-1 text-left">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-1 text-left">
                     {layer.name}
                   </span>
                   {layer.count !== undefined && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                    <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">
                       {layer.count}
                     </span>
                   )}
-                  {isVisible ? (
-                    <Eye className="size-4 text-gray-500" />
-                  ) : (
-                    <EyeOff className="size-4 text-gray-400" />
-                  )}
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    {isVisible ? (
+                      <Eye className="size-3.5 text-gray-400" />
+                    ) : (
+                      <EyeOff className="size-3.5 text-gray-400" />
+                    )}
+                  </div>
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* Tool Description */}
-        {activeTool && (
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-            <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Active Tool
-            </h4>
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              {activeTool === "select" && "Select and inspect features"}
-              {activeTool === "modify" && "Move and edit features"}
-            </p>
-          </div>
-        )}
+        <div className="px-4 text-xs text-gray-400 text-center">
+          Press{" "}
+          <kbd className="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">
+            ?
+          </kbd>{" "}
+          for shortcuts
+        </div>
 
         <KeyboardShortcutsModal
           isOpen={keyboardShortcutsModalOpen}

@@ -31,8 +31,9 @@ export class ContextMenuManager {
     private initContextMenu() {
         this.contextMenuElement = document.createElement('div');
         this.contextMenuElement.className = 'ol-context-menu';
+        // Updated to fixed position for easier viewport calculations
         this.contextMenuElement.style.cssText = `
-            position: absolute;
+            position: fixed;
             background: white;
             border: 1px solid #ddd;
             border-radius: 8px;
@@ -79,7 +80,7 @@ export class ContextMenuManager {
         // Remove previous vertex marker if exists
         this.removeVertexMarker();
 
-        this.currentPipe = this.findPipeAtCoordinate(this.currentCoordinate as number[]);
+        this.currentPipe = this.findPipeAtPixel(evt.pixel);
 
         // Check if near vertex
         if (this.currentPipe) {
@@ -92,7 +93,6 @@ export class ContextMenuManager {
             if (this.nearestVertexIndex >= 0) {
                 this.highlightNearestVertex();
             }
-
         }
 
         const pixel = evt.pixel;
@@ -100,6 +100,7 @@ export class ContextMenuManager {
 
         if (mapElement) {
             const rect = mapElement.getBoundingClientRect();
+            // Calculate screen coordinates relative to viewport
             const screenX = rect.left + pixel[0];
             const screenY = rect.top + pixel[1];
 
@@ -107,10 +108,24 @@ export class ContextMenuManager {
         }
     }
 
+    private findPipeAtPixel(pixel: number[]): Feature | null {
+        const feature = this.map.forEachFeatureAtPixel(pixel, f => f as Feature, {
+            hitTolerance: 5,
+            layerFilter: l => l.get('name') === 'network'
+        });
+        if (feature && feature.get('type') === 'pipe' && !feature.get('isPreview') && !feature.get('isVisualLink')) return feature;
+        return null;
+    }
+
     private showContextMenu(x: number, y: number) {
         if (!this.contextMenuElement) return;
 
+        // 1. Reset content and prepare for measurement
         this.contextMenuElement.innerHTML = '';
+        this.contextMenuElement.style.display = 'block';
+        this.contextMenuElement.style.visibility = 'hidden'; // Hide while calculating
+        this.contextMenuElement.style.maxHeight = ''; // Reset height constraints
+        this.contextMenuElement.style.overflowY = '';
 
         const header = document.createElement('div');
         header.style.cssText = `
@@ -123,80 +138,71 @@ export class ContextMenuManager {
             letter-spacing: 0.5px;
         `;
 
+        let hasContent = false;
+
         if (this.isDrawingMode && !this.currentPipe) {
             // DRAWING MODE - Add components
             header.textContent = 'Add Component';
             this.contextMenuElement.appendChild(header);
             this.buildDrawingMenu();
+            hasContent = true;
 
         } else if (this.currentPipe) {
             // ON PIPE - Insert/vertex options
             header.textContent = 'Pipe Actions';
             this.contextMenuElement.appendChild(header);
             this.buildPipeMenu();
+            hasContent = true;
+        }
 
-        } else {
+        if (!hasContent) {
+            this.contextMenuElement.style.display = 'none';
             return;
         }
 
-        this.contextMenuElement.style.left = `${x}px`;
-        this.contextMenuElement.style.top = `${y}px`;
-        this.contextMenuElement.style.display = 'block';
-
-        // Get menu dimensions
-        const menuRect = this.contextMenuElement.getBoundingClientRect();
-        const menuWidth = menuRect.width;
-        const menuHeight = menuRect.height;
-
-        // Get viewport dimensions
+        // 2. Measure Dimensions
+        const menuWidth = this.contextMenuElement.offsetWidth;
+        const menuHeight = this.contextMenuElement.offsetHeight;
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
 
-        // Calculate available space
-        const spaceRight = viewportWidth - x;
-        const spaceBottom = viewportHeight - y;
-        const spaceLeft = x;
-        const spaceTop = y;
+        // 3. Calculate Position (Flip Logic)
+        let left = x;
+        let top = y;
 
-        let finalX = x;
-        let finalY = y;
-
-        // Adjust horizontal position
-        if (spaceRight < menuWidth && spaceLeft > menuWidth) {
-            // Not enough space on right, but enough on left
-            finalX = x - menuWidth;
-        } else if (spaceRight < menuWidth && spaceLeft < menuWidth) {
-            // Not enough space on either side, align to viewport edge
-            finalX = Math.max(10, viewportWidth - menuWidth - 10);
+        // Flip to left if it overflows right edge
+        if (x + menuWidth > viewportWidth) {
+            left = x - menuWidth;
         }
 
-        // Adjust vertical position
-        if (spaceBottom < menuHeight && spaceTop > menuHeight) {
-            // Not enough space below, but enough above
-            finalY = y - menuHeight;
-        } else if (spaceBottom < menuHeight && spaceTop < menuHeight) {
-            // Not enough space above or below
-            // Position to fit in viewport with max height
-            if (spaceBottom > spaceTop) {
-                // More space below
-                finalY = y;
-                this.contextMenuElement.style.maxHeight = `${spaceBottom - 10}px`;
-                this.contextMenuElement.style.overflowY = 'auto';
-            } else {
-                // More space above
-                finalY = 10;
-                this.contextMenuElement.style.maxHeight = `${spaceTop - 10}px`;
-                this.contextMenuElement.style.overflowY = 'auto';
-            }
+        // Flip up if it overflows bottom edge
+        if (y + menuHeight > viewportHeight) {
+            top = y - menuHeight;
         }
 
-        // Apply final position
-        this.contextMenuElement.style.left = `${finalX}px`;
-        this.contextMenuElement.style.top = `${finalY}px`;
+        // 4. Clamp (Safety Logic)
+        // Ensure it doesn't go off the top/left edge
+        if (left < 10) left = 10;
+        if (top < 10) top = 10;
+
+        // Ensure it doesn't go off bottom/right after clamping
+        if (left + menuWidth > viewportWidth) left = viewportWidth - menuWidth - 10;
+
+        // Handle height constraints if screen is too short
+        if (top + menuHeight > viewportHeight) {
+            top = 10;
+            const availableHeight = viewportHeight - 20;
+            this.contextMenuElement.style.maxHeight = `${availableHeight}px`;
+            this.contextMenuElement.style.overflowY = 'auto';
+        }
+
+        // 5. Apply Final Position
+        this.contextMenuElement.style.left = `${left}px`;
+        this.contextMenuElement.style.top = `${top}px`;
+        this.contextMenuElement.style.visibility = 'visible';
     }
 
     private buildPipeMenu() {
-
         // VERTEX OPERATIONS
         this.addSectionHeader('Vertex Operations');
 
@@ -219,95 +225,68 @@ export class ContextMenuManager {
         }
 
         // INSERT COMPONENTS
-        this.addSectionHeader('Insert Component');
-
-        this.addPipeInsertMenuItem('Junction', 'junction', () => {
-            if (this.currentPipe && this.currentCoordinate) {
-                this.insertNodeOnPipe('junction');
-            }
-        });
-
-        this.addPipeInsertMenuItem('Tank', 'tank', () => {
-            if (this.currentPipe && this.currentCoordinate) {
-                this.insertNodeOnPipe('tank');
-            }
-        });
-
-        this.addPipeInsertMenuItem('Reservoir', 'reservoir', () => {
-            if (this.currentPipe && this.currentCoordinate) {
-                this.insertNodeOnPipe('reservoir');
-            }
-        });
+        this.addSectionHeader('Nodes');
+        this.addPipeInsertMenuItem('Junction', 'junction', () => this.insertNodeOnPipe('junction'));
+        this.addPipeInsertMenuItem('Tank', 'tank', () => this.insertNodeOnPipe('tank'));
+        this.addPipeInsertMenuItem('Reservoir', 'reservoir', () => this.insertNodeOnPipe('reservoir'));
 
         // LINKS
-        this.addSectionHeader('Insert Link');
-
-        this.addPipeInsertMenuItem('Pump', 'pump', () => {
-            if (this.currentPipe && this.currentCoordinate) {
-                this.insertLinkOnPipe('pump');
-            }
-        });
-
-        this.addPipeInsertMenuItem('Valve', 'valve', () => {
-            if (this.currentPipe && this.currentCoordinate) {
-                this.insertLinkOnPipe('valve');
-            }
-        });
+        this.addSectionHeader('Links');
+        this.addPipeInsertMenuItem('Pump', 'pump', () => this.insertLinkOnPipe('pump'));
+        this.addPipeInsertMenuItem('Valve', 'valve', () => this.insertLinkOnPipe('valve'));
     }
 
     // ============================================
-    // ADD COMPONENT WHILE DRAWING
+    // DRAWING MENU
+    // ============================================
+
+    private buildDrawingMenu() {
+        this.addSectionHeader('Nodes');
+        this.addComponentMenuItem('junction', () => this.addComponentWhileDrawing('junction'));
+        this.addComponentMenuItem('tank', () => this.addComponentWhileDrawing('tank'));
+        this.addComponentMenuItem('reservoir', () => this.addComponentWhileDrawing('reservoir'));
+
+        this.addSectionHeader('Links');
+        this.addComponentMenuItem('pump', () => this.addLinkWhileDrawing('pump'));
+        this.addComponentMenuItem('valve', () => this.addLinkWhileDrawing('valve'));
+    }
+
+    // ============================================
+    // ACTIONS
     // ============================================
 
     private addComponentWhileDrawing(componentType: FeatureType) {
         if (!this.pipeDrawingManager || !this.currentCoordinate) return;
-
-        const component = this.createComponent(componentType, this.currentCoordinate);
+        // Use PipeDrawingManager's flow
+        this.pipeDrawingManager.continueDrawingFromNode(
+            this.createComponent(componentType, this.currentCoordinate)
+        );
         this.hideContextMenu();
-
-        // Connect to drawing
-        if (this.onComponentPlaced && component) {
-            this.onComponentPlaced(component);
-        }
     }
 
     private addLinkWhileDrawing(linkType: 'pump' | 'valve') {
         if (!this.pipeDrawingManager) return;
-        this.pipeDrawingManager.addLinkWhileDrawing(linkType);
+        this.pipeDrawingManager.addLinkWhileDrawing(linkType, this.currentCoordinate);
         this.hideContextMenu();
     }
 
-    // ============================================
-    // INSERT ON PIPE
-    // ============================================
-
     private insertNodeOnPipe(nodeType: FeatureType) {
-        if (!this.currentCoordinate || !this.currentPipe || !this.pipeDrawingManager) {
-            console.error('❌ Missing data');
-            return;
-        }
-
+        if (!this.currentCoordinate || !this.currentPipe || !this.pipeDrawingManager) return;
         this.pipeDrawingManager.insertNodeOnPipe(
             this.currentPipe,
             this.currentCoordinate,
             nodeType
         );
-
         this.hideContextMenu();
     }
 
     private insertLinkOnPipe(linkType: 'pump' | 'valve') {
-        if (!this.currentCoordinate || !this.currentPipe || !this.pipeDrawingManager) {
-            console.error('❌ Missing data');
-            return;
-        }
-
+        if (!this.currentCoordinate || !this.currentPipe || !this.pipeDrawingManager) return;
         this.pipeDrawingManager.insertLinkOnPipe(
             this.currentPipe,
             this.currentCoordinate,
             linkType
         );
-
         this.hideContextMenu();
     }
 
@@ -320,49 +299,40 @@ export class ContextMenuManager {
 
         const geometry = this.currentPipe.getGeometry() as LineString;
         const coordinates = geometry.getCoordinates();
-
-        // Find the closest point on the line and the segment it belongs to
         const closestPoint = geometry.getClosestPoint(this.currentCoordinate);
+
         let insertIndex = -1;
         let minDistance = Infinity;
 
-        // Find which segment to insert into
         for (let i = 0; i < coordinates.length - 1; i++) {
             const segment = new LineString([coordinates[i], coordinates[i + 1]]);
-            const pointOnSegment = segment.getClosestPoint(closestPoint);
-            const distance = this.distance(pointOnSegment, closestPoint);
+            const dist = this.distance(segment.getClosestPoint(closestPoint), closestPoint);
+            // Check if on segment (using simple distance sum)
+            const d1 = Math.sqrt(Math.pow(closestPoint[0] - coordinates[i][0], 2) + Math.pow(closestPoint[1] - coordinates[i][1], 2));
+            const d2 = Math.sqrt(Math.pow(closestPoint[0] - coordinates[i + 1][0], 2) + Math.pow(closestPoint[1] - coordinates[i + 1][1], 2));
+            const len = Math.sqrt(Math.pow(coordinates[i][0] - coordinates[i + 1][0], 2) + Math.pow(coordinates[i][1] - coordinates[i + 1][1], 2));
 
-            if (distance < minDistance) {
-                minDistance = distance;
-                insertIndex = i + 1; // Insert after point i
+            if (Math.abs((d1 + d2) - len) < 0.1) {
+                insertIndex = i + 1;
+                break;
             }
         }
 
-        if (insertIndex === -1) {
-            console.error('❌ Could not find insertion point');
-            this.hideContextMenu();
-            return;
+        if (insertIndex !== -1) {
+            const newCoordinates = [
+                ...coordinates.slice(0, insertIndex),
+                closestPoint,
+                ...coordinates.slice(insertIndex),
+            ];
+            geometry.setCoordinates(newCoordinates);
+
+            // Update store
+            const store = useNetworkStore.getState();
+            store.updateFeature(this.currentPipe.getId() as string, {
+                length: Math.round(geometry.getLength())
+            });
+            this.vectorSource.changed();
         }
-
-        // Insert the new vertex
-        const newCoordinates = [
-            ...coordinates.slice(0, insertIndex),
-            closestPoint,
-            ...coordinates.slice(insertIndex),
-        ];
-
-        geometry.setCoordinates(newCoordinates);
-
-        // Update feature
-        const store = useNetworkStore.getState();
-        store.updateFeature(this.currentPipe.getId() as string, this.currentPipe);
-
-        // Recalculate length
-        this.currentPipe.set('length', this.calculatePipeLength(geometry));
-
-        // Refresh
-        this.vectorSource.changed();
-
         this.hideContextMenu();
     }
 
@@ -372,28 +342,22 @@ export class ContextMenuManager {
         const geometry = this.currentPipe.getGeometry() as LineString;
         const coordinates = geometry.getCoordinates();
 
-        if (coordinates.length <= 2) {
-            console.error('❌ Cannot delete - pipe needs at least 2 vertices');
-            this.hideContextMenu();
-            return;
-        }
+        if (coordinates.length <= 2) return;
 
-        // Remove the vertex
         const newCoordinates = coordinates.filter((_, index) => index !== this.nearestVertexIndex);
-
         geometry.setCoordinates(newCoordinates);
 
-        // Update feature
         const store = useNetworkStore.getState();
-        // store.updateFeature(this.currentPipe);
+        store.updateFeature(this.currentPipe.getId() as string, {
+            length: Math.round(geometry.getLength())
+        });
 
-        // Recalculate length
-        this.currentPipe.set('length', this.calculatePipeLength(geometry));
-
-        // Refresh
         this.vectorSource.changed();
-
         this.hideContextMenu();
+    }
+
+    private distance(p1: number[], p2: number[]) {
+        return Math.sqrt(Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2));
     }
 
     private findNearestVertexIndex(pipe: Feature, coordinate: number[]): number {
@@ -428,7 +392,6 @@ export class ContextMenuManager {
         const coordinates = geometry.getCoordinates();
         const vertexCoord = coordinates[this.nearestVertexIndex];
 
-        // Create temporary vertex marker
         import('ol/Feature').then(({ default: Feature }) => {
             import('ol/geom/Point').then(({ default: Point }) => {
                 const vertexMarker = new Feature({
@@ -439,8 +402,6 @@ export class ContextMenuManager {
                 vertexMarker.set('isVertexMarker', true);
 
                 this.vectorSource.addFeature(vertexMarker);
-
-                // Store reference to remove later
                 this.map.set('hoveredVertexMarker', vertexMarker);
             });
         });
@@ -451,250 +412,86 @@ export class ContextMenuManager {
             this.vectorSource.removeFeature(this.vertexMarker);
             this.vertexMarker = null;
         }
+        const marker = this.map.get('hoveredVertexMarker');
+        if (marker) {
+            this.vectorSource.removeFeature(marker);
+            this.map.unset('hoveredVertexMarker');
+        }
     }
 
     // ============================================
-    // DRAWING MENU - All Components
-    // ============================================
-
-    private buildDrawingMenu() {
-        // NODES
-        this.addSectionHeader('Nodes');
-        this.addComponentMenuItem('junction', () => this.addComponentWhileDrawing('junction'));
-        this.addComponentMenuItem('tank', () => this.addComponentWhileDrawing('tank'));
-        this.addComponentMenuItem('reservoir', () => this.addComponentWhileDrawing('reservoir'));
-
-        // LINKS
-        this.addSectionHeader('Links');
-        this.addComponentMenuItem('pump', () => this.addLinkWhileDrawing('pump'));
-        this.addComponentMenuItem('valve', () => this.addLinkWhileDrawing('valve'));
-
-    }
-
-    // ============================================
-    // MENU ITEMS
+    // MENU ITEM BUILDERS
     // ============================================
 
     private addMenuItem(label: string, icon: string, description: string, onClick: () => void) {
         const item = document.createElement('div');
-        item.style.cssText = `
-            padding: 10px 16px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            transition: background 0.2s;
-        `;
-
-        item.innerHTML = `
-            <div style="font-size: 18px; width: 20px; text-align: center;">${icon}</div>
-            <div style="flex: 1;">
-                <div style="font-size: 14px; color: #333; font-weight: 500;">${label}</div>
-                <div style="font-size: 11px; color: #666; margin-top: 2px;">${description}</div>
-            </div>
-        `;
-
+        item.style.cssText = `padding: 10px 16px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: background 0.2s;`;
+        item.innerHTML = `<div style="font-size: 18px; width: 20px; text-align: center;">${icon}</div><div style="flex: 1;"><div style="font-size: 14px; color: #333; font-weight: 500;">${label}</div></div>`;
         item.addEventListener('mouseenter', () => item.style.background = '#f5f5f5');
         item.addEventListener('mouseleave', () => item.style.background = 'transparent');
-        item.addEventListener('click', (e) => {
-            e.stopPropagation();
-            onClick();
-        });
-
+        item.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
         this.contextMenuElement!.appendChild(item);
     }
 
     private addSectionHeader(title: string) {
         const section = document.createElement('div');
-        section.style.cssText = `
-            padding: 6px 16px;
-            font-size: 11px;
-            color: #999;
-            font-weight: 500;
-            margin-top: 4px;
-        `;
+        section.style.cssText = `padding: 6px 16px; font-size: 11px; color: #999; font-weight: 500; margin-top: 4px;`;
         section.textContent = title;
         this.contextMenuElement!.appendChild(section);
     }
 
     private addComponentMenuItem(type: FeatureType | 'pump' | 'valve', onClick: () => void) {
         const item = document.createElement('div');
-        item.style.cssText = `
-            padding: 10px 16px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            transition: background 0.2s;
-        `;
-
+        item.style.cssText = `padding: 10px 16px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: background 0.2s;`;
         const config = COMPONENT_TYPES[type];
         const isLink = type === 'pump' || type === 'valve';
-
-        item.innerHTML = `
-            <div style="
-                width: 12px; 
-                height: 12px; 
-                border-radius: ${isLink ? '2px' : '50%'}; 
-                background: ${config.color};
-            "></div>
-            <span style="font-size: 14px; color: #333; font-weight: 500;">${config.name}</span>
-        `;
-
+        item.innerHTML = `<div style="width: 12px; height: 12px; border-radius: ${isLink ? '2px' : '50%'}; background: ${config.color};"></div><span style="font-size: 14px; color: #333; font-weight: 500;">${config.name}</span>`;
         item.addEventListener('mouseenter', () => item.style.background = '#f5f5f5');
         item.addEventListener('mouseleave', () => item.style.background = 'transparent');
-        item.addEventListener('click', (e) => {
-            e.stopPropagation();
-            onClick();
-        });
-
+        item.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
         this.contextMenuElement!.appendChild(item);
     }
 
     private addPipeInsertMenuItem(label: string, type: string, onClick: () => void) {
         const item = document.createElement('div');
-        item.style.cssText = `
-            padding: 10px 16px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            transition: background 0.2s;
-        `;
-
+        item.style.cssText = `padding: 10px 16px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: background 0.2s;`;
         const config = COMPONENT_TYPES[type];
         const isLink = type === 'pump' || type === 'valve';
-
-        item.innerHTML = `
-            <div style="
-                width: 12px; 
-                height: 12px; 
-                border-radius: ${isLink ? '2px' : '50%'}; 
-                background: ${config.color};
-            "></div>
-            <span style="font-size: 14px; color: #333; font-weight: 500;">Insert ${label}</span>
-            <span style="margin-left: auto; font-size: 11px; color: #999;">Split pipe</span>
-        `;
-
+        item.innerHTML = `<div style="width: 12px; height: 12px; border-radius: ${isLink ? '2px' : '50%'}; background: ${config.color};"></div><span style="font-size: 14px; color: #333; font-weight: 500;">Insert ${label}</span>`;
         item.addEventListener('mouseenter', () => item.style.background = '#f5f5f5');
         item.addEventListener('mouseleave', () => item.style.background = 'transparent');
-        item.addEventListener('click', (e) => {
-            e.stopPropagation();
-            onClick();
-        });
-
+        item.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
         this.contextMenuElement!.appendChild(item);
     }
 
     private hideContextMenu() {
         if (this.contextMenuElement) {
             this.contextMenuElement.style.display = 'none';
-            this.contextMenuElement.style.maxHeight = '';
-            this.contextMenuElement.style.overflowY = '';
-
         }
-        // Remove vertex marker
-        const marker = this.map.get('hoveredVertexMarker');
-        if (marker) {
-            this.vectorSource.removeFeature(marker);
-            this.map.unset('hoveredVertexMarker');
-        }
-
         this.removeVertexMarker();
-
         this.currentPipe = null;
         this.nearestVertexIndex = -1;
     }
 
-    // ============================================
-    // COMPONENT CREATION
-    // ============================================
-
+    // --- HELPER CREATION ---
     private createComponent(componentType: FeatureType, coordinate: number[]): Feature {
-        const feature = new Feature({
-            geometry: new Point(coordinate),
-        });
-
+        const feature = new Feature({ geometry: new Point(coordinate) });
         const store = useNetworkStore.getState();
         const id = store.generateUniqueId(componentType);
-
         feature.setId(id);
-        feature.set('type', componentType);
-        feature.set('isNew', true);
-        feature.setProperties({
-            ...COMPONENT_TYPES[componentType].defaultProperties,
-            label: `${COMPONENT_TYPES[componentType].name}-${id}`,
-        });
-        feature.set('connectedLinks', []);
-
+        feature.setProperties({ ...COMPONENT_TYPES[componentType].defaultProperties, type: componentType, isNew: true, id: id, label: id, connectedLinks: [] });
         this.vectorSource.addFeature(feature);
         store.addFeature(feature);
-
         return feature;
     }
 
-    // ============================================
-    // UTILITIES
-    // ============================================
-
-    private findPipeAtCoordinate(coordinate: number[]): Feature | null {
-        const pixel = this.map.getPixelFromCoordinate(coordinate);
-        const features = this.vectorSource.getFeatures();
-
-        for (const f of features) {
-            if (f.get("type") !== "pipe") continue;
-
-            const geom = f.getGeometry() as LineString;
-            if (!geom) continue;
-
-            const closestPoint = geom.getClosestPoint(coordinate);
-            const closestPixel = this.map.getPixelFromCoordinate(closestPoint);
-            const dist = Math.sqrt(
-                (pixel[0] - closestPixel[0]) ** 2 +
-                (pixel[1] - closestPixel[1]) ** 2
-            );
-
-            if (dist <= SNAPPING_TOLERANCE) {
-                return f;
-            }
-        }
-
-        return null;
-    }
-
     private calculatePipeLength(geometry: LineString): number {
-        const coords = geometry.getCoordinates();
-        let length = 0;
-        for (let i = 0; i < coords.length - 1; i++) {
-            length += this.distance(coords[i], coords[i + 1]);
-        }
-        return Math.round(length);
+        return Math.round(geometry.getLength());
     }
 
-    private distance(p1: number[], p2: number[]): number {
-        return Math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2);
-    }
-
-    // ============================================
     // PUBLIC API
-    // ============================================
-
-    public setComponentPlacedCallback(callback: (component: Feature) => void) {
-        this.onComponentPlaced = callback;
-    }
-
-    public setPipeDrawingManager(manager: any) {
-        this.pipeDrawingManager = manager;
-    }
-
-    public setDrawingMode(isDrawing: boolean) {
-        this.isDrawingMode = isDrawing;
-    }
-
-    public cleanup() {
-        if (this.contextMenuElement) {
-            this.contextMenuElement.remove();
-            this.contextMenuElement = null;
-        }
-    }
+    public setComponentPlacedCallback(callback: (component: Feature) => void) { this.onComponentPlaced = callback; }
+    public setPipeDrawingManager(manager: any) { this.pipeDrawingManager = manager; }
+    public setDrawingMode(isDrawing: boolean) { this.isDrawingMode = isDrawing; }
+    public cleanup() { if (this.contextMenuElement) this.contextMenuElement.remove(); }
 }
