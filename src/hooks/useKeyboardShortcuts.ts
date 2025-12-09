@@ -59,6 +59,8 @@ export function useKeyboardShortcuts() {
                         return;
                     case "h": // Hand/Pan
                         setActiveTool("pan");
+                    case "z":
+                        setActiveTool("zoom-box");
                         return;
 
                     // Drawing Tools (1-6)

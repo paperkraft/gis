@@ -9,9 +9,10 @@ import {
   Mountain,
   Activity,
   FocusIcon,
+  ArrowRightLeft,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import { Point } from "ol/geom";
+import { LineString, Point } from "ol/geom";
 import { ElevationService } from "@/lib/services/ElevationService";
 import { Button } from "@/components/ui/button";
 import { COMPONENT_TYPES } from "@/constants/networkComponents";
@@ -87,6 +88,35 @@ export function PropertyPanel({
         duration: 600, // Smooth animation
       });
     }
+  };
+
+  const handleReverseFlow = () => {
+    if (!selectedFeature || !selectedFeatureId) return;
+
+    const geom = selectedFeature.getGeometry();
+    if (!(geom instanceof LineString)) return;
+
+    window.dispatchEvent(new CustomEvent("takeSnapshot"));
+
+    // 1. Reverse Geometry Coordinates (Visual)
+    const coords = geom.getCoordinates();
+    geom.setCoordinates(coords.reverse());
+
+    // 2. Swap Start/End Node IDs (Logical)
+    const newStart = editedProperties.endNodeId;
+    const newEnd = editedProperties.startNodeId;
+
+    const updates = {
+      startNodeId: newStart,
+      endNodeId: newEnd,
+    };
+
+    // 3. Update Store & Local State
+    updateFeature(selectedFeatureId, updates);
+    setEditedProperties((prev) => ({ ...prev, ...updates }));
+
+    // Force map refresh if needed (usually automatic with geometry change)
+    selectedFeature.changed();
   };
 
   const handleAutoElevate = async () => {
@@ -453,9 +483,25 @@ export function PropertyPanel({
 
         {connectionInfo && (
           <div className="property-group">
-            <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-3 flex items-center gap-2">
-              <Link className="w-4 h-4" /> Topology
-            </h4>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-3 flex items-center gap-2">
+                <Link className="w-4 h-4" /> Topology
+              </h4>
+
+              {/* REVERSE BUTTON for Links */}
+              {connectionInfo.type === "link" && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleReverseFlow}
+                  className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                  title="Reverse Flow Direction"
+                >
+                  <ArrowRightLeft className="w-3 h-3 mr-1" /> Reverse
+                </Button>
+              )}
+            </div>
+
             <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md space-y-2 text-sm">
               {connectionInfo.type === "node" ? (
                 <>
