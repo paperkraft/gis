@@ -3,7 +3,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   X,
-  Table as TableIcon,
   Search,
   ArrowUpDown,
   Download,
@@ -15,9 +14,7 @@ import {
   SquareDot,
   Maximize2,
   Minimize2,
-  ChevronDown,
-  FileSpreadsheet,
-  Layers, // Icon for "All" tab
+  Layers,
 } from "lucide-react";
 import { useNetworkStore } from "@/store/networkStore";
 import { useSimulationStore } from "@/store/simulationStore";

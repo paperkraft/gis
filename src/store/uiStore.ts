@@ -277,6 +277,7 @@ export const useUIStore = create<UIState>((set, get) => ({
             measurementActive: false,
             showAttributeTable: false,
             componentSelectionModalOpen: false,
+            keyboardShortcutsModalOpen: false,
         });
     },
 
