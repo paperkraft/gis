@@ -45,6 +45,7 @@ export function useKeyboardShortcuts() {
             // ESC - Exit current tool to Pan
             if (key === "escape") {
                 setActiveTool("pan");
+                useNetworkStore.getState().selectFeature(null);
                 return;
             }
 

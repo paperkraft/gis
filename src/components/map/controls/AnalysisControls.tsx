@@ -1,6 +1,7 @@
 "use client";
 import {
   ActivityIcon,
+  CheckCircle,
   Mountain,
   Pause,
   Play,
@@ -143,7 +144,7 @@ export function AnalysisControls({
       {/* Tools */}
       <ControlGroup
         id="analysis-tools"
-        icon={ShieldPlus}
+        icon={CheckCircle}
         label="Validation & Tools"
         activeGroup={activeGroup}
         onToggle={onToggle}

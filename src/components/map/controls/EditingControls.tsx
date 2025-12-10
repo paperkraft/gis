@@ -26,14 +26,14 @@ export function EditingControls({
   const handleUndo = () => window.dispatchEvent(new CustomEvent("undo"));
   const handleRedo = () => window.dispatchEvent(new CustomEvent("redo"));
 
-  const isEditingActive = ["select", "select-box", "select-polygon"].includes(
+  const isEditingActive = ["select-box", "select-polygon"].includes(
     activeTool || ""
   );
 
   return (
     <ControlGroup
       id="edit"
-      icon={Edit3}
+      icon={BoxSelect}
       label="Editing"
       isActiveGroup={isEditingActive}
       activeGroup={activeGroup}
@@ -41,6 +41,7 @@ export function EditingControls({
     >
       <ToolBtn onClick={handleUndo} icon={RotateCcw} title="Undo" />
       <ToolBtn onClick={handleRedo} icon={RotateCw} title="Redo" />
+
       <Divider />
 
       <ToolBtn
@@ -52,12 +53,7 @@ export function EditingControls({
       />
 
       <Divider />
-      <ToolBtn
-        onClick={() => setActiveTool("select")}
-        isActive={activeTool === "select"}
-        icon={MousePointer2}
-        title="Select"
-      />
+
       <ToolBtn
         onClick={() => setActiveTool("select-box")}
         isActive={activeTool === "select-box"}
