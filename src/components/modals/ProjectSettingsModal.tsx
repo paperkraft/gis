@@ -53,7 +53,6 @@ const SettingSelect = ({ label, value, options, onChange }: any) => (
           </option>
         ))}
       </select>
-      {/* Custom Chevron */}
       <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
         <svg
           width="10"
@@ -116,7 +115,7 @@ export function ProjectSettingsModal({
                 Project Settings
               </h2>
               <p className="text-xs text-gray-500">
-                Configure simulation parameters and units
+                Configure simulation parameters and export format
               </p>
             </div>
           </div>
@@ -133,7 +132,7 @@ export function ProjectSettingsModal({
           {/* Section 1: General & Map */}
           <section className="space-y-4">
             <h3 className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-2 border-b border-blue-100 dark:border-blue-900/30 pb-2">
-              <Globe className="w-4 h-4" /> General & Coordinate System
+              <Globe className="w-4 h-4" /> General & Export
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <SettingInput
@@ -141,12 +140,18 @@ export function ProjectSettingsModal({
                 value={formData.title}
                 onChange={(v: string) => handleChange("title", v)}
               />
-              <SettingSelect
-                label="Coordinate Projection"
-                value={formData.projection || "EPSG:3857"}
-                onChange={(v: string) => handleChange("projection", v)}
-                options={projectionList}
-              />
+              <div>
+                <SettingSelect
+                  label="Export Projection"
+                  value={formData.projection || "EPSG:3857"}
+                  onChange={(v: string) => handleChange("projection", v)}
+                  options={projectionList}
+                />
+                <p className="text-[10px] text-gray-500 mt-1">
+                  Coordinates will be converted to this projection when
+                  exporting to INP. The map always uses Web Mercator.
+                </p>
+              </div>
             </div>
           </section>
 

@@ -17,8 +17,12 @@ export interface ParsedProjectData {
     controls: NetworkControl[];
 }
 
-export function parseINP(fileContent: string): ParsedProjectData {
-    console.log('📄 Parsing INP file...');
+/**
+ * Parse INP content and transform coordinates to Web Mercator (EPSG:3857)
+ * @param fileContent Raw text content of the INP file
+ * @param manualProjection Optional projection string provided by user (e.g., "EPSG:4326")
+ */
+export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3857'): ParsedProjectData {
 
     try {
         const sections = parseINPSections(fileContent);
@@ -29,31 +33,56 @@ export function parseINP(fileContent: string): ParsedProjectData {
         let coordinates = parseCoordinates(sections['COORDINATES'] || []);
         let vertices = parseVertices(sections['VERTICES'] || []);
 
-        // --- PROJECTION AUTO-DETECTION & TRANSFORMATION ---
-        let detectedProjection = 'EPSG:3857';
+        // --- PROJECTION HANDLING ---
+        // 1. Determine Source Projection
+        let sourceProjection = manualProjection;
 
-        // Check first coordinate to guess projection
-        const firstCoord = coordinates.values().next().value;
-        if (firstCoord) {
-            const [x, y] = firstCoord;
-            // Heuristic: If x is within [-180, 180] and y within [-90, 90], it's likely Lat/Lon
-            if (x >= -180 && x <= 180 && y >= -90 && y <= 90) {
-                detectedProjection = 'EPSG:4326';
-                console.log("Detected Lat/Lon coordinates (EPSG:4326). Transforming to Web Mercator (EPSG:3857)...");
-
-                // Transform Node Coordinates
-                for (const [id, coord] of coordinates) {
-                    coordinates.set(id, transform(coord, 'EPSG:4326', 'EPSG:3857'));
-                }
-
-                // Transform Vertex Coordinates
-                for (const [id, vertList] of vertices) {
-                    const newVerts = vertList.map(v => transform(v, 'EPSG:4326', 'EPSG:3857'));
-                    vertices.set(id, newVerts);
+        // Auto-detection logic if manually set to 'Simple' or default is ambiguous
+        if (sourceProjection === 'EPSG:3857') {
+            const firstCoord = coordinates.values().next().value;
+            if (firstCoord) {
+                const [x, y] = firstCoord;
+                // If coordinates look like Lat/Lon, assume WGS84
+                if (x >= -180 && x <= 180 && y >= -90 && y <= 90) {
+                    sourceProjection = 'EPSG:4326';
+                    console.log("Auto-detected Lat/Lon coordinates (EPSG:4326).");
                 }
             }
         }
 
+        const mapProjection = 'EPSG:3857';
+
+        // 2. Transform Coordinates to Map Projection (EPSG:3857)
+        // If source is different from map, transform. 
+        // Note: We do not transform 'Simple' (Cartesian) as it has no projection definition, 
+        // but for GIS display we treat it as 3857 to render it "somewhere".
+        if (sourceProjection !== mapProjection && sourceProjection !== 'Simple') {
+            console.log(`Transforming from ${sourceProjection} to ${mapProjection}...`);
+
+            // Transform Node Coordinates
+            for (const [id, coord] of coordinates) {
+                try {
+                    const transformed = transform(coord, sourceProjection, mapProjection);
+                    coordinates.set(id, transformed);
+                } catch (e) {
+                    console.warn(`Failed to transform coordinate for node ${id}`, e);
+                }
+            }
+
+            // Transform Vertex Coordinates
+            for (const [id, vertList] of vertices) {
+                const newVerts = vertList.map(v => {
+                    try {
+                        return transform(v, sourceProjection, mapProjection);
+                    } catch (e) {
+                        return v;
+                    }
+                });
+                vertices.set(id, newVerts);
+            }
+        }
+
+        // 3. Create Settings (Store the Source Projection as the Project Projection)
         const settings: ProjectSettings = {
             title: sections['TITLE']?.[0] || "Untitled Project",
             units: (optionsMap['UNITS'] as any) || 'GPM',
@@ -63,18 +92,14 @@ export function parseINP(fileContent: string): ParsedProjectData {
             trials: parseInt(optionsMap['TRIALS'] || '40'),
             accuracy: parseFloat(optionsMap['ACCURACY'] || '0.001'),
             demandMultiplier: parseFloat(optionsMap['DEMAND MULTIPLIER'] || '1.0'),
-            projection: detectedProjection,
+            projection: sourceProjection,
         };
 
         const patterns = parsePatterns(sections['PATTERNS'] || []);
         const curves = parseCurves(sections['CURVES'] || []);
         const controls = parseControls(sections['CONTROLS'] || []);
 
-        // 2. Parse Geometry
-        // const coordinates = parseCoordinates(sections['COORDINATES'] || []);
-        // const vertices = parseVertices(sections['VERTICES'] || []);
-
-        // 3. Parse Nodes
+        // 4. Parse Nodes using (potentially transformed) coordinates
         const junctions = parseJunctions(sections['JUNCTIONS'] || [], coordinates);
         const tanks = parseTanks(sections['TANKS'] || [], coordinates);
         const reservoirs = parseReservoirs(sections['RESERVOIRS'] || [], coordinates);
@@ -82,7 +107,7 @@ export function parseINP(fileContent: string): ParsedProjectData {
         const allNodes = [...junctions, ...tanks, ...reservoirs];
         features.push(...allNodes);
 
-        // 4. Parse Links (Pipes, Pumps, Valves)
+        // 5. Parse Links (Pipes, Pumps, Valves)
         // Note: We pass 'features' array to add Visual Links to it
         const pipes = parsePipes(sections['PIPES'] || [], allNodes, vertices);
         const pumps = parsePumps(sections['PUMPS'] || [], allNodes, vertices, features);
@@ -91,8 +116,7 @@ export function parseINP(fileContent: string): ParsedProjectData {
         const allLinks = [...pipes, ...pumps, ...valves];
         features.push(...allLinks);
 
-        // 5. BUILD CONNECTIVITY (CRITICAL FIX)
-        // This ensures nodes know they are connected to links
+        // 6. Build Connectivity
         buildConnectivity(allNodes, allLinks);
 
         return { features, settings, patterns, curves, controls };
@@ -140,9 +164,8 @@ function buildConnectivity(nodes: Feature[], links: Feature[]) {
     });
 }
 
-/**
- * Creates the dashed visual line for Pumps and Valves
- */
+// Creates the dashed visual line for Pumps and Valves
+
 function createVisualLink(id: string, type: string, startNode: Feature, endNode: Feature): Feature {
     const startCoord = (startNode.getGeometry() as Point).getCoordinates();
     const endCoord = (endNode.getGeometry() as Point).getCoordinates();
@@ -154,13 +177,8 @@ function createVisualLink(id: string, type: string, startNode: Feature, endNode:
     visualLine.set('isVisualLink', true);
     visualLine.set('parentLinkId', id);
     visualLine.set('linkType', type);
-
-    // We don't set style here as the LayerManager handles it, 
-    // but setting properties is enough for the filter to catch it.
     return visualLine;
 }
-
-// ... (parseINPSections, parseOptions, parsePatterns, parseCurves, parseControls, parseCoordinates, parseVertices - Keep these from previous steps) ...
 
 // --- SECTION PARSERS ---
 

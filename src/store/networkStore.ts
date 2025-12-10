@@ -24,6 +24,7 @@ interface NetworkState {
     // Actions
     setSelectedFeature: (feature: Feature | null) => void;
     addFeature: (feature: Feature) => void;
+    addFeatures: (features: Feature[]) => void;
     removeFeature: (id: string) => void;
     updateFeature: (id: string, properties: Partial<NetworkFeatureProperties>) => void;
     updateFeatures: (updates: Record<string, Partial<NetworkFeatureProperties>>) => void;
@@ -222,6 +223,20 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         set((state) => {
             const newFeatures = new Map(state.features);
             newFeatures.set(id, feature);
+            return { features: newFeatures };
+        });
+    },
+
+    addFeatures: (features) => {
+        set((state) => {
+            const newFeatures = new Map(state.features);
+            features.forEach(f => {
+                const id = f.getId() as string;
+                if (id) {
+                    f.set('id', id);
+                    newFeatures.set(id, f);
+                }
+            });
             return { features: newFeatures };
         });
     },

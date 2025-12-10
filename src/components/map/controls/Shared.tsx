@@ -11,6 +11,24 @@ interface ControlGroupProps {
   isActiveGroup?: boolean;
 }
 
+// Tooltip for vertical stack buttons (appears to the LEFT)
+const LeftTooltip = ({ text }: { text: string }) => (
+  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 px-2 py-1 bg-gray-900 text-white text-[10px] font-medium rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none shadow-xl z-50">
+    {text}
+    {/* Arrow pointing right */}
+    <div className="absolute top-1/2 -right-1 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45" />
+  </div>
+);
+
+// Tooltip for horizontal expanded buttons (appears BELOW)
+const BottomTooltip = ({ text }: { text: string }) => (
+  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-gray-900 text-white text-[10px] font-medium rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none shadow-xl z-50">
+    {text}
+    {/* Arrow pointing up */}
+    <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45" />
+  </div>
+);
+
 export const ControlGroup = ({
   id,
   icon: Icon,
@@ -28,7 +46,7 @@ export const ControlGroup = ({
       <button
         onClick={() => onToggle(id)}
         className={cn(
-          "w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 active:scale-95",
+          "relative group w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 active:scale-95",
           isOpen || isActiveGroup
             ? "bg-blue-600 text-white shadow-md shadow-blue-500/30"
             : "text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400"
@@ -36,6 +54,7 @@ export const ControlGroup = ({
         title={label}
       >
         <Icon className="w-5 h-5" strokeWidth={2.5} />
+        {!isOpen && <LeftTooltip text={label} />}
       </button>
 
       {/* Expanded Horizontal Bar - Glassmorphism applied */}
@@ -73,7 +92,7 @@ export const ToolBtn = ({
   <button
     onClick={onClick}
     className={cn(
-      "flex items-center justify-center rounded-lg transition-all duration-200 active:scale-95",
+      "relative group flex items-center justify-center rounded-lg transition-all duration-200 active:scale-95",
       label ? "px-2 gap-2 h-8" : "w-8 h-8",
       isActive
         ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400"
@@ -104,6 +123,7 @@ export const ToolBtn = ({
         {label}
       </span>
     )}
+    <BottomTooltip text={title} />
   </button>
 );
 
@@ -127,7 +147,7 @@ export const StandaloneControl = ({
   <button
     onClick={onClick}
     className={cn(
-      "w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 active:scale-95",
+      "relative group w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 active:scale-95",
       isActive
         ? "bg-blue-600 text-white shadow-md shadow-blue-500/30"
         : "text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400"
@@ -138,5 +158,6 @@ export const StandaloneControl = ({
       className={cn("w-5 h-5", isActive ? "text-white" : colorClass)}
       strokeWidth={2.5}
     />
+    <LeftTooltip text={title} />
   </button>
 );

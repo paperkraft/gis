@@ -53,7 +53,7 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
 
   // Import State
   const [file, setFile] = useState<File | null>(null);
-  const [sourceEPSG, setSourceEPSG] = useState("EPSG:3857"); // Default for Import
+  const [sourceEPSG, setSourceEPSG] = useState("EPSG:3857");
   const [isProcessing, setIsProcessing] = useState(false);
   const importerRef = useRef<FileImporter | null>(null);
 
@@ -96,11 +96,11 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
     setIsProcessing(true);
 
     try {
-      const res = await importerRef?.current?.importFile(file);
+      const res = await importerRef?.current?.importFile(file, {
+        sourceProjection: sourceEPSG,
+      });
 
       if (res?.success) {
-        // Create a project entry manually since importINP loads into active store
-        // We essentially need to "Save As" the currently loaded (imported) project
         const id = crypto.randomUUID();
         ProjectService.saveCurrentProject(id, projectName);
 

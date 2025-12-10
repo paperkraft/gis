@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   X,
   Upload,
@@ -27,12 +27,16 @@ export function ImportModal({ isOpen, onClose }: ImportModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importerRef = useRef<FileImporter | null>(null);
 
-  const { vectorSource, map } = useMapStore();
+  const vectorSource = useMapStore((state) => state.vectorSource);
+  const map = useMapStore((state) => state.map);
 
-  // Initialize importer
-  if (!importerRef.current && vectorSource) {
-    importerRef.current = new FileImporter(vectorSource);
-  }
+  useEffect(() => {
+    if (vectorSource) {
+      importerRef.current = new FileImporter(vectorSource);
+    } else {
+      importerRef.current = null;
+    }
+  }, [vectorSource]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -43,7 +47,11 @@ export function ImportModal({ isOpen, onClose }: ImportModalProps) {
   };
 
   const handleImport = async (clearExisting: boolean = false) => {
-    if (!selectedFile || !importerRef.current) return;
+    if (!selectedFile || !importerRef.current) {
+      if (!importerRef.current)
+        console.error("Importer not initialized (Map source missing)");
+      return;
+    }
 
     setImporting(true);
     setResult(null);
@@ -64,6 +72,7 @@ export function ImportModal({ isOpen, onClose }: ImportModalProps) {
 
       // Zoom to imported features if successful
       if (importResult.success && map && vectorSource) {
+        // Force a small delay to ensure the render cycle completes
         setTimeout(() => {
           const extent = vectorSource.getExtent();
           if (extent && extent[0] !== Infinity) {

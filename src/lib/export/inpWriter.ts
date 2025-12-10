@@ -34,6 +34,7 @@ export function generateINP(
 
     const targetProjection = settings.projection || 'EPSG:3857';
     const mapProjection = 'EPSG:3857';
+    const shouldTransform = targetProjection !== mapProjection && targetProjection !== 'Simple';
 
     const hasPattern1 = patterns.some(p => p.id === "1");
     const safePatterns = [...patterns];
@@ -181,11 +182,18 @@ export function generateINP(
         const geom = f.getGeometry() as Point;
         let coords = geom.getCoordinates();
         // TRANSFORM: Map (3857) -> Project Setting
-        if (targetProjection !== mapProjection) {
-            coords = transform(coords, mapProjection, targetProjection);
+        if (shouldTransform) {
+            try {
+                coords = transform(coords, mapProjection, targetProjection);
+            } catch (e) {
+                console.warn("Coordinate transform failed", e);
+            }
         }
 
-        lines.push(`${pad(getId(f))} ${pad(coords[0])} ${pad(coords[1])}`);
+        // Format to prevent scientific notation in INP
+        const x = coords[0].toFixed(6);
+        const y = coords[1].toFixed(6);
+        lines.push(`${pad(getId(f))} ${pad(x)} ${pad(y)}`);
     });
     lines.push('');
 
@@ -195,11 +203,19 @@ export function generateINP(
         const geom = f.getGeometry() as LineString;
         let coords = geom.getCoordinates();
         // TRANSFORM: Map (3857) -> Project Setting
-        if (targetProjection !== mapProjection) {
-            coords = coords.map(c => transform(c, mapProjection, targetProjection));
-        }
+        // Skip start and end points in vertices list
         for (let i = 1; i < coords.length - 1; i++) {
-            lines.push(`${pad(getId(f))} ${pad(coords[i][0])} ${pad(coords[i][1])}`);
+            let coord = coords[i];
+            if (shouldTransform) {
+                try {
+                    coord = transform(coord, mapProjection, targetProjection);
+                } catch (e) {
+                    console.warn("Vertex transform failed", e);
+                }
+            }
+            const x = coord[0].toFixed(6);
+            const y = coord[1].toFixed(6);
+            lines.push(`${pad(getId(f))} ${pad(x)} ${pad(y)}`);
         }
     });
     lines.push('');
