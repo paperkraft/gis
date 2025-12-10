@@ -20,6 +20,7 @@ import { ControlManagerModal } from "../modals/ControlManagerModal";
 import { Settings } from "./controls/Settings";
 import { ExportModal } from "../modals/ExportModal";
 import { LocationSearch } from "./LocationSearch";
+import { cn } from "@/lib/utils";
 
 export function MapControls() {
   const {
@@ -77,7 +78,13 @@ export function MapControls() {
     <>
       <div
         ref={controlsRef}
-        className="absolute top-4 right-4 flex flex-col gap-3 z-10"
+        className={cn(
+          "absolute top-4 right-4 z-10 flex flex-col items-center",
+          "p-1.5 gap-2 rounded-2xl shadow-2xl",
+          "border border-white/20 dark:border-gray-700/50",
+          "bg-white/80 dark:bg-gray-900/80 backdrop-blur-md",
+          "transition-all hover:bg-white/95 dark:hover:bg-gray-900/95"
+        )}
       >
         <NavigationControls activeGroup={activeGroup} onToggle={toggleGroup} />
         <EditingControls activeGroup={activeGroup} onToggle={toggleGroup} />

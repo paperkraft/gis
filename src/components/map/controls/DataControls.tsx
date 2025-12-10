@@ -1,7 +1,7 @@
 "use client";
 import { FileUp, Table2 } from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
-import { ControlGroup, ToolBtn } from "./Shared";
+import { ControlGroup, StandaloneControl, ToolBtn } from "./Shared";
 
 interface DataControlsProps {
   activeGroup: string | null;
@@ -9,28 +9,16 @@ interface DataControlsProps {
 }
 
 export function DataControls({ activeGroup, onToggle }: DataControlsProps) {
-  const { showAttributeTable, setShowAttributeTable, setImportModalOpen } =
-    useUIStore();
+  const { showAttributeTable, setShowAttributeTable } = useUIStore();
 
   return (
-    <ControlGroup
-      id="data"
-      icon={Table2}
-      label="Data & Import"
-      activeGroup={activeGroup}
-      onToggle={onToggle}
-    >
-      <ToolBtn
+    <>
+      <StandaloneControl
         onClick={() => setShowAttributeTable(!showAttributeTable)}
         isActive={showAttributeTable}
         icon={Table2}
         title="Attribute Table"
       />
-      <ToolBtn
-        onClick={() => setImportModalOpen(true)}
-        icon={FileUp}
-        title="Import File"
-      />
-    </ControlGroup>
+    </>
   );
 }

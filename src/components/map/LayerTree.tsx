@@ -30,7 +30,7 @@ interface LayerItem {
   icon: React.ReactNode;
   color: string;
   visible: boolean;
-  count?: number; // Made optional
+  count?: number;
 }
 
 export function LayerTree() {

@@ -67,6 +67,7 @@ export interface ProjectSettings {
     trials: number;
     accuracy: number;
     demandMultiplier: number;
+    projection: string;
 }
 export interface TimePattern {
     id: string;

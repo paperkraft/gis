@@ -2,6 +2,7 @@ import { Feature } from 'ol';
 import { Point, LineString } from 'ol/geom';
 import { NetworkFeatureProperties, ProjectSettings, TimePattern, PumpCurve, NetworkControl } from '@/types/network';
 import { useNetworkStore } from '@/store/networkStore';
+import { transform } from 'ol/proj';
 
 function getId(f: Feature): string {
     const id = f.getId() || f.get('id');
@@ -23,12 +24,16 @@ export function generateINP(
 ): string {
     const lines: string[] = [];
 
+
     // 1. Resolve Data Sources
     const store = useNetworkStore.getState();
     const settings = customSettings || store.settings;
     const patterns = customPatterns || store.patterns || [];
     const curves = customCurves || store.curves || [];
     const controls = customControls || store.controls || [];
+
+    const targetProjection = settings.projection || 'EPSG:3857';
+    const mapProjection = 'EPSG:3857';
 
     const hasPattern1 = patterns.some(p => p.id === "1");
     const safePatterns = [...patterns];
@@ -174,7 +179,12 @@ export function generateINP(
     lines.push(';Node            X-Coord          Y-Coord');
     [...junctions, ...reservoirs, ...tanks].forEach(f => {
         const geom = f.getGeometry() as Point;
-        const coords = geom.getCoordinates();
+        let coords = geom.getCoordinates();
+        // TRANSFORM: Map (3857) -> Project Setting
+        if (targetProjection !== mapProjection) {
+            coords = transform(coords, mapProjection, targetProjection);
+        }
+
         lines.push(`${pad(getId(f))} ${pad(coords[0])} ${pad(coords[1])}`);
     });
     lines.push('');
@@ -183,7 +193,11 @@ export function generateINP(
     lines.push(';Link            X-Coord          Y-Coord');
     [...pipes].forEach(f => {
         const geom = f.getGeometry() as LineString;
-        const coords = geom.getCoordinates();
+        let coords = geom.getCoordinates();
+        // TRANSFORM: Map (3857) -> Project Setting
+        if (targetProjection !== mapProjection) {
+            coords = coords.map(c => transform(c, mapProjection, targetProjection));
+        }
         for (let i = 1; i < coords.length - 1; i++) {
             lines.push(`${pad(getId(f))} ${pad(coords[i][0])} ${pad(coords[i][1])}`);
         }

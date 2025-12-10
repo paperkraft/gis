@@ -81,6 +81,7 @@ const DEFAULT_SETTINGS: ProjectSettings = {
     trials: 40,
     accuracy: 0.001,
     demandMultiplier: 1.0,
+    projection: "EPSG:3857"
 };
 
 export const useNetworkStore = create<NetworkState>((set, get) => ({

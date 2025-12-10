@@ -18,7 +18,6 @@ import { useMeasurement } from "@/hooks/useMeasurement";
 import { useMapStore } from "@/store/mapStore";
 import { useNetworkStore } from "@/store/networkStore";
 import { useUIStore } from "@/store/uiStore";
-import { FeatureType } from "@/types/network";
 
 // Components
 import { MapControls } from "./MapControls";
@@ -41,18 +40,15 @@ export function MapContainer() {
     activeTool,
     deleteModalOpen,
     showAttributeTable,
-    componentSelectionModalOpen,
-    setActiveTool,
     setDeleteModalOpen,
     setShowAttributeTable,
-    setComponentSelectionModalOpen,
   } = useUIStore();
 
   // Get setSelectedFeature to update global state when selection changes
   const { selectedFeature, setSelectedFeature } = useNetworkStore();
 
-  // Setup Interactions (Drawing, Modifying, Managers)
-  const { pipeDrawingManager, startComponentPlacement } = useMapInteractions({
+  // Setup Interactions
+  useMapInteractions({
     map,
     vectorSource,
   });
@@ -93,19 +89,6 @@ export function MapContainer() {
 
   useSnapping();
 
-  // --- Handlers ---
-
-  const handleComponentSelection = (componentType: FeatureType | "skip") => {
-    setComponentSelectionModalOpen(false);
-    setActiveTool("draw-pipe");
-
-    if (componentType === "skip") {
-      pipeDrawingManager?.startDrawing("pipe");
-    } else {
-      startComponentPlacement(componentType, []);
-    }
-  };
-
   return (
     <div className="relative w-full h-full bg-gray-100 dark:bg-gray-900 flex flex-col">
       <div className="flex-1 relative overflow-hidden">
@@ -140,7 +123,8 @@ export function MapContainer() {
           cascadeInfo={cascadeInfo}
         />
       </div>
-      <StatusBar/>
+      {/* Status bar */}
+      <StatusBar />
     </div>
   );
 }

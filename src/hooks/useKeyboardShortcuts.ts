@@ -16,7 +16,8 @@ export function useKeyboardShortcuts() {
         setKeyboardShortcutsModalOpen,
         setShowAttributeTable,
         setExportModalOpen,
-        setImportModalOpen
+        setImportModalOpen,
+        toggleSidebar
     } = useUIStore();
 
     useEffect(() => {
@@ -45,6 +46,8 @@ export function useKeyboardShortcuts() {
             // ESC - Exit current tool to Pan
             if (key === "escape") {
                 setActiveTool("pan");
+                useNetworkStore.getState().selectFeature(null);
+                setKeyboardShortcutsModalOpen(false);
                 return;
             }
 
@@ -117,6 +120,10 @@ export function useKeyboardShortcuts() {
             // --- Panels & Menus ---
             if (key === "t" && !ctrl) {
                 setShowAttributeTable(true);
+                return;
+            }
+            if (key === "b" && ctrl) {
+                toggleSidebar();
                 return;
             }
             if ((key === "?" || key === "/") && !ctrl) {

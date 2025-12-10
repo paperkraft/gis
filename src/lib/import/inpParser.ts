@@ -2,6 +2,7 @@ import { Feature } from 'ol';
 import { Point, LineString } from 'ol/geom';
 import { COMPONENT_TYPES } from '@/constants/networkComponents';
 import { ProjectSettings, TimePattern, PumpCurve, NetworkControl, ControlAction } from '@/types/network';
+import { transform } from 'ol/proj';
 
 interface INPSection {
     [key: string]: string[];
@@ -25,6 +26,33 @@ export function parseINP(fileContent: string): ParsedProjectData {
 
         // 1. Parse Metadata
         const optionsMap = parseOptions(sections['OPTIONS'] || []);
+        let coordinates = parseCoordinates(sections['COORDINATES'] || []);
+        let vertices = parseVertices(sections['VERTICES'] || []);
+
+        // --- PROJECTION AUTO-DETECTION & TRANSFORMATION ---
+        let detectedProjection = 'EPSG:3857';
+
+        // Check first coordinate to guess projection
+        const firstCoord = coordinates.values().next().value;
+        if (firstCoord) {
+            const [x, y] = firstCoord;
+            // Heuristic: If x is within [-180, 180] and y within [-90, 90], it's likely Lat/Lon
+            if (x >= -180 && x <= 180 && y >= -90 && y <= 90) {
+                detectedProjection = 'EPSG:4326';
+                console.log("Detected Lat/Lon coordinates (EPSG:4326). Transforming to Web Mercator (EPSG:3857)...");
+
+                // Transform Node Coordinates
+                for (const [id, coord] of coordinates) {
+                    coordinates.set(id, transform(coord, 'EPSG:4326', 'EPSG:3857'));
+                }
+
+                // Transform Vertex Coordinates
+                for (const [id, vertList] of vertices) {
+                    const newVerts = vertList.map(v => transform(v, 'EPSG:4326', 'EPSG:3857'));
+                    vertices.set(id, newVerts);
+                }
+            }
+        }
 
         const settings: ProjectSettings = {
             title: sections['TITLE']?.[0] || "Untitled Project",
@@ -35,6 +63,7 @@ export function parseINP(fileContent: string): ParsedProjectData {
             trials: parseInt(optionsMap['TRIALS'] || '40'),
             accuracy: parseFloat(optionsMap['ACCURACY'] || '0.001'),
             demandMultiplier: parseFloat(optionsMap['DEMAND MULTIPLIER'] || '1.0'),
+            projection: detectedProjection,
         };
 
         const patterns = parsePatterns(sections['PATTERNS'] || []);
@@ -42,8 +71,8 @@ export function parseINP(fileContent: string): ParsedProjectData {
         const controls = parseControls(sections['CONTROLS'] || []);
 
         // 2. Parse Geometry
-        const coordinates = parseCoordinates(sections['COORDINATES'] || []);
-        const vertices = parseVertices(sections['VERTICES'] || []);
+        // const coordinates = parseCoordinates(sections['COORDINATES'] || []);
+        // const vertices = parseVertices(sections['VERTICES'] || []);
 
         // 3. Parse Nodes
         const junctions = parseJunctions(sections['JUNCTIONS'] || [], coordinates);
