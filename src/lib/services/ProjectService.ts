@@ -27,9 +27,11 @@ export class ProjectService {
 
         // Ensure store settings has the correct title
         const settings = { ...store.settings, title: name };
+        const nodeCount = features.filter(f => ['junction', 'tank', 'reservoir'].includes(f.get('type'))).length;
+        const linkCount = features.filter(f => ['pipe', 'pump', 'valve'].includes(f.get('type'))).length;
 
         const inpContent = generateINP(features, settings); // Uses store settings automatically
-        return this.saveToStorage(id, name, inpContent, features.length);
+        return this.saveToStorage(id, name, inpContent, nodeCount, linkCount);
     }
 
     // --- Create from Settings (Blank Project) ---
@@ -39,7 +41,7 @@ export class ProjectService {
         // Generate blank INP with these settings
         // Pass empty features array, but custom settings
         const inpContent = generateINP([], settings);
-        this.saveToStorage(id, name, inpContent, 0);
+        this.saveToStorage(id, name, inpContent);
         return id;
     }
 
@@ -62,8 +64,7 @@ export class ProjectService {
             );
 
             // 4. Save the Updated content
-            const count = data.features.length;
-            this.saveToStorage(id, name, updatedContent, count);
+            this.saveToStorage(id, name, updatedContent);
             return id;
         } catch (e) {
             console.error("Invalid INP content");
@@ -72,7 +73,7 @@ export class ProjectService {
     }
 
     // Helper to persist to localStorage
-    private static saveToStorage(id: string, name: string, content: string, featureCount: number) {
+    private static saveToStorage(id: string, name: string, content: string, nodeCount: number = 0, linkCount: number = 0): ProjectMetadata {
         localStorage.setItem(`project_data_${id}`, content);
 
         const projects = this.getProjects();
@@ -82,12 +83,15 @@ export class ProjectService {
             id,
             name,
             lastModified: Date.now(),
-            nodeCount: featureCount,
-            linkCount: 0,
+            nodeCount: nodeCount,
+            linkCount: linkCount,
         };
 
         if (existingIndex >= 0) {
-            projects[existingIndex] = { ...projects[existingIndex], lastModified: Date.now(), nodeCount: featureCount };
+            projects[existingIndex] = {
+                ...projects[existingIndex],
+                ...metadata
+            };
         } else {
             projects.push(metadata);
         }
