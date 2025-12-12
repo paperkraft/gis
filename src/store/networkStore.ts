@@ -129,15 +129,15 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
                 f.set('id', id);
                 featureMap.set(id, f);
 
-                // FIX: Scan ID to update counters
-                // Matches "J-105", "P-100", "PIPE-500", etc.
-                const match = id.match(/^[a-zA-Z]+-(\d+)$/);
-                if (match && type && newCounters[type] !== undefined) {
-                    const num = parseInt(match[1], 10);
-                    if (!isNaN(num)) {
-                        // Ensure counter is always 1 higher than the highest existing ID
-                        if (num >= newCounters[type]) {
-                            newCounters[type] = num + 1;
+                // Only update counters for known component types
+                if (type && newCounters[type] !== undefined) {
+                    const match = id.match(/^[a-zA-Z]+-(\d+)$/);
+                    if (match) {
+                        const num = parseInt(match[1], 10);
+                        if (!isNaN(num)) {
+                            if (num >= newCounters[type]) {
+                                newCounters[type] = num + 1;
+                            }
                         }
                     }
                 }

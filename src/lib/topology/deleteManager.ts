@@ -99,12 +99,24 @@ export class DeleteManager {
 
     private removeVisualLinkLine(linkId: string) {
         const features = this.vectorSource.getFeatures();
-        const visualLine = features.find(
-            (f) => f.get('isVisualLink') && f.get('parentLinkId') === linkId
-        );
+        // Try finding by deterministic ID first (primary logic)
+        const visualId = `VIS-${linkId}`;
+        let visualLine = this.vectorSource.getFeatureById(visualId);
+
+        // Fallback search if ID scheme wasn't used historically
+        if (!visualLine) {
+            visualLine = features.find(
+                (f) => f.get('isVisualLink') && f.get('parentLinkId') === linkId
+            ) || null;
+        }
 
         if (visualLine) {
             this.vectorSource.removeFeature(visualLine);
+            // CRITICAL: Remove from store to persist deletion
+            const visualLineId = visualLine.getId() as string;
+            if (visualLineId) {
+                useNetworkStore.getState().removeFeature(visualLineId);
+            }
             console.log('  🗑️ Visual link line removed');
         }
     }

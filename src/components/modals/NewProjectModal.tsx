@@ -55,9 +55,9 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [sourceEPSG, setSourceEPSG] = useState("EPSG:3857");
   const [isProcessing, setIsProcessing] = useState(false);
-  const importerRef = useRef<FileImporter | null>(null);
 
-  const { vectorSource, map } = useMapStore();
+  const importerRef = useRef<FileImporter | null>(null);
+  const { vectorSource } = useMapStore();
 
   if (!isOpen) return null;
 
@@ -77,41 +77,39 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
     setStep("import");
   };
 
-  const handleFinalizeBlank = () => {
+  const handleFinalizeBlank = async () => {
     setIsProcessing(true);
-    // Simulate slight delay for UX
-    setTimeout(() => {
+
+    try {
       const finalSettings = { ...settings, title: projectName };
-      const id = ProjectService.createProjectFromSettings(
+      const id = await ProjectService.createProjectFromSettings(
         projectName,
         finalSettings
       );
       router.push(`/project/${id}`);
       onClose();
-    }, 500);
+    } catch (e) {
+      alert("Failed to create project.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleFinalizeImport = async () => {
     if (!file) return;
     setIsProcessing(true);
-
     try {
-      const res = await importerRef?.current?.importFile(file, {
-        sourceProjection: sourceEPSG,
-      });
-
-      if (res?.success) {
-        const id = crypto.randomUUID();
-        ProjectService.saveCurrentProject(id, projectName);
-
-        router.push(`/project/${id}`);
-        onClose();
-      } else {
-        alert("Failed to parse or project the INP file.");
-      }
+      const text = await file.text();
+      const id = await ProjectService.createProjectFromFile(
+        projectName,
+        text,
+        sourceEPSG
+      );
+      router.push(`/project/${id}`);
+      onClose();
     } catch (e) {
       console.error(e);
-      alert("An unexpected error occurred during import.");
+      alert("Failed to import project file.");
     } finally {
       setIsProcessing(false);
     }

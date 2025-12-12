@@ -1,6 +1,6 @@
 "use client";
 import "ol/ol.css";
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 
 // Hooks
 import { useMapInitialization } from "@/hooks/useMapInitialization";
@@ -27,6 +27,7 @@ import { useSnapping } from "@/hooks/useSnapping";
 import { DrawingToolbar } from "./DrawingToolbar";
 import { StatusBar } from "./StatusBar";
 import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
+import { handleZoomToExtent } from "@/lib/interactions/map-controls";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -45,7 +46,25 @@ export function MapContainer() {
   } = useUIStore();
 
   // Get setSelectedFeature to update global state when selection changes
-  const { selectedFeature, setSelectedFeature } = useNetworkStore();
+  const { selectedFeature, setSelectedFeature, features } = useNetworkStore();
+
+  // --- SYNC FIX: Ensure map has features from store ---
+  useEffect(() => {
+    if (
+      vectorSource &&
+      features.size > 0 &&
+      vectorSource.getFeatures().length === 0
+    ) {
+      vectorSource.addFeatures(Array.from(features.values()));
+
+      // Auto-zoom after sync
+      if (map) {
+        setTimeout(() => {
+          handleZoomToExtent(map);
+        }, 200);
+      }
+    }
+  }, [vectorSource, features, map]);
 
   // Setup Interactions
   useMapInteractions({

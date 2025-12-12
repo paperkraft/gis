@@ -37,21 +37,31 @@ export default function ProjectEditorPage() {
 
   // Subscribe to store title for the header
   const projectTitle = useNetworkStore((state) => state.settings.title);
-
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Re-hydrate state from local storage based on ID
-    if (params.id) {
-      const id = params.id as string;
-      const success = ProjectService.loadProject(id);
+    const initProject = async () => {
+      if (params.id) {
+        // Clear previous project data immediately
+        useNetworkStore.getState().clearFeatures();
 
-      setLoading(false);
-
-      if (!success) {
-        router.replace("/");
+        try {
+          const success = await ProjectService.loadProject(params.id as string);
+          if (!success) {
+            // Optional: Handle not found more gracefully
+            router.replace("/");
+            console.error("Project load returned false");
+          }
+        } catch (e) {
+          console.error("Project load failed", e);
+          router.replace("/");
+        } finally {
+          setLoading(false);
+        }
       }
-    }
+    };
+
+    initProject();
   }, [params.id, router]);
 
   if (loading) {
@@ -94,7 +104,7 @@ export default function ProjectEditorPage() {
               <h1 className="text-sm font-semibold text-gray-900 dark:text-white">
                 {projectTitle || "Untitled Project"}
               </h1>
-              <span className="text-xs text-gray-500">Last saved:</span>
+              <span className="text-[10px] text-gray-500">Cloud Synced</span>
             </div>
           </div>
 

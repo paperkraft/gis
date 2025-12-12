@@ -15,7 +15,6 @@ import { useNetworkStore } from '@/store/networkStore';
 export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElement | null>) {
 
     const [vectorLayer, setVectorLayer] = useState<VectorLayer<any> | null>(null);
-    const { features } = useNetworkStore();
     const { setMap, setVectorSource } = useMapStore();
     const initializedRef = useRef(false);
 
@@ -25,10 +24,6 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
         // 1. Create Vector Source & Layer
         const vectorSource = new VectorSource();
 
-        // Restore existing features
-        if (features && features.size > 0) {
-            vectorSource.addFeatures(Array.from(features.values()));
-        }
 
         const vecLayer = new VectorLayer({
             source: vectorSource,
@@ -61,12 +56,6 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
         setVectorLayer(vecLayer);
         initializedRef.current = true;
 
-        // 5. Initial Zoom
-        if (features.size > 0) {
-            setTimeout(() => {
-                handleZoomToExtent(map);
-            }, 100);
-        }
 
         return () => {
             map.setTarget(undefined);

@@ -1,8 +1,7 @@
 import { Feature } from 'ol';
-import { Point, LineString } from 'ol/geom';
-import { COMPONENT_TYPES } from '@/constants/networkComponents';
 import { ProjectSettings, TimePattern, PumpCurve, NetworkControl, ControlAction } from '@/types/network';
 import { transform } from 'ol/proj';
+import { NetworkFactory } from '../topology/networkFactory';
 
 interface INPSection {
     [key: string]: string[];
@@ -99,27 +98,88 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
         const curves = parseCurves(sections['CURVES'] || []);
         const controls = parseControls(sections['CONTROLS'] || []);
 
+
+        const createNodeHelper = (lines: string[], type: 'junction' | 'tank' | 'reservoir', propsParser: (p: string[]) => any) => {
+            return lines.map(l => {
+                const p = l.split(/\s+/);
+                const id = p[0];
+                const coord = coordinates.get(id);
+                if (!coord) return null;
+
+                return NetworkFactory.createNode(type, coord, id, propsParser(p));
+            }).filter((f): f is Feature => !!f);
+        };
+
         // 4. Parse Nodes using (potentially transformed) coordinates
-        const junctions = parseJunctions(sections['JUNCTIONS'] || [], coordinates);
-        const tanks = parseTanks(sections['TANKS'] || [], coordinates);
-        const reservoirs = parseReservoirs(sections['RESERVOIRS'] || [], coordinates);
+        const junctions = createNodeHelper(sections['JUNCTIONS'] || [], 'junction', p => ({
+            elevation: parseFloat(p[1]), demand: parseFloat(p[2] || '0')
+        }));
+        const tanks = createNodeHelper(sections['TANKS'] || [], 'tank', p => ({
+            elevation: parseFloat(p[1]), initLevel: parseFloat(p[2]), minLevel: parseFloat(p[3]), maxLevel: parseFloat(p[4]), diameter: parseFloat(p[5])
+        }));
+        const reservoirs = createNodeHelper(sections['RESERVOIRS'] || [], 'reservoir', p => ({
+            head: parseFloat(p[1])
+        }));
 
         const allNodes = [...junctions, ...tanks, ...reservoirs];
         features.push(...allNodes);
 
         // 5. Parse Links (Pipes, Pumps, Valves)
-        // Note: We pass 'features' array to add Visual Links to it
-        const pipes = parsePipes(sections['PIPES'] || [], allNodes, vertices);
-        const pumps = parsePumps(sections['PUMPS'] || [], allNodes, vertices, features);
-        const valves = parseValves(sections['VALVES'] || [], allNodes, vertices, features);
 
-        const allLinks = [...pipes, ...pumps, ...valves];
-        features.push(...allLinks);
+        // Helper to find nodes
+        const findNode = (id: string) => allNodes.find(n => n.getId() === id);
+
+        // Pipes
+        (sections['PIPES'] || []).forEach(l => {
+            const p = l.split(/\s+/);
+            const id = p[0];
+            const n1 = findNode(p[1]);
+            const n2 = findNode(p[2]);
+            if (n1 && n2) {
+                const c1 = (n1.getGeometry() as any).getCoordinates();
+                const c2 = (n2.getGeometry() as any).getCoordinates();
+
+                let path = [c1];
+                if (vertices.has(id)) path = path.concat(vertices.get(id)!);
+                path.push(c2);
+
+                const pipe = NetworkFactory.createPipe(path, n1, n2, id, {
+                    length: parseFloat(p[3]),
+                    diameter: parseFloat(p[4]),
+                    roughness: parseFloat(p[5]),
+                    status: p[7] || 'Open'
+                });
+                features.push(pipe);
+            }
+        });
+
+        // Pumps & Valves (Complex Links)
+        const createComplexHelper = (lines: string[], type: 'pump' | 'valve', propsParser: (p: string[]) => any) => {
+            lines.forEach(l => {
+                const p = l.split(/\s+/);
+                const id = p[0];
+                const n1 = findNode(p[1]);
+                const n2 = findNode(p[2]);
+
+                if (n1 && n2) {
+                    const [component, visual] = NetworkFactory.createComplexLink(type, n1, n2, id, propsParser(p));
+                    features.push(component);
+                    features.push(visual); // Factory guarantees this exists and has ID
+                }
+            });
+        };
+
+        createComplexHelper(sections['PUMPS'] || [], 'pump', p => ({ status: 'Open' }));
+        createComplexHelper(sections['VALVES'] || [], 'valve', p => ({
+            diameter: parseFloat(p[3]), valveType: p[4], setting: parseFloat(p[5]), status: 'Active'
+        }));
+
 
         // 6. Build Connectivity
-        buildConnectivity(allNodes, allLinks);
+        buildConnectivity(allNodes, features.filter(f => ['pipe', 'pump', 'valve'].includes(f.get('type'))));
 
         return { features, settings, patterns, curves, controls };
+
     } catch (error) {
         throw new Error(`INP parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -133,7 +193,7 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
 function buildConnectivity(nodes: Feature[], links: Feature[]) {
     const nodeMap = new Map<string, Feature>();
     nodes.forEach(n => {
-        n.set('connectedLinks', []); // Initialize empty array
+        n.set('connectedLinks', []);
         nodeMap.set(n.getId() as string, n);
     });
 
@@ -142,45 +202,18 @@ function buildConnectivity(nodes: Feature[], links: Feature[]) {
         const startId = link.get('startNodeId');
         const endId = link.get('endNodeId');
 
-        // Add link ID to Start Node
-        if (startId && nodeMap.has(startId)) {
-            const node = nodeMap.get(startId)!;
-            const conns = node.get('connectedLinks');
-            if (!conns.includes(linkId)) {
-                conns.push(linkId);
-                node.set('connectedLinks', conns); // Trigger update
+        [startId, endId].forEach(nodeId => {
+            if (nodeId && nodeMap.has(nodeId)) {
+                const node = nodeMap.get(nodeId)!;
+                const conns = node.get('connectedLinks');
+                if (!conns.includes(linkId)) {
+                    conns.push(linkId);
+                    node.set('connectedLinks', conns);
+                }
             }
-        }
-
-        // Add link ID to End Node
-        if (endId && nodeMap.has(endId)) {
-            const node = nodeMap.get(endId)!;
-            const conns = node.get('connectedLinks');
-            if (!conns.includes(linkId)) {
-                conns.push(linkId);
-                node.set('connectedLinks', conns); // Trigger update
-            }
-        }
+        });
     });
 }
-
-// Creates the dashed visual line for Pumps and Valves
-
-function createVisualLink(id: string, type: string, startNode: Feature, endNode: Feature): Feature {
-    const startCoord = (startNode.getGeometry() as Point).getCoordinates();
-    const endCoord = (endNode.getGeometry() as Point).getCoordinates();
-
-    const visualLine = new Feature({
-        geometry: new LineString([startCoord, endCoord])
-    });
-
-    visualLine.set('isVisualLink', true);
-    visualLine.set('parentLinkId', id);
-    visualLine.set('linkType', type);
-    return visualLine;
-}
-
-// --- SECTION PARSERS ---
 
 function parseINPSections(content: string): INPSection {
     const sections: INPSection = {};
@@ -281,116 +314,4 @@ function parseVertices(lines: string[]): Map<string, number[][]> {
         }
     }
     return verts;
-}
-
-// --- COMPONENT FACTORIES ---
-
-function createNode(id: string, type: string, coords: Map<string, number[]>, props: any): Feature | null {
-    const coord = coords.get(id);
-    if (!coord) return null;
-    const feature = new Feature({ geometry: new Point(coord) });
-    feature.setId(id);
-    feature.set('type', type);
-    feature.setProperties({ ...COMPONENT_TYPES[type].defaultProperties, ...props, id, label: id });
-    return feature;
-}
-
-function parseJunctions(lines: string[], coords: Map<string, number[]>): Feature[] {
-    return lines.map(l => {
-        const p = l.split(/\s+/);
-        return createNode(p[0], 'junction', coords, { elevation: parseFloat(p[1]), demand: parseFloat(p[2] || '0') });
-    }).filter((f): f is Feature => !!f);
-}
-
-function parseTanks(lines: string[], coords: Map<string, number[]>): Feature[] {
-    return lines.map(l => {
-        const p = l.split(/\s+/);
-        return createNode(p[0], 'tank', coords, { elevation: parseFloat(p[1]), initLevel: parseFloat(p[2]), minLevel: parseFloat(p[3]), maxLevel: parseFloat(p[4]), diameter: parseFloat(p[5]) });
-    }).filter((f): f is Feature => !!f);
-}
-
-function parseReservoirs(lines: string[], coords: Map<string, number[]>): Feature[] {
-    return lines.map(l => {
-        const p = l.split(/\s+/);
-        return createNode(p[0], 'reservoir', coords, { head: parseFloat(p[1]) });
-    }).filter((f): f is Feature => !!f);
-}
-
-// --- LINK PARSERS ---
-
-function createLink(id: string, type: string, n1: string, n2: string, nodes: Feature[], verts: Map<string, number[][]>, props: any): Feature | null {
-    const node1 = nodes.find(n => n.getId() === n1);
-    const node2 = nodes.find(n => n.getId() === n2);
-    if (!node1 || !node2) return null;
-
-    const c1 = (node1.getGeometry() as Point).getCoordinates();
-    const c2 = (node2.getGeometry() as Point).getCoordinates();
-
-    // Midpoint for Pump/Valve geometry
-    const midX = (c1[0] + c2[0]) / 2;
-    const midY = (c1[1] + c2[1]) / 2;
-
-    // Geometry: LineString for Pipe, Point for Pump/Valve
-    let geometry;
-    if (type === 'pipe') {
-        let path = [c1];
-        if (verts.has(id)) path = path.concat(verts.get(id)!);
-        path.push(c2);
-        geometry = new LineString(path);
-    } else {
-        geometry = new Point([midX, midY]);
-    }
-
-    const feature = new Feature({ geometry });
-    feature.setId(id);
-    feature.set('type', type);
-    feature.setProperties({ ...COMPONENT_TYPES[type].defaultProperties, ...props, id, label: id, startNodeId: n1, endNodeId: n2 });
-    return feature;
-}
-
-function parsePipes(lines: string[], nodes: Feature[], verts: Map<string, number[][]>): Feature[] {
-    return lines.map(l => {
-        const p = l.split(/\s+/);
-        return createLink(p[0], 'pipe', p[1], p[2], nodes, verts, {
-            length: parseFloat(p[3]), diameter: parseFloat(p[4]), roughness: parseFloat(p[5]), status: p[7] || 'Open'
-        });
-    }).filter((f): f is Feature => !!f);
-}
-
-function parsePumps(lines: string[], nodes: Feature[], verts: Map<string, number[][]>, featureList: Feature[]): Feature[] {
-    return lines.map(l => {
-        const p = l.split(/\s+/);
-        const pump = createLink(p[0], 'pump', p[1], p[2], nodes, verts, { status: 'Open' });
-
-        if (pump) {
-            // FIX: Add Visual Link Feature
-            const n1 = nodes.find(n => n.getId() === p[1]);
-            const n2 = nodes.find(n => n.getId() === p[2]);
-            if (n1 && n2) {
-                const visual = createVisualLink(p[0], 'pump', n1, n2);
-                featureList.push(visual); // Add to main list immediately
-            }
-        }
-        return pump;
-    }).filter((f): f is Feature => !!f);
-}
-
-function parseValves(lines: string[], nodes: Feature[], verts: Map<string, number[][]>, featureList: Feature[]): Feature[] {
-    return lines.map(l => {
-        const p = l.split(/\s+/);
-        const valve = createLink(p[0], 'valve', p[1], p[2], nodes, verts, {
-            diameter: parseFloat(p[3]), valveType: p[4], setting: parseFloat(p[5]), status: 'Active'
-        });
-
-        if (valve) {
-            // FIX: Add Visual Link Feature
-            const n1 = nodes.find(n => n.getId() === p[1]);
-            const n2 = nodes.find(n => n.getId() === p[2]);
-            if (n1 && n2) {
-                const visual = createVisualLink(p[0], 'valve', n1, n2);
-                featureList.push(visual);
-            }
-        }
-        return valve;
-    }).filter((f): f is Feature => !!f);
 }
