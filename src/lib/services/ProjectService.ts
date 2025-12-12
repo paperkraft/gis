@@ -89,7 +89,8 @@ export class ProjectService {
             const geom = f.getGeometry();
             const props = f.getProperties();
 
-            const { geometry, ...safeProps } = props;
+            // const { geometry, ...safeProps } = props;
+            const safeProps = this.deepSanitize(props);
 
             return {
                 ...safeProps,
@@ -131,9 +132,46 @@ export class ProjectService {
             });
 
             console.log("Project saved to database.");
+
+            store.markSaved();
         } catch (e) {
             console.error("Save failed", e);
         }
+    }
+
+    // --- HELPER: Deep Sanitize ---
+    private static deepSanitize(obj: any, seen = new WeakSet()): any {
+        if (obj === null || obj === undefined) return obj;
+
+        const type = typeof obj;
+
+        // Keep Primitives
+        if (type !== 'object') return obj;
+
+        // Detect Circular References
+        if (seen.has(obj)) return undefined;
+        seen.add(obj);
+
+        // Handle Arrays
+        if (Array.isArray(obj)) {
+            return obj.map(item => this.deepSanitize(item, seen));
+        }
+
+        // Handle Plain Objects
+        if (obj.constructor === Object) {
+            const clean: any = {};
+            for (const key in obj) {
+                // Explicitly skip 'geometry' and internal OL keys
+                if (key === 'geometry' || key.startsWith('ol_')) continue;
+
+                clean[key] = this.deepSanitize(obj[key], seen);
+            }
+            return clean;
+        }
+
+        // If it's an object but not a Array or Plain Object (e.g. a Class Instance), 
+        // discard it. This is where the circular 'values_' usually lives.
+        return undefined;
     }
 
     // --- CREATE FROM FILE (Direct to DB) ---
@@ -147,7 +185,7 @@ export class ProjectService {
             const serializableFeatures = data.features.map(f => {
                 const props = f.getProperties();
                 const geom = f.getGeometry();
-                const { geometry, ...safeProps } = props;
+                const safeProps = this.deepSanitize(props);
                 return {
                     ...safeProps,
                     id: f.getId(),

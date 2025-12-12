@@ -11,6 +11,9 @@ interface NetworkState {
     selectedFeatureIds: string[];
     nextIdCounter: Record<FeatureType, number>;
 
+    // Tracking State
+    hasUnsavedChanges: boolean;
+
     // Project Data
     settings: ProjectSettings;
     patterns: TimePattern[];
@@ -22,6 +25,8 @@ interface NetworkState {
     future: Feature[][];
 
     // Actions
+    markSaved: () => void;
+
     setSelectedFeature: (feature: Feature | null) => void;
     addFeature: (feature: Feature) => void;
     addFeatures: (features: Feature[]) => void;
@@ -91,6 +96,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     selectedFeature: null,
     selectedFeatureIds: [],
 
+    hasUnsavedChanges: false,
+
     settings: DEFAULT_SETTINGS,
     patterns: DEFAULT_PATTERNS,
     curves: [],
@@ -108,10 +115,11 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         pipe: 100,
     },
 
+    markSaved: () => set({ hasUnsavedChanges: false }),
+
     loadProject: (data) => {
         const featureMap = new Map<string, Feature>();
 
-        // Reset counters to default base
         const newCounters = {
             junction: 100,
             tank: 100,
@@ -144,8 +152,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
             }
         });
 
-        console.log("Loaded Counters:", newCounters);
-
         set({
             features: featureMap,
             settings: data.settings,
@@ -156,50 +162,60 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
             controls: data.controls || [],
             selectedFeature: null,
             selectedFeatureId: null,
-            nextIdCounter: newCounters, // Apply updated counters
+            selectedFeatureIds: [],
+            nextIdCounter: newCounters,
+            hasUnsavedChanges: false,
         });
     },
 
-    setPatterns: (patterns) => set({ patterns }),
-    setCurves: (curves) => set({ curves }),
-    setControls: (controls) => set({ controls }),
+    setPatterns: (patterns) => set({ patterns, hasUnsavedChanges: true }),
+    setCurves: (curves) => set({ curves, hasUnsavedChanges: true }),
+    setControls: (controls) => set({ controls, hasUnsavedChanges: true }),
 
     updateSettings: (newSettings) => {
         set((state) => ({
-            settings: { ...state.settings, ...newSettings }
+            settings: { ...state.settings, ...newSettings },
+            hasUnsavedChanges: true
         }));
     },
 
-    addPattern: (pattern) => set((state) => ({ patterns: [...state.patterns, pattern] })),
+    addPattern: (pattern) => set((state) => ({ patterns: [...state.patterns, pattern], hasUnsavedChanges: true })),
 
     updatePattern: (id, updated) => set((state) => ({
-        patterns: state.patterns.map(p => p.id === id ? updated : p)
+        patterns: state.patterns.map(p => p.id === id ? updated : p),
+        hasUnsavedChanges: true
     })),
 
     deletePattern: (id) => set((state) => ({
-        patterns: state.patterns.filter(p => p.id !== id)
+        patterns: state.patterns.filter(p => p.id !== id),
+        hasUnsavedChanges: true
     })),
 
-    addCurve: (curve) => set((state) => ({ curves: [...state.curves, curve] })),
+    addCurve: (curve) => set((state) => ({ curves: [...state.curves, curve], hasUnsavedChanges: true })),
 
     updateCurve: (id, updated) => set((state) => ({
-        curves: state.curves.map(c => c.id === id ? updated : c)
+        curves: state.curves.map(c => c.id === id ? updated : c),
+        hasUnsavedChanges: true
     })),
 
     deleteCurve: (id) => set((state) => ({
-        curves: state.curves.filter(c => c.id !== id)
+        curves: state.curves.filter(c => c.id !== id),
+        hasUnsavedChanges: true
     })),
 
     addControl: (control) => set((state) => ({
-        controls: [...state.controls, control]
+        controls: [...state.controls, control],
+        hasUnsavedChanges: true
     })),
 
     updateControl: (id, updated) => set((state) => ({
-        controls: state.controls.map(c => c.id === id ? updated : c)
+        controls: state.controls.map(c => c.id === id ? updated : c),
+        hasUnsavedChanges: true
     })),
 
     deleteControl: (id) => set((state) => ({
-        controls: state.controls.filter(c => c.id !== id)
+        controls: state.controls.filter(c => c.id !== id),
+        hasUnsavedChanges: true
     })),
 
     clearFeatures: () => set({
@@ -209,7 +225,11 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         settings: DEFAULT_SETTINGS,
         patterns: DEFAULT_PATTERNS,
         curves: [],
-        controls: []
+        controls: [],
+        hasUnsavedChanges: false,
+        selectedFeature: null,
+        selectedFeatureId: null,
+        selectedFeatureIds: []
     }),
 
     setSelectedFeature: (feature) => set({ selectedFeature: feature }),
@@ -223,7 +243,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         set((state) => {
             const newFeatures = new Map(state.features);
             newFeatures.set(id, feature);
-            return { features: newFeatures };
+            return { features: newFeatures, hasUnsavedChanges: true };
         });
     },
 
@@ -237,7 +257,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
                     newFeatures.set(id, f);
                 }
             });
-            return { features: newFeatures };
+            return { features: newFeatures, hasUnsavedChanges: true };
         });
     },
 
@@ -245,7 +265,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         set((state) => {
             const newFeatures = new Map(state.features);
             newFeatures.delete(id);
-            return { features: newFeatures };
+            return { features: newFeatures, hasUnsavedChanges: true };
         });
     },
 
@@ -256,7 +276,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
             set((state) => {
                 const newFeatures = new Map(state.features);
                 newFeatures.set(id, feature);
-                return { features: newFeatures };
+                return { features: newFeatures, hasUnsavedChanges: true };
             });
         }
     },
@@ -274,7 +294,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
                 }
             });
 
-            return hasChanges ? { features: newFeatures } : {};
+            return hasChanges ? { features: newFeatures, hasUnsavedChanges: true } : {};
         });
     },
 
@@ -374,7 +394,9 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
             future: [currentSnapshot, ...future],
             features: newFeaturesMap,
             selectedFeature: null,
-            selectedFeatureId: null
+            selectedFeatureId: null,
+            selectedFeatureIds: [],
+            hasUnsavedChanges: true
         });
 
         return previousState;
@@ -401,7 +423,9 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
             future: newFuture,
             features: newFeaturesMap,
             selectedFeature: null,
-            selectedFeatureId: null
+            selectedFeatureId: null,
+            selectedFeatureIds: [],
+            hasUnsavedChanges: true
         });
 
         return nextState;

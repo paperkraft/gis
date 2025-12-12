@@ -1,3 +1,5 @@
+'use client';
+
 import { defaults as defaultControls, ScaleLine } from 'ol/control';
 import VectorLayer from 'ol/layer/Vector';
 import Map from 'ol/Map';
@@ -6,11 +8,9 @@ import VectorSource from 'ol/source/Vector';
 import View from 'ol/View';
 import { useEffect, useRef, useState } from 'react';
 
-import { handleZoomToExtent } from '@/lib/interactions/map-controls';
 import { createBaseLayers, indiaBoundaryLayer } from '@/lib/map/baseLayers';
 import { getFeatureStyle } from '@/lib/styles/featureStyles';
 import { useMapStore } from '@/store/mapStore';
-import { useNetworkStore } from '@/store/networkStore';
 
 export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElement | null>) {
 

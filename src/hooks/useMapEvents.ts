@@ -36,7 +36,7 @@ export function useMapEvents({ map }: UseMapEventsProps) {
             if (now - lastCoordUpdate.current > 50) {
                 const coord = event.coordinate;
                 const [lon, lat] = toLonLat(coord);
-                setCoordinates(`${lon.toFixed(4)}°N, ${lat.toFixed(4)}°E`);
+                setCoordinates(`${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`);
                 lastCoordUpdate.current = now;
             }
 

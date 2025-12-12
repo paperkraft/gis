@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
 
-interface Params {
-    params: { id: string };
-}
-
+type Context = {
+    params: Promise<{ id: string }>;
+};
 // GET /api/projects/:id - Load full project data
-export async function GET(req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, { params }: Context) {
     try {
+        const { id } = await params;
+
         const project = await prisma.project.findUnique({
-            where: { id: params.id },
+            where: { id },
         });
 
         if (!project) {
@@ -27,13 +28,15 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 // PUT /api/projects/:id - Update existing project
-export async function PUT(req: NextRequest, { params }: Params) {
+export async function PUT(req: NextRequest, { params }: Context) {
     try {
+        const { id } = await params;
+
         const body = await req.json();
         const { title, data, nodeCount, linkCount } = body;
 
         const project = await prisma.project.update({
-            where: { id: params.id },
+            where: { id },
             data: {
                 title,
                 data,
@@ -49,10 +52,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
 }
 
 // DELETE /api/projects/:id - Delete project
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, { params }: Context) {
     try {
+        const { id } = await params;
+
         await prisma.project.delete({
-            where: { id: params.id },
+            where: { id },
         });
 
         return NextResponse.json({ success: true });
