@@ -1,19 +1,14 @@
 "use client";
-import {
-  Database,
-  SettingsIcon,
-  Settings2,
-  Cpu,
-  Save,
-  Printer,
-} from "lucide-react";
-import { useUIStore } from "@/store/uiStore";
-import { ControlGroup, StandaloneControl, ToolBtn } from "./Shared";
-import { useParams } from "next/navigation";
-import { ProjectService } from "@/lib/services/ProjectService";
-import { useNetworkStore } from "@/store/networkStore";
-import { handlePrint } from "@/lib/interactions/map-controls";
-import { useMapStore } from "@/store/mapStore";
+import { Database, Printer, Save, Settings2, SettingsIcon } from 'lucide-react';
+import { useParams } from 'next/navigation';
+
+import { handlePrint } from '@/lib/interactions/map-controls';
+import { ProjectService } from '@/lib/services/ProjectService';
+import { useMapStore } from '@/store/mapStore';
+import { useNetworkStore } from '@/store/networkStore';
+import { useUIStore } from '@/store/uiStore';
+
+import { ControlGroup, StandaloneControl, ToolBtn } from './Shared';
 
 interface SettingsProps {
   activeGroup: string | null;
@@ -27,12 +22,12 @@ export function ProjectSettingsGroup({ activeGroup, onToggle }: SettingsProps) {
 
   const {
     dataManagerModalOpen,
-    setDataManagerModalOpen,
     projectSettingsModalOpen,
+    setDataManagerModalOpen,
     setProjectSettingsModalOpen,
-    controlManagerModalOpen,
-    setControlManagerModalOpen,
   } = useUIStore();
+
+  const { hasUnsavedChanges } = useNetworkStore();
 
   const handleSave = () => {
     if (params.id) {
@@ -76,6 +71,7 @@ export function ProjectSettingsGroup({ activeGroup, onToggle }: SettingsProps) {
         isActive={false}
         icon={Save}
         title="Save Network"
+        colorClass={hasUnsavedChanges ? "text-amber-600 dark:text-amber-500 animate-pulse" : ""}
       />
     </>
   );

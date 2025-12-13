@@ -1,7 +1,7 @@
 "use client";
 
 import {
-    Circle, Hand, Hexagon, Minus, MousePointer2, SplinePointer, Square, SquareDot, Triangle
+    Circle, Hand, Hexagon, Minus, MousePointer2, Pentagon, SplinePointer, Square, SquareDot, Triangle
 } from 'lucide-react';
 import React from 'react';
 
@@ -18,7 +18,7 @@ export function DrawingToolbar() {
     { id: "modify", icon: SplinePointer, label: "Modify", shortcut: "M" },
     { type: "separator" },
     { id: "add-junction", icon: Circle, label: "Junction", color: COMPONENT_TYPES.junction.color, shortcut: "1" },
-    { id: "add-tank", icon: Square, label: "Tank", color: COMPONENT_TYPES.tank.color, shortcut: "2" },
+    { id: "add-tank", icon: Pentagon, label: "Tank", color: COMPONENT_TYPES.tank.color, shortcut: "2" },
     { id: "add-reservoir", icon: Hexagon, label: "Reservoir", color: COMPONENT_TYPES.reservoir.color, shortcut: "3" },
     { id: "draw-pipe", icon: Minus, label: "Pipe", color: COMPONENT_TYPES.pipe.color, shortcut: "4" },
     { id: "add-pump", icon: Triangle, label: "Pump", color: COMPONENT_TYPES.pump.color, shortcut: "5" },
@@ -29,7 +29,7 @@ export function DrawingToolbar() {
     <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex flex-row items-center p-1.5 gap-1 rounded-2xl shadow-2xl border border-white/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md transition-all hover:bg-white/95 dark:hover:bg-gray-900/95">
       {tools.map((tool, index) => {
         if (tool.type === "separator") {
-          return <div key={`sep-${index}`} className="w-px h-6 bg-gray-300 dark:bg-gray-700 mx-1" />;
+          return <div key={`sep-${index}`} className="w-0.5 h-6 bg-gray-300 dark:bg-gray-700 mx-1" />;
         }
 
         const isActive = activeTool === tool.id;

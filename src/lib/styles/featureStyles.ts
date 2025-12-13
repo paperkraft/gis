@@ -128,13 +128,13 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
         return baseStyle;
     }
 
-    // TANK (Square)
+    // TANK (Pentagon)
     if (featureType === "tank") {
         return new Style({
             image: new RegularShape({
                 fill: new Fill({ color: color }),
                 stroke: new Stroke({ color: "#ffffff", width: 2 }),
-                points: 4,
+                points: 5,
                 radius: 12,
                 angle: 0,
             }),

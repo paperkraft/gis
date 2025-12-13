@@ -1,7 +1,9 @@
 "use client";
-import { Ruler, RulerDimensionLine, Square } from "lucide-react";
-import { useUIStore } from "@/store/uiStore";
-import { ControlGroup, ToolBtn } from "./Shared";
+import { Ruler, RulerDimensionLine, SquareDashedMousePointer } from 'lucide-react';
+
+import { useUIStore } from '@/store/uiStore';
+
+import { ControlGroup, ToolBtn } from './Shared';
 
 interface MeasurementGroupProps {
   activeGroup: string | null;
@@ -19,7 +21,7 @@ export function MeasurementGroup({
     setMeasurementActive,
   } = useUIStore();
 
-  const toggleMeasurement = (type: "distance" | "area") => {
+    const toggleMeasurement = (type: "distance" | "area") => {
     if (measurementActive && measurementType === type) {
       setMeasurementActive(false);
     } else {
@@ -31,7 +33,7 @@ export function MeasurementGroup({
   return (
     <ControlGroup
       id="measure"
-      icon={RulerDimensionLine}
+      icon={Ruler}
       label="Measurement"
       isActiveGroup={measurementActive}
       activeGroup={activeGroup}
@@ -40,14 +42,14 @@ export function MeasurementGroup({
       <ToolBtn
         onClick={() => toggleMeasurement("distance")}
         isActive={measurementActive && measurementType === "distance"}
-        icon={Ruler}
+        icon={RulerDimensionLine}
         title="Measure Distance"
         label="Dist"
       />
       <ToolBtn
         onClick={() => toggleMeasurement("area")}
         isActive={measurementActive && measurementType === "area"}
-        icon={Square}
+        icon={SquareDashedMousePointer}
         title="Measure Area"
         label="Area"
       />

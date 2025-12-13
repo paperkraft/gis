@@ -1,17 +1,30 @@
 "use client";
 
 import {
-    Globe, Home, Layers, Map as MapIcon, MapPin, MapPinnedIcon, Mountain, Search,
-    SquareMousePointer, ZoomIn, ZoomOut
-} from 'lucide-react';
+  Globe,
+  Home,
+  Layers,
+  Map as MapIcon,
+  MapPin,
+  MapPinnedIcon,
+  Mountain,
+  Search,
+  SquareMousePointer,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 
-import { layerType } from '@/constants/map';
-import { handleZoomIn, handleZoomOut, handleZoomToExtent } from '@/lib/interactions/map-controls';
-import { switchBaseLayer } from '@/lib/map/baseLayers';
-import { useMapStore } from '@/store/mapStore';
-import { useUIStore } from '@/store/uiStore';
+import { layerType } from "@/constants/map";
+import {
+  handleZoomIn,
+  handleZoomOut,
+  handleZoomToExtent,
+} from "@/lib/interactions/map-controls";
+import { switchBaseLayer } from "../../../lib/map/baseLayers";
+import { useMapStore } from "@/store/mapStore";
+import { useUIStore } from "@/store/uiStore";
 
-import { ControlGroup, Divider, ToolBtn } from './Shared';
+import { ControlGroup, Divider, ToolBtn } from "./Shared";
 
 interface NavigationControlsProps {
   activeGroup: string | null;
@@ -80,7 +93,6 @@ export function NavigationControls({
           icon={Home}
           title="Zoom Extent"
         />
-       
       </ControlGroup>
 
       {/* Base Layer Sub-Group */}

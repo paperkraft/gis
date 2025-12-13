@@ -1,10 +1,11 @@
 import { ComponentConfig } from "@/types/network";
+import { Circle, Hexagon, Minus, Pentagon, Square, Triangle } from "lucide-react";
 
 export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
     junction: {
         name: "Junction",
         prefix: "J",
-        icon: "circle",
+        icon: Circle,
         color: "#28a745",
         description: "Network connection point",
         defaultProperties: {
@@ -16,9 +17,9 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
         createsJunction: false,
     },
     tank: {
-        name: "Storage Tank",
+        name: "Tank",
         prefix: "T",
-        icon: "square",
+        icon: Pentagon,
         color: "#0066cc",
         description: "Water storage facility",
         defaultProperties: {
@@ -33,7 +34,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
     reservoir: {
         name: "Reservoir",
         prefix: "R",
-        icon: "hexagon",
+        icon: Hexagon,
         color: "#8b5cf6",
         description: "Infinite water source",
         defaultProperties: {
@@ -44,9 +45,9 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
         createsJunction: true,
     },
     pump: {
-        name: "Pump Station",
+        name: "Pump",
         prefix: "PU",
-        icon: "triangle-up",
+        icon: Triangle,
         color: "#ef4444",
         description: "Water pumping facility",
         defaultProperties: {
@@ -60,7 +61,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
     valve: {
         name: "Valve",
         prefix: "V",
-        icon: "square-dot",
+        icon: Square,
         color: "#f97316",
         description: "Flow control device",
         defaultProperties: {
@@ -74,7 +75,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
     pipe: {
         name: "Pipe",
         prefix: "P",
-        icon: "minus",
+        icon: Minus,
         color: "#0066cc",
         description: "Water transmission line",
         defaultProperties: {

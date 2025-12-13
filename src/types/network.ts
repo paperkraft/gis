@@ -1,3 +1,4 @@
+import { LucideIcon } from 'lucide-react';
 import { Feature } from 'ol';
 import { Geometry } from 'ol/geom';
 
@@ -36,7 +37,7 @@ export interface NetworkFeature extends Feature<Geometry> {
 }
 export interface ComponentConfig {
     name: string;
-    icon: string;
+    icon: LucideIcon;
     color: string;
     description: string;
     defaultProperties: Record<string, any>;

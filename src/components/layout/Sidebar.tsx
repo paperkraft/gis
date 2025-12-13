@@ -1,23 +1,14 @@
 "use client";
 
-import {
-  Eye,
-  EyeOff,
-  Layers,
-  ArrowRight,
-  Circle,
-  Square,
-  Hexagon,
-  Triangle,
-  SquareDot,
-  Minus,
-  Type,
-} from "lucide-react";
-import { useUIStore } from "@/store/uiStore";
-import { KeyboardShortcutsModal } from "../modals/KeyboardShortcutsModal";
-import { COMPONENT_TYPES } from "@/constants/networkComponents";
+import { ArrowBigRight, Eye, EyeOff, Layers, Type } from "lucide-react";
 import { useEffect, useState } from "react";
+
+import { COMPONENT_TYPES } from "@/constants/networkComponents";
+import { cn } from "@/lib/utils";
 import { useNetworkStore } from "@/store/networkStore";
+import { useUIStore } from "@/store/uiStore";
+
+import { KeyboardShortcutsModal } from "../modals/KeyboardShortcutsModal";
 
 export function Sidebar() {
   const {
@@ -26,6 +17,7 @@ export function Sidebar() {
     showPipeArrows,
     showLabels,
     keyboardShortcutsModalOpen,
+
     setShowPipeArrows,
     setShowLabels,
     toggleLayerVisibility,
@@ -34,7 +26,6 @@ export function Sidebar() {
 
   const { features } = useNetworkStore();
 
-  // Calculate feature counts
   const [layerCounts, setLayerCounts] = useState({
     junction: 0,
     tank: 0,
@@ -79,55 +70,55 @@ export function Sidebar() {
   const layers = [
     {
       id: "junction",
-      name: "Junctions",
-      icon: Circle,
+      name: COMPONENT_TYPES.junction.name,
+      icon: COMPONENT_TYPES.junction.icon,
       color: COMPONENT_TYPES.junction.color,
       count: layerCounts.junction,
     },
     {
       id: "tank",
-      name: "Tanks",
-      icon: Square,
+      name: COMPONENT_TYPES.tank.name,
+      icon: COMPONENT_TYPES.tank.icon,
       color: COMPONENT_TYPES.tank.color,
       count: layerCounts.tank,
     },
     {
       id: "reservoir",
-      name: "Reservoirs",
-      icon: Hexagon,
+      name: COMPONENT_TYPES.reservoir.name,
+      icon: COMPONENT_TYPES.reservoir.icon,
       color: COMPONENT_TYPES.reservoir.color,
       count: layerCounts.reservoir,
     },
     {
       id: "pipe",
-      name: "Pipes",
-      icon: Minus,
+      name: COMPONENT_TYPES.pipe.name,
+      icon: COMPONENT_TYPES.pipe.icon,
       color: COMPONENT_TYPES.pipe.color,
       count: layerCounts.pipe,
     },
     {
       id: "pump",
-      name: "Pumps",
-      icon: Triangle,
+      name: COMPONENT_TYPES.pump.name,
+      icon: COMPONENT_TYPES.pump.icon,
       color: COMPONENT_TYPES.pump.color,
       count: layerCounts.pump,
     },
     {
       id: "valve",
-      name: "Valves",
-      icon: SquareDot,
+      name: COMPONENT_TYPES.valve.name,
+      icon: COMPONENT_TYPES.valve.icon,
       color: COMPONENT_TYPES.valve.color,
       count: layerCounts.valve,
     },
     {
       id: "flow-arrows",
-      name: "Flow Arrows",
-      icon: ArrowRight,
+      name: "Flow Arrow",
+      icon: ArrowBigRight,
       color: "#6B7280",
     },
     {
       id: "labels",
-      name: "Labels",
+      name: "Label",
       icon: Type,
       color: "#6B7280",
     },
@@ -170,9 +161,12 @@ export function Sidebar() {
                     `}
                   title={layer.name}
                 >
-                  <Icon className="size-4" style={{ color: layer.color }} />
+                  <Icon
+                    className={cn("size-4")}
+                    style={{ color: layer.color }}
+                  />
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-1 text-left">
-                    {layer.name}
+                    {layer.name + "s"}
                   </span>
                   {layer.count !== undefined && (
                     <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">
@@ -193,7 +187,7 @@ export function Sidebar() {
         </div>
 
         <div className="px-4 text-xs text-gray-400 text-center">
-          Press{" "}
+          Press&nbsp;
           <kbd className="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">
             ?
           </kbd>{" "}

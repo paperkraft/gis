@@ -155,7 +155,7 @@ export const StandaloneControl = ({
         ? "bg-blue-600 text-white shadow-md shadow-blue-500/30"
         : "text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400"
     )}
-    title={title}
+    // title={title}
   >
     <Icon
       className={cn("w-5 h-5", isActive ? "text-white" : colorClass)}

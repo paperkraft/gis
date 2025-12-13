@@ -154,7 +154,7 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
                     const geometry = dragBox.getGeometry();
                     const view = map.getView();
                     if (geometry) view.fit(geometry, { padding: [50, 50, 50, 50], duration: 500 });
-                    setActiveTool('select');
+                    setActiveTool('zoom-box');
                 });
                 map.addInteraction(dragBox);
                 zoomBoxRef.current = dragBox;
