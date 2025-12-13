@@ -65,7 +65,8 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     setTimeIndex: (index) => {
         const { history } = get();
-        if (!history || !history.snapshots[index]) return;
+        // if (!history || !history.snapshots[index]) return;
+        if (!history || index < 0 || index >= history.timestamps.length) return;
         set({ currentTimeIndex: index, results: history.snapshots[index] });
     },
 

@@ -1,7 +1,7 @@
 "use client";
 
 import {
-    Circle, Edit3, Hand, Hexagon, Minus, MousePointer2, Square, SquareDot, Triangle
+    Circle, Hand, Hexagon, Minus, MousePointer2, SplinePointer, Square, SquareDot, Triangle
 } from 'lucide-react';
 import React from 'react';
 
@@ -15,7 +15,7 @@ export function DrawingToolbar() {
   const tools = [
     { id: "select", icon: MousePointer2, label: "Select", shortcut: "S" },
     { id: "pan", icon: Hand, label: "Pan", shortcut: "H" },
-    { id: "modify", icon: Edit3, label: "Modify", shortcut: "M" },
+    { id: "modify", icon: SplinePointer, label: "Modify", shortcut: "M" },
     { type: "separator" },
     { id: "add-junction", icon: Circle, label: "Junction", color: COMPONENT_TYPES.junction.color, shortcut: "1" },
     { id: "add-tank", icon: Square, label: "Tank", color: COMPONENT_TYPES.tank.color, shortcut: "2" },

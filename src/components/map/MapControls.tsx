@@ -4,22 +4,29 @@ import { useState, useRef, useEffect } from "react";
 import { useUIStore } from "@/store/uiStore";
 
 // Import Controls
+import { ProjectSettingsGroup } from "./controls/ProjectSettingsGroup";
 import { NavigationControls } from "./controls/NavigationControls";
+import { VisualizationGroup } from "./controls/VisualizationGroup";
+import { MeasurementGroup } from "./controls/MeasurementGroup";
 import { EditingControls } from "./controls/EditingControls";
-import { AnalysisControls } from "./controls/AnalysisControls";
+import { ValidationGroup } from "./controls/ValidationGroup";
+import { AnimationGroup } from "./controls/AnimationGroup";
+import { LabelControls } from "./controls/LabelControls";
 import { DataControls } from "./controls/DataControls";
 
+
 // Import Modals
-import { ImportModal } from "../modals/ImportModal";
-import { AutoElevationModal } from "../modals/AutoElevationModal";
-import { ValidationModal } from "../modals/ValidationModal";
 import { SimulationReportModal } from "../modals/SimulationReportModal";
 import { ProjectSettingsModal } from "../modals/ProjectSettingsModal";
-import { DataManagerModal } from "../modals/DataManagerModal";
 import { ControlManagerModal } from "../modals/ControlManagerModal";
-import { Settings } from "./controls/Settings";
+import { AutoElevationModal } from "../modals/AutoElevationModal";
+import { StyleSettingsModal } from "../modals/StyleSettingsModal";
+import { DataManagerModal } from "../modals/DataManagerModal";
+import { ValidationModal } from "../modals/ValidationModal";
+import { ImportModal } from "../modals/ImportModal";
 import { ExportModal } from "../modals/ExportModal";
 import { LocationSearch } from "./LocationSearch";
+
 import { cn } from "@/lib/utils";
 
 export function MapControls() {
@@ -88,13 +95,20 @@ export function MapControls() {
       >
         <NavigationControls activeGroup={activeGroup} onToggle={toggleGroup} />
         <EditingControls activeGroup={activeGroup} onToggle={toggleGroup} />
-        <AnalysisControls
+
+        <MeasurementGroup activeGroup={activeGroup} onToggle={toggleGroup} />
+        <VisualizationGroup activeGroup={activeGroup} onToggle={toggleGroup} />
+        <LabelControls activeGroup={activeGroup} onToggle={toggleGroup} />
+        <AnimationGroup activeGroup={activeGroup} onToggle={toggleGroup} />
+
+        <ValidationGroup
           activeGroup={activeGroup}
           onToggle={toggleGroup}
           onOpenAutoElevation={() => setShowAutoElevation(true)}
         />
+
         <DataControls activeGroup={activeGroup} onToggle={toggleGroup} />
-        <Settings activeGroup={activeGroup} onToggle={toggleGroup} />
+        <ProjectSettingsGroup activeGroup={activeGroup} onToggle={toggleGroup} />
       </div>
 
       {/* Modals */}
@@ -139,6 +153,8 @@ export function MapControls() {
         isOpen={controlManagerModalOpen}
         onClose={() => setControlManagerModalOpen(false)}
       />
+
+      <StyleSettingsModal />
     </>
   );
 }

@@ -13,21 +13,23 @@ import { useDeleteHandler } from "@/hooks/useDeleteHandler";
 import { useNetworkExport } from "@/hooks/useNetworkExport";
 import { useHistoryManager } from "@/hooks/useHistoryManager";
 import { useMeasurement } from "@/hooks/useMeasurement";
+import { useSnapping } from "@/hooks/useSnapping";
 
 // Stores & Types
 import { useMapStore } from "@/store/mapStore";
 import { useNetworkStore } from "@/store/networkStore";
 import { useUIStore } from "@/store/uiStore";
 
+import { handleZoomToExtent } from "@/lib/interactions/map-controls";
+
 // Components
 import { MapControls } from "./MapControls";
 import { AttributeTable } from "./AttributeTable";
 import { PropertyPanel } from "./PropertyPanel";
-import { useSnapping } from "@/hooks/useSnapping";
 import { DrawingToolbar } from "./DrawingToolbar";
 import { StatusBar } from "./StatusBar";
 import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
-import { handleZoomToExtent } from "@/lib/interactions/map-controls";
+import { Legend } from "./Legend";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -116,6 +118,7 @@ export function MapContainer() {
 
         <DrawingToolbar />
         <MapControls />
+        <Legend />
 
         {/* Panels */}
         <AttributeTable

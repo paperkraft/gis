@@ -63,6 +63,8 @@ interface UIState {
     isFlowAnimating: boolean;
     flowAnimationSpeed: number;
     flowAnimationStyle: FlowAnimationStyle;
+    styleSettingsModalOpen: boolean;
+
 
     // Actions - Sidebar
     toggleSidebar: () => void;
@@ -106,6 +108,7 @@ interface UIState {
     setIsFlowAnimating: (animating: boolean) => void;
     setFlowAnimationSpeed: (speed: number) => void;
     setFlowAnimationStyle: (style: FlowAnimationStyle) => void;
+    setStyleSettingsModalOpen: (open: boolean) => void;
 
     // Actions - Tab navigation
     setActiveTab: (tab: string) => void;
@@ -155,10 +158,12 @@ const DEFAULT_STATE = {
         pipe: true,
         pump: true,
     },
-    showLabels: true,
+    
+    showLabels: false,
     showPipeArrows: true,
 
     isSnappingEnabled: true,
+    styleSettingsModalOpen: false,
 };
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -189,6 +194,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     setShowPipeArrows: (show) => set({ showPipeArrows: show }),
     setShowLabels: (show) => set({ showLabels: show }),
     setIsSnappingEnabled: (enabled) => set({ isSnappingEnabled: enabled }),
+    setStyleSettingsModalOpen: (open) => set({ styleSettingsModalOpen: open }),
 
     // Map control actions
     setActiveTool: (tool) => {

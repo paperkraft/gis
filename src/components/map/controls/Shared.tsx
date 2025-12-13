@@ -51,7 +51,7 @@ export const ControlGroup = ({
             ? "bg-blue-600 text-white shadow-md shadow-blue-500/30"
             : "text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400"
         )}
-        title={label}
+        // title={label}
       >
         <Icon className="w-5 h-5" strokeWidth={2.5} />
         {!isOpen && <LeftTooltip text={label} />}
@@ -80,6 +80,7 @@ export const ToolBtn = ({
   label,
   colorClass = "text-gray-500 dark:text-gray-400",
   className,
+  disabled = false,
 }: {
   onClick: () => void;
   isActive?: boolean;
@@ -88,6 +89,7 @@ export const ToolBtn = ({
   label?: string;
   colorClass?: string;
   className?: string;
+  disabled?: boolean;
 }) => (
   <button
     onClick={onClick}
@@ -99,7 +101,8 @@ export const ToolBtn = ({
         : "hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200",
       className
     )}
-    title={title}
+    // title={title}
+    disabled={disabled}
     data-search-toggle={
       title === "Location Search" || title === "Search" ? "true" : undefined
     }
