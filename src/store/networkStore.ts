@@ -26,6 +26,7 @@ interface NetworkState {
 
     // Actions
     markSaved: () => void;
+    markUnSaved: () => void;
 
     setSelectedFeature: (feature: Feature | null) => void;
     addFeature: (feature: Feature) => void;
@@ -116,6 +117,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     },
 
     markSaved: () => set({ hasUnsavedChanges: false }),
+    markUnSaved: () => set({ hasUnsavedChanges: true }),
 
     loadProject: (data) => {
         const featureMap = new Map<string, Feature>();

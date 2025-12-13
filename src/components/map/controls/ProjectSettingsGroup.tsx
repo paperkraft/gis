@@ -1,14 +1,14 @@
 "use client";
-import { Database, Printer, Save, Settings2, SettingsIcon } from 'lucide-react';
-import { useParams } from 'next/navigation';
+import { Database, Printer, Save, Settings2, SettingsIcon } from "lucide-react";
+import { useParams } from "next/navigation";
 
-import { handlePrint } from '@/lib/interactions/map-controls';
-import { ProjectService } from '@/lib/services/ProjectService';
-import { useMapStore } from '@/store/mapStore';
-import { useNetworkStore } from '@/store/networkStore';
-import { useUIStore } from '@/store/uiStore';
+import { handlePrint } from "@/lib/interactions/map-controls";
+import { ProjectService } from "@/lib/services/ProjectService";
+import { useMapStore } from "@/store/mapStore";
+import { useNetworkStore } from "@/store/networkStore";
+import { useUIStore } from "@/store/uiStore";
 
-import { ControlGroup, StandaloneControl, ToolBtn } from './Shared';
+import { ControlGroup, StandaloneControl, ToolBtn } from "./Shared";
 
 interface SettingsProps {
   activeGroup: string | null;
@@ -17,7 +17,6 @@ interface SettingsProps {
 
 export function ProjectSettingsGroup({ activeGroup, onToggle }: SettingsProps) {
   const params = useParams();
-  const projectTitle = useNetworkStore((state) => state.settings.title);
   const map = useMapStore((state) => state.map);
 
   const {
@@ -31,7 +30,7 @@ export function ProjectSettingsGroup({ activeGroup, onToggle }: SettingsProps) {
 
   const handleSave = () => {
     if (params.id) {
-      ProjectService.saveCurrentProject(params.id as string, projectTitle);
+      ProjectService.saveCurrentProject(params.id as string);
       alert("Project Saved!");
     }
   };
@@ -71,7 +70,11 @@ export function ProjectSettingsGroup({ activeGroup, onToggle }: SettingsProps) {
         isActive={false}
         icon={Save}
         title="Save Network"
-        colorClass={hasUnsavedChanges ? "text-amber-600 dark:text-amber-500 animate-pulse" : ""}
+        colorClass={
+          hasUnsavedChanges
+            ? "text-amber-600 dark:text-amber-500 animate-pulse"
+            : ""
+        }
       />
     </>
   );

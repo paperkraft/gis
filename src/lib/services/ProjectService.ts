@@ -81,7 +81,7 @@ export class ProjectService {
     }
 
     // --- WRITE (Save/Update) ---
-    static async saveCurrentProject(id: string, name: string) {
+    static async saveCurrentProject(id: string, name?: string) {
         const store = useNetworkStore.getState();
 
         // Serialize OpenLayers Features to JSON
@@ -104,7 +104,7 @@ export class ProjectService {
 
         const projectData = {
             features,
-            settings: { ...store.settings, title: name },
+            settings: { ...store.settings, title: name ?? store.settings.title },
             patterns: store.patterns,
             curves: store.curves,
             controls: store.controls
@@ -134,8 +134,14 @@ export class ProjectService {
             console.log("Project saved to database.");
 
             store.markSaved();
+            return {
+                success: true,
+            }
         } catch (e) {
             console.error("Save failed", e);
+            return {
+                success: false,
+            }
         }
     }
 
