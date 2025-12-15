@@ -4,11 +4,10 @@ import Map from 'ol/Map';
 import VectorSource from 'ol/source/Vector';
 import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style';
 
-import { COMPONENT_TYPES, SNAPPING_TOLERANCE } from '@/constants/networkComponents';
 import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
-import { useUIStore } from '@/store/uiStore';
 import { FeatureType } from '@/types/network';
+import { NetworkFactory } from './networkFactory';
 
 export class PipeDrawingManager {
     private map: Map;
@@ -579,54 +578,40 @@ export class PipeDrawingManager {
     }
 
     private createNode(coordinate: number[], type: FeatureType): Feature {
-        const feature = new Feature({ geometry: new Point(coordinate) });
-        const store = useNetworkStore.getState();
-        const id = store.generateUniqueId(type);
-        feature.setId(id);
-        feature.setProperties({ ...COMPONENT_TYPES[type].defaultProperties, type: type, isNew: true, id: id, label: id, connectedLinks: [] });
+        const feature = NetworkFactory.createNode(type, coordinate);
+
+        // Add to OL Source (View)
         this.vectorSource.addFeature(feature);
-        store.addFeature(feature);
+
+        // Add to Store (Data)
+        useNetworkStore.getState().addFeature(feature);
         return feature;
     }
 
     private createPipe(coords: number[][], startNode: Feature, endNode: Feature) {
-        const feature = new Feature({ geometry: new LineString(coords) });
-        const store = useNetworkStore.getState();
-        const id = store.generateUniqueId("pipe");
-        feature.setId(id);
-        feature.setProperties({
-            ...COMPONENT_TYPES.pipe.defaultProperties, type: 'pipe', isNew: true, id: id, label: id,
-            startNodeId: startNode.getId(), endNodeId: endNode.getId(),
-            length: this.calculatePipeLength(feature.getGeometry() as LineString),
-        });
+        const feature = NetworkFactory.createPipe(coords, startNode, endNode);
+
         this.vectorSource.addFeature(feature);
+
+        const store = useNetworkStore.getState();
         store.addFeature(feature);
-        store.updateNodeConnections(startNode.getId() as string, id, "add");
-        store.updateNodeConnections(endNode.getId() as string, id, "add");
+
+        // Update Topology
+        store.updateNodeConnections(startNode.getId() as string, feature.getId() as string, "add");
+        store.updateNodeConnections(endNode.getId() as string, feature.getId() as string, "add");
     }
 
     private createLinkBetweenNodes(node1: Feature, node2: Feature, type: 'pump' | 'valve') {
+        const [component, visual] = NetworkFactory.createComplexLink(type, node1, node2);
+
+        this.vectorSource.addFeatures([component, visual]);
+
         const store = useNetworkStore.getState();
-        const id = store.generateUniqueId(type);
-        const start = (node1.getGeometry() as Point).getCoordinates();
-        const end = (node2.getGeometry() as Point).getCoordinates();
-        const mid = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
+        store.addFeature(component);
+        store.addFeature(visual);
 
-        const feature = new Feature({ geometry: new Point(mid) });
-        feature.setId(id);
-        feature.setProperties({
-            ...COMPONENT_TYPES[type].defaultProperties, type: type, isNew: true, id: id, label: id,
-            startNodeId: node1.getId(), endNodeId: node2.getId()
-        });
-        this.vectorSource.addFeature(feature);
-        store.addFeature(feature);
-
-        const visual = new Feature({ geometry: new LineString([start, end]) });
-        visual.set('isVisualLink', true);
-        visual.set('parentLinkId', id);
-        visual.set('linkType', type);
-        this.vectorSource.addFeature(visual);
-
+        // Update Topology
+        const id = component.getId() as string;
         store.updateNodeConnections(node1.getId() as string, id, "add");
         store.updateNodeConnections(node2.getId() as string, id, "add");
     }

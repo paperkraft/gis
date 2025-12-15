@@ -1,28 +1,20 @@
 "use client";
 import {
-  Info,
-  Link as LinkIcon,
-  Save,
-  Trash2,
-  X,
-  RefreshCw,
-  Mountain,
-  Activity,
-  Scan,
-  ArrowRightLeft,
-  Settings2,
-} from "lucide-react";
-import React, { useEffect, useState } from "react";
-import { Point, LineString } from "ol/geom";
-import { ElevationService } from "@/lib/services/ElevationService";
-import { Button } from "@/components/ui/button";
-import { COMPONENT_TYPES } from "@/constants/networkComponents";
-import { useNetworkStore } from "@/store/networkStore";
-import { useSimulationStore } from "@/store/simulationStore";
-import { useMapStore } from "@/store/mapStore";
-import { NetworkFeatureProperties } from "@/types/network";
-import { ResultChart } from "@/components/simulation/ResultChart";
-import { cn } from "@/lib/utils";
+    Activity, ArrowRightLeft, Focus, Info, Link as LinkIcon, Mountain, RefreshCw, Save, Settings2,
+    Trash2, X
+} from 'lucide-react';
+import { LineString, Point } from 'ol/geom';
+import React, { useEffect, useState } from 'react';
+
+import { ResultChart } from '@/components/simulation/ResultChart';
+import { Button } from '@/components/ui/button';
+import { COMPONENT_TYPES } from '@/constants/networkComponents';
+import { ElevationService } from '@/lib/services/ElevationService';
+import { cn } from '@/lib/utils';
+import { useMapStore } from '@/store/mapStore';
+import { useNetworkStore } from '@/store/networkStore';
+import { useSimulationStore } from '@/store/simulationStore';
+import { NetworkFeatureProperties } from '@/types/network';
 
 interface PropertyPanelProps {
   properties: NetworkFeatureProperties;
@@ -265,7 +257,7 @@ export function PropertyPanel({
   };
 
   return (
-    <div className="absolute top-4 right-4 w-80 max-h-[calc(100vh-7rem)] overflow-hidden flex flex-col z-20 rounded-2xl shadow-2xl border border-white/20 dark:border-gray-700/50 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md animate-in slide-in-from-right-4 duration-300">
+    <div className="absolute top-4 right-4 w-80 max-h-[calc(100vh-7rem)] overflow-hidden flex flex-col z-20 rounded-2xl shadow-2xl border border-white/20 dark:border-gray-700/50 bg-white dark:bg-gray-900/90 backdrop-blur-md animate-in slide-in-from-right-4 duration-300">
       
       {/* HEADER */}
       <div className="px-4 py-3 border-b border-gray-200/50 dark:border-gray-700/50 flex items-center justify-between shrink-0 bg-gray-50/50 dark:bg-gray-800/50">
@@ -287,7 +279,7 @@ export function PropertyPanel({
             <Trash2 className="size-4" />
           </button>
           <button onClick={handleZoomToFeature} className="p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-blue-500 transition-colors" title="Zoom">
-            <Scan className="size-4" />
+            <Focus className="size-4" />
           </button>
           <button onClick={handleClose} className="p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-red-500 transition-colors" title="Close">
             <X className="size-4" />

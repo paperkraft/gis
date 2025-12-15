@@ -1,21 +1,14 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
 import {
-  X,
-  Table,
-  Activity,
-  Droplets,
-  Clock,
-  ChevronLeft,
-  ChevronRight,
-  BarChart,
-  Download,
-  ChevronDown,
-} from "lucide-react";
-import { useSimulationStore } from "@/store/simulationStore";
-import { Button } from "@/components/ui/button";
-import { ResultExporter } from "@/lib/export/resultExporter";
+    Activity, BarChart, ChevronDown, ChevronLeft, ChevronRight, Clock, Download, Droplets, Table, X
+} from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+import { Button } from '@/components/ui/button';
+import { ResultExporter } from '@/lib/export/resultExporter';
+import { cn } from '@/lib/utils';
+import { useSimulationStore } from '@/store/simulationStore';
 
 interface SimulationReportModalProps {
   isOpen: boolean;
@@ -58,7 +51,7 @@ export function SimulationReportModal({
     return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
   };
 
-  // Memoized Summary Data (Keep existing logic)
+  // Memoized Summary Data
   const summaryData = useMemo(() => {
     if (reportMode !== "summary" || !history || history.snapshots.length === 0)
       return null;
@@ -125,7 +118,6 @@ export function SimulationReportModal({
 
   if (!isOpen || !results || !history) return null;
 
-  // Value color helper (Keep existing)
   const getValueColor = (value: number, type: "pressure" | "velocity") => {
     if (type === "pressure") {
       if (value < 20) return "text-red-600 font-bold";
@@ -137,7 +129,7 @@ export function SimulationReportModal({
       if (value < 0.5) return "text-orange-600 font-bold";
       return "text-green-600";
     }
-    return "text-gray-900";
+    return "text-gray-900 dark:text-gray-300";
   };
 
   const currentNodeList = Object.values(results.nodes);
@@ -201,28 +193,29 @@ export function SimulationReportModal({
                   </div>
                 )}
               </div>
-              {/* --------------------- */}
 
               <div className="flex bg-gray-200 dark:bg-gray-700 rounded-lg p-1">
                 <button
                   onClick={() => setReportMode("instant")}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
                     reportMode === "instant"
                       ? "bg-white dark:bg-gray-600 text-indigo-600 shadow-xs"
                       : "text-gray-600 dark:text-gray-400 hover:text-gray-900"
-                  }`}
+                  )}
                 >
-                  Time Step View
+                  Time Step
                 </button>
                 <button
                   onClick={() => setReportMode("summary")}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
                     reportMode === "summary"
                       ? "bg-white dark:bg-gray-600 text-indigo-600 shadow-xs"
                       : "text-gray-600 dark:text-gray-400 hover:text-gray-900"
-                  }`}
+                  )}
                 >
-                  Daily Summary
+                  Summary
                 </button>
               </div>
 
@@ -236,28 +229,38 @@ export function SimulationReportModal({
           </div>
         </div>
 
-        {/* CONTROLS & TABLE (Same as before) */}
+        {/* CONTROLS & TABLE */}
         <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between shrink-0">
           <div className="flex gap-4">
             <button
               onClick={() => setActiveTab("nodes")}
-              className={`pb-1 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+              className={cn(
+                "pb-1 text-sm font-medium border-b-2 transition-colors flex items-center gap-2",
                 activeTab === "nodes"
                   ? "border-indigo-500 text-indigo-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
+              )}
             >
-              <Activity className="w-4 h-4" /> Nodes
+              <Activity className="w-4 h-4" /> 
+              Nodes 
+              <span className="ml-1 text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full text-gray-600 dark:text-gray-300">
+                {currentNodeList.length}
+              </span>
             </button>
             <button
               onClick={() => setActiveTab("links")}
-              className={`pb-1 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+              className={cn(
+                "pb-1 text-sm font-medium border-b-2 transition-colors flex items-center gap-2",
                 activeTab === "links"
                   ? "border-blue-500 text-blue-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
+              )}
             >
-              <Droplets className="w-4 h-4" /> Links
+              <Droplets className="w-4 h-4" /> 
+              Links
+              <span className="ml-1 text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full text-gray-600 dark:text-gray-300">
+                {currentLinkList.length}
+              </span>
             </button>
           </div>
 
@@ -355,10 +358,10 @@ export function SimulationReportModal({
                       </td>
                       {reportMode === "instant" ? (
                         <>
-                          <td className="px-6 py-3 text-gray-600">
+                          <td className="px-6 py-3 text-gray-600 dark:text-gray-300">
                             {node.demand.toFixed(2)}
                           </td>
-                          <td className="px-6 py-3 text-gray-600">
+                          <td className="px-6 py-3 text-gray-600 dark:text-gray-300">
                             {node.head.toFixed(2)}
                           </td>
                           <td
@@ -388,7 +391,7 @@ export function SimulationReportModal({
                           >
                             {stats?.maxPres.toFixed(2)}
                           </td>
-                          <td className="px-6 py-3 text-gray-600">
+                          <td className="px-6 py-3 text-gray-600 dark:text-gray-300">
                             {stats?.avgPres.toFixed(2)}
                           </td>
                         </>
@@ -411,8 +414,8 @@ export function SimulationReportModal({
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wide ${
                             link.status === "Open"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-gray-100 text-gray-600"
+                              ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                              : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
                           }`}
                         >
                           {link.status}
@@ -420,7 +423,7 @@ export function SimulationReportModal({
                       </td>
                       {reportMode === "instant" ? (
                         <>
-                          <td className="px-6 py-3 text-gray-600">
+                          <td className="px-6 py-3 text-gray-600 dark:text-gray-300">
                             {Math.abs(link.flow).toFixed(2)}
                           </td>
                           <td
@@ -431,13 +434,13 @@ export function SimulationReportModal({
                           >
                             {link.velocity.toFixed(2)}
                           </td>
-                          <td className="px-6 py-3 text-gray-500">
+                          <td className="px-6 py-3 text-gray-500 dark:text-gray-400">
                             {link.headloss.toFixed(4)}
                           </td>
                         </>
                       ) : (
                         <>
-                          <td className="px-6 py-3 font-mono text-gray-700 font-bold">
+                          <td className="px-6 py-3 font-mono text-gray-700 dark:text-gray-300 font-bold">
                             {stats?.maxFlow.toFixed(2)}
                           </td>
                           <td

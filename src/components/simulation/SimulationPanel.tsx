@@ -1,26 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
-  Play,
-  Pause,
-  RotateCcw,
-  AlertCircle,
-  Activity,
-  Clock,
-  ChevronRight,
-  ChevronLeft,
-  FileText,
-  Terminal,
-  CheckCircle2,
-  Loader2,
-  X,
-} from "lucide-react";
-import { useSimulationStore } from "@/store/simulationStore";
-import { useNetworkStore } from "@/store/networkStore";
-import { useUIStore } from "@/store/uiStore";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+    Activity, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Download, FileText,
+    Loader2, Pause, Play, RotateCcw, Terminal, X
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+
+import { Button } from '@/components/ui/button';
+import { generateINP } from '@/lib/export/inpWriter';
+import { cn } from '@/lib/utils';
+import { useNetworkStore } from '@/store/networkStore';
+import { useSimulationStore } from '@/store/simulationStore';
+import { useUIStore } from '@/store/uiStore';
 
 export function SimulationPanel() {
   const { features } = useNetworkStore();
@@ -52,8 +43,13 @@ export function SimulationPanel() {
         "> Iterating time steps (0-24)...",
       ]);
     } else if (status === "completed") {
+      // NEW: Show counts in log
+      const nodeCount = Object.keys(results?.nodes || {}).length;
+      const linkCount = Object.keys(results?.links || {}).length;
+
       setLogs((prev) => [
         ...prev,
+        `> Solved: ${nodeCount} Nodes, ${linkCount} Links`,
         "> Convergence achieved (0.001)",
         "> Results generated successfully.",
         "> Ready for playback.",
@@ -84,6 +80,25 @@ export function SimulationPanel() {
   const handleClose = () => {
     resetSimulation();
     setActiveTab("network-editor");
+  };
+
+  const handleDownloadInput = () => {
+    try {
+      const inpContent = generateINP(Array.from(features.values()));
+      const blob = new Blob([inpContent], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "simulation_input.inp";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setLogs((prev) => [...prev, "> Input file downloaded."]);
+    } catch (e) {
+      console.error(e);
+      setLogs((prev) => [...prev, "> Error generating INP file."]);
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -191,6 +206,16 @@ export function SimulationPanel() {
 
         {/* CONTROLS ROW */}
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleDownloadInput}
+            title="Download Generated INP File"
+            className="border-gray-200 dark:border-gray-700 text-gray-500 hover:text-blue-600"
+          >
+            <Download className="w-4 h-4" />
+          </Button>
+
           <Button
             onClick={handleRun}
             disabled={status === "running" || features.size === 0}

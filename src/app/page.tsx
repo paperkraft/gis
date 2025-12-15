@@ -18,23 +18,31 @@ import { NewProjectModal } from "@/components/modals/NewProjectModal";
 export default function Dashboard() {
   const router = useRouter();
   const [projects, setProjects] = useState<ProjectMetadata[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const loadProjects = async () => {
+    setLoading(true);
+    const data = await ProjectService.getProjects();
+    setProjects(data);
+    setLoading(false);
+  };
+
   useEffect(() => {
     // Load projects on mount
-    setProjects(ProjectService.getProjects());
+    loadProjects();
   }, []);
 
   const handleCreate = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (e: React.MouseEvent, id: string) => {
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (confirm("Are you sure you want to delete this project?")) {
-      ProjectService.deleteProject(id);
-      setProjects(ProjectService.getProjects());
+      await ProjectService.deleteProject(id);
+      loadProjects(); // Refresh list
     }
   };
 
@@ -147,7 +155,7 @@ export default function Dashboard() {
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
-          setProjects(ProjectService.getProjects());
+          loadProjects();
         }}
       />
     </div>

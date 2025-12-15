@@ -34,7 +34,7 @@ export function EditingControls({
     <ControlGroup
       id="edit"
       icon={BoxSelect}
-      label="Editing"
+      label="Selection & Editing"
       isActiveGroup={isEditingActive}
       activeGroup={activeGroup}
       onToggle={onToggle}

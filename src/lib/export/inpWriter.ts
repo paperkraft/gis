@@ -9,8 +9,12 @@ function getId(f: Feature): string {
     return id ? String(id).trim() : 'UNKNOWN_ID';
 }
 
+// FIX: Robust padding and number checking
 function pad(val: any, width: number = 16): string {
-    const str = String(val);
+    let str = '0';
+    if (val !== undefined && val !== null && !Number.isNaN(val)) {
+        str = String(val);
+    }
     if (str.length >= width) return str + ' ';
     return str.padEnd(width, ' ');
 }
@@ -24,8 +28,6 @@ export function generateINP(
 ): string {
     const lines: string[] = [];
 
-
-    // 1. Resolve Data Sources
     const store = useNetworkStore.getState();
     const settings = customSettings || store.settings;
     const patterns = customPatterns || store.patterns || [];
@@ -34,6 +36,7 @@ export function generateINP(
 
     const targetProjection = settings.projection || 'EPSG:3857';
     const mapProjection = 'EPSG:3857';
+    const shouldTransform = targetProjection !== mapProjection && targetProjection !== 'Simple';
 
     const hasPattern1 = patterns.some(p => p.id === "1");
     const safePatterns = [...patterns];
@@ -41,12 +44,18 @@ export function generateINP(
         safePatterns.push({ id: "1", description: "Default", multipliers: Array(24).fill(1.0) });
     }
 
-    const junctions = features.filter(f => f.get('type') === 'junction');
-    const reservoirs = features.filter(f => f.get('type') === 'reservoir');
-    const tanks = features.filter(f => f.get('type') === 'tank');
-    const pipes = features.filter(f => f.get('type') === 'pipe');
-    const pumps = features.filter(f => f.get('type') === 'pump');
-    const valves = features.filter(f => f.get('type') === 'valve');
+    // FIX: Case-insensitive type matching
+    const getByType = (type: string) => features.filter(f => {
+        const t = f.get('type');
+        return t && t.toString().toLowerCase() === type.toLowerCase();
+    });
+
+    const junctions = getByType('junction');
+    const reservoirs = getByType('reservoir');
+    const tanks = getByType('tank');
+    const pipes = getByType('pipe');
+    const pumps = getByType('pump');
+    const valves = getByType('valve');
 
     const allIds = new Set(features.map(getId));
 
@@ -107,14 +116,16 @@ export function generateINP(
         lines.push('');
     }
 
-    // --- 6. NETWORK DATA (Components First!) ---
+    // --- 6. NETWORK DATA ---
     if (junctions.length > 0) {
         lines.push('[JUNCTIONS]');
         lines.push(';ID              Elevation    Demand       Pattern');
         junctions.forEach(f => {
             const props = f.getProperties() as NetworkFeatureProperties;
             const pat = hasPattern1 ? "1" : "";
-            lines.push(`${pad(getId(f))} ${pad(props.elevation || 0)} ${pad(props.demand || 0)}                ${pat}   ;`);
+            const elev = props.elevation !== undefined ? props.elevation : 0;
+            const dem = props.demand !== undefined ? props.demand : 0;
+            lines.push(`${pad(getId(f))} ${pad(elev)} ${pad(dem)}                ${pat}   ;`);
         });
         lines.push('');
     }
@@ -124,7 +135,8 @@ export function generateINP(
         lines.push(';ID              Head         Pattern');
         reservoirs.forEach(f => {
             const props = f.getProperties() as NetworkFeatureProperties;
-            lines.push(`${pad(getId(f))} ${pad(props.head || 0)}                ;`);
+            const head = props.head !== undefined ? props.head : 100;
+            lines.push(`${pad(getId(f))} ${pad(head)}                ;`);
         });
         lines.push('');
     }
@@ -134,7 +146,7 @@ export function generateINP(
         lines.push(';ID              Elevation    InitLevel    MinLevel     MaxLevel     Diameter     MinVol       VolCurve');
         tanks.forEach(f => {
             const props = f.getProperties() as NetworkFeatureProperties;
-            lines.push(`${pad(getId(f))} ${pad(props.elevation || 0)} ${pad(props.initLevel || 0)} ${pad(props.minLevel || 0)} ${pad(props.maxLevel || 0)} ${pad(props.diameter || 0)} 0            ;`);
+            lines.push(`${pad(getId(f))} ${pad(props.elevation)} ${pad(props.initLevel)} ${pad(props.minLevel)} ${pad(props.maxLevel)} ${pad(props.diameter)} 0            ;`);
         });
         lines.push('');
     }
@@ -146,7 +158,11 @@ export function generateINP(
             const props = f.getProperties() as NetworkFeatureProperties;
             const node1 = props.startNodeId || '0';
             const node2 = props.endNodeId || '0';
-            lines.push(`${pad(getId(f))} ${pad(node1)} ${pad(node2)} ${pad(props.length || 0)} ${pad(props.diameter || 0)} ${pad(props.roughness || 100)} 0            ${props.status || 'Open'}`);
+            const len = props.length || 10;
+            const diam = props.diameter || 100;
+            const rough = props.roughness || 100;
+            const status = props.status || 'Open';
+            lines.push(`${pad(getId(f))} ${pad(node1)} ${pad(node2)} ${pad(len)} ${pad(diam)} ${pad(rough)} 0            ${status}`);
         });
         lines.push('');
     }
@@ -158,7 +174,8 @@ export function generateINP(
             const props = f.getProperties() as NetworkFeatureProperties;
             const node1 = props.startNodeId || '0';
             const node2 = props.endNodeId || '0';
-            lines.push(`${pad(getId(f))} ${pad(node1)} ${pad(node2)} POWER ${props.power || 50}`);
+            const power = props.power || 50;
+            lines.push(`${pad(getId(f))} ${pad(node1)} ${pad(node2)} POWER ${power}`);
         });
         lines.push('');
     }
@@ -170,7 +187,7 @@ export function generateINP(
             const props = f.getProperties() as NetworkFeatureProperties;
             const node1 = props.startNodeId || '0';
             const node2 = props.endNodeId || '0';
-            lines.push(`${pad(getId(f))} ${pad(node1)} ${pad(node2)} ${pad(props.diameter || 0)} ${props.valveType || 'PRV'} ${props.setting || 0} 0`);
+            lines.push(`${pad(getId(f))} ${pad(node1)} ${pad(node2)} ${pad(props.diameter)} ${props.valveType || 'PRV'} ${props.setting || 0} 0`);
         });
         lines.push('');
     }
@@ -180,12 +197,16 @@ export function generateINP(
     [...junctions, ...reservoirs, ...tanks].forEach(f => {
         const geom = f.getGeometry() as Point;
         let coords = geom.getCoordinates();
-        // TRANSFORM: Map (3857) -> Project Setting
-        if (targetProjection !== mapProjection) {
-            coords = transform(coords, mapProjection, targetProjection);
+
+        if (shouldTransform) {
+            try {
+                coords = transform(coords, mapProjection, targetProjection);
+            } catch (e) { }
         }
 
-        lines.push(`${pad(getId(f))} ${pad(coords[0])} ${pad(coords[1])}`);
+        const x = coords[0].toFixed(6);
+        const y = coords[1].toFixed(6);
+        lines.push(`${pad(getId(f))} ${pad(x)} ${pad(y)}`);
     });
     lines.push('');
 
@@ -194,17 +215,20 @@ export function generateINP(
     [...pipes].forEach(f => {
         const geom = f.getGeometry() as LineString;
         let coords = geom.getCoordinates();
-        // TRANSFORM: Map (3857) -> Project Setting
-        if (targetProjection !== mapProjection) {
-            coords = coords.map(c => transform(c, mapProjection, targetProjection));
+
+        if (shouldTransform) {
+            try {
+                coords = coords.map(c => transform(c, mapProjection, targetProjection));
+            } catch (e) { }
         }
+
         for (let i = 1; i < coords.length - 1; i++) {
-            lines.push(`${pad(getId(f))} ${pad(coords[i][0])} ${pad(coords[i][1])}`);
+            lines.push(`${pad(getId(f))} ${pad(coords[i][0].toFixed(6))} ${pad(coords[i][1].toFixed(6))}`);
         }
     });
     lines.push('');
 
-    // --- 7. CONTROLS (MOVED TO LAST SECTION) ---
+    // --- 7. CONTROLS ---
     if (controls.length > 0) {
         const validControls = controls.filter(c => {
             if (!c.linkId || !allIds.has(c.linkId)) return false;

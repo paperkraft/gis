@@ -6,6 +6,7 @@ import { createCombinedFlowStyles } from '@/lib/styles/animatedFlowStyles';
 import { getFeatureStyle } from '@/lib/styles/featureStyles';
 import { useSimulationStore } from '@/store/simulationStore';
 import { useUIStore } from '@/store/uiStore';
+import { useStyleStore } from '@/store/styleStore';
 
 interface UseLayerManagerProps {
     vectorLayer: VectorLayer<any> | null;
@@ -23,7 +24,16 @@ export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
         flowAnimationStyle
     } = useUIStore();
 
-    const { results } = useSimulationStore();
+    // 2. Get Simulation & Style State
+    const { results: simulationResults } = useSimulationStore();
+    const {
+        colorMode,
+        labelMode,
+        minMax,
+        gradientStops,
+        styleType,
+        classCount
+    } = useStyleStore();
 
     // Local State for Animation
     const animationRef = useRef<number | null>(null);
@@ -44,7 +54,6 @@ export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
 
         const animate = () => {
             if (vectorLayer) {
-                // Trigger map re-render (calls the style function)
                 vectorLayer.changed();
             }
             animationRef.current = requestAnimationFrame(animate);
@@ -121,6 +130,13 @@ export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
         isFlowAnimating,
         flowAnimationSpeed,
         flowAnimationStyle,
-        results
+
+        simulationResults,
+        colorMode,
+        labelMode,
+        minMax,
+        gradientStops,
+        styleType,
+        classCount
     ]);
 }

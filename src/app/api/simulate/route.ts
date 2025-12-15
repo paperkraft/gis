@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Project, Workspace } from "epanet-js";
 
+// EPANET Constants
+const EN_NODECOUNT = 0;
+const EN_TANKCOUNT = 1;
+const EN_LINKCOUNT = 2;
+
 // EPANET Parameter Codes
 const EN_DEMAND = 9;
 const EN_HEAD = 10;
@@ -29,6 +34,14 @@ export async function POST(req: NextRequest) {
 
         // 2. Initialize Simulation
         await model.open(inputFileName, reportFileName, outputFileName);
+
+        const nodeCount = await model.getCount(EN_NODECOUNT);
+        const linkCount = await model.getCount(EN_LINKCOUNT);
+
+        if (nodeCount === 0 && linkCount === 0) {
+            throw new Error("EPANET failed to load any network elements. Check INP format.");
+        }
+
         await model.openH();
         await model.initH(0);
 
@@ -47,7 +60,6 @@ export async function POST(req: NextRequest) {
             const linkResults: Record<string, any> = {};
 
             // Nodes
-            const nodeCount = await model.getCount(1); // 1 = CountNodes
             for (let i = 1; i <= nodeCount; i++) {
                 const id = await model.getNodeId(i);
                 nodeResults[id] = {
@@ -59,7 +71,6 @@ export async function POST(req: NextRequest) {
             }
 
             // Links
-            const linkCount = await model.getCount(2); // 2 = CountLinks
             for (let i = 1; i <= linkCount; i++) {
                 const id = await model.getLinkId(i);
                 const statusVal = await model.getLinkValue(i, EN_STATUS);
@@ -81,9 +92,7 @@ export async function POST(req: NextRequest) {
                 timestamp: Date.now()
             });
 
-            // C. Advance Time (Critical Step!)
-            // nextH() calculates the time until the next hydraulic event
-            // If tStep > 0, simulation continues. If tStep = 0, simulation ends.
+            // C. Advance Time
             tStep = await model.nextH();
 
         } while (tStep > 0);
@@ -91,8 +100,6 @@ export async function POST(req: NextRequest) {
         // 4. Cleanup
         await model.closeH();
         await model.close();
-
-        console.log(`✅ Simulation completed. Generated ${timestamps.length} time steps.`);
 
         // 5. Response
         return NextResponse.json({
@@ -102,9 +109,15 @@ export async function POST(req: NextRequest) {
         });
 
     } catch (error) {
-        console.error("Simulation Server Error:", error);
+        let details = String(error);
+        try {
+            const report = ws.readFile("report.rpt");
+            if (report) details += "\nEPANET Report:\n" + report;
+        } catch (e) { }
+
+        console.error("Simulation Failed:", details);
         return NextResponse.json(
-            { error: "Simulation failed", details: String(error) },
+            { error: "Simulation failed", details },
             { status: 500 }
         );
     }

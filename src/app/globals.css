@@ -129,8 +129,15 @@
 }
 
 .ol-attribution {
+  bottom: 2.15rem !important;
+  right: 0.5rem !important;
   display: none !important;
 }
+
+.ol-scale-line {
+  bottom: 2.15rem !important;
+}
+
 /* Added: Style for DragBox selection */
 .ol-dragbox {
   background-color: rgba(59, 130, 246, 0.1) !important; /* Faint light blue */

@@ -10,11 +10,13 @@ export class VertexLayerManager {
     private networkSource: VectorSource;
     private vertexSource: VectorSource;
     private vertexLayer: VectorLayer<VectorSource>;
+    private debounceTimeout: any = null;
 
     constructor(map: Map, networkSource: VectorSource) {
         this.map = map;
         this.networkSource = networkSource;
         this.vertexSource = new VectorSource();
+
 
         // Create vertex layer with custom style
         this.vertexLayer = new VectorLayer({
@@ -23,15 +25,14 @@ export class VertexLayerManager {
                 name: 'vertex-layer',
                 title: 'Pipe Vertices',
             },
-            // Use the shared style function to ensure consistent sizing (radius: 4)
             style: (feature) => {
                 return getVertexStyle({
                     isEndpoint: feature.get('isEndpoint'),
                 });
             },
             zIndex: 150,
-            updateWhileAnimating: true,
-            updateWhileInteracting: true,
+            updateWhileAnimating: false,
+            updateWhileInteracting: false,
         });
 
         this.map.addLayer(this.vertexLayer);
@@ -44,10 +45,19 @@ export class VertexLayerManager {
     }
 
     private setupListeners() {
+        // Debounce update function to prevent massive lag during bulk imports
+        const debouncedUpdate = () => {
+            if (this.debounceTimeout) {
+                clearTimeout(this.debounceTimeout);
+            }
+            this.debounceTimeout = setTimeout(() => {
+                this.updateVertices();
+            }, 50); // 50ms delay
+        };
         // Update vertices when features are added/removed/changed
-        this.networkSource.on('addfeature', () => this.updateVertices());
-        this.networkSource.on('removefeature', () => this.updateVertices());
-        this.networkSource.on('changefeature', () => this.updateVertices());
+        this.networkSource.on('addfeature', debouncedUpdate);
+        this.networkSource.on('removefeature', debouncedUpdate);
+        this.networkSource.on('changefeature', debouncedUpdate);
     }
 
     private updateVertices() {
@@ -55,7 +65,9 @@ export class VertexLayerManager {
         this.vertexSource.clear();
 
         const features = this.networkSource.getFeatures();
-        // let vertexCount = 0;
+
+        // Batch creating features
+        const vertexFeatures: Feature[] = [];
 
         features.forEach((feature) => {
             // Only process pipes (LineString geometries)
@@ -85,9 +97,13 @@ export class VertexLayerManager {
                 vertexFeature.set('vertexIndex', i);
                 vertexFeature.set('isEndpoint', false); // Always false for internal vertices
 
-                this.vertexSource.addFeature(vertexFeature);
+                vertexFeatures.push(vertexFeature);
             }
         });
+
+        if (vertexFeatures.length > 0) {
+            this.vertexSource.addFeatures(vertexFeatures);
+        }
     }
 
     public setVisible(visible: boolean) {
@@ -95,6 +111,7 @@ export class VertexLayerManager {
     }
 
     public cleanup() {
+        if (this.debounceTimeout) clearTimeout(this.debounceTimeout);
         this.map.removeLayer(this.vertexLayer);
         this.vertexSource.clear();
     }

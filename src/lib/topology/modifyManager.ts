@@ -7,6 +7,7 @@ import { LineString, Point } from 'ol/geom';
 import { VertexStyles, getVertexStyle } from '@/lib/styles/vertexStyles';
 import { LinkModifyManager } from './linkModifyManager';
 import { getSelectedStyle } from '../styles/featureStyles';
+import { useNetworkStore } from '@/store/networkStore';
 
 export class ModifyManager {
     private map: Map;
@@ -72,6 +73,7 @@ export class ModifyManager {
             });
             this.modifyStartCoordinates = {};
             this.vectorSource.changed();
+            useNetworkStore.getState().markUnSaved();
         });
 
         this.map.addInteraction(this.modifyInteraction);

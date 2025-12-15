@@ -1,6 +1,6 @@
 "use client";
 import "ol/ol.css";
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 
 // Hooks
 import { useMapInitialization } from "@/hooks/useMapInitialization";
@@ -13,20 +13,23 @@ import { useDeleteHandler } from "@/hooks/useDeleteHandler";
 import { useNetworkExport } from "@/hooks/useNetworkExport";
 import { useHistoryManager } from "@/hooks/useHistoryManager";
 import { useMeasurement } from "@/hooks/useMeasurement";
+import { useSnapping } from "@/hooks/useSnapping";
 
 // Stores & Types
 import { useMapStore } from "@/store/mapStore";
 import { useNetworkStore } from "@/store/networkStore";
 import { useUIStore } from "@/store/uiStore";
 
+import { handleZoomToExtent } from "@/lib/interactions/map-controls";
+
 // Components
 import { MapControls } from "./MapControls";
 import { AttributeTable } from "./AttributeTable";
 import { PropertyPanel } from "./PropertyPanel";
-import { useSnapping } from "@/hooks/useSnapping";
 import { DrawingToolbar } from "./DrawingToolbar";
 import { StatusBar } from "./StatusBar";
 import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
+import { Legend } from "./Legend";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -45,7 +48,25 @@ export function MapContainer() {
   } = useUIStore();
 
   // Get setSelectedFeature to update global state when selection changes
-  const { selectedFeature, setSelectedFeature } = useNetworkStore();
+  const { selectedFeature, setSelectedFeature, features } = useNetworkStore();
+
+  // --- SYNC FIX: Ensure map has features from store ---
+  useEffect(() => {
+    if (
+      vectorSource &&
+      features.size > 0 &&
+      vectorSource.getFeatures().length === 0
+    ) {
+      vectorSource.addFeatures(Array.from(features.values()));
+
+      // Auto-zoom after sync
+      if (map) {
+        setTimeout(() => {
+          handleZoomToExtent(map);
+        }, 200);
+      }
+    }
+  }, [vectorSource, features, map]);
 
   // Setup Interactions
   useMapInteractions({
@@ -97,6 +118,7 @@ export function MapContainer() {
 
         <DrawingToolbar />
         <MapControls />
+        <Legend />
 
         {/* Panels */}
         <AttributeTable

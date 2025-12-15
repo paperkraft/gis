@@ -98,7 +98,8 @@ export const switchBaseLayer = (map: Map, activeLayerId: layerType) => {
 // India Boundary Layer (Vector GeoJSON)
 export const indiaBoundaryLayer = new VectorLayer({
     source: new VectorSource({
-        url: 'https://raw.githubusercontent.com/datameet/maps/master/Country/india-osm.geojson',
+        // url: 'https://raw.githubusercontent.com/paperkraft/maps/main/india-osm.geojson',
+        url: '/india-osm.geojson',
         format: new GeoJSON(),
     }),
     style: new Style({

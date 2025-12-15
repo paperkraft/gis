@@ -5,6 +5,10 @@ import { parseINP, ParsedProjectData } from './inpParser';
 
 export type ImportFormat = 'inp' | 'geojson' | 'shapefile' | 'kml';
 
+export interface ImportOptions {
+    sourceProjection?: string;
+}
+
 export interface ImportResult {
     success: boolean;
     features: Feature[];
@@ -34,14 +38,14 @@ export class FileImporter {
     /**
      * Import file based on extension
      */
-    public async importFile(file: File): Promise<ImportResult> {
+    public async importFile(file: File, options: ImportOptions = {}): Promise<ImportResult> {
         const extension = file.name.split('.').pop()?.toLowerCase();
         try {
             let result: ImportResult;
 
             switch (extension) {
                 case 'inp':
-                    result = await this.importINP(file);
+                    result = await this.importINP(file, options.sourceProjection);
                     break;
                 case 'geojson':
                 case 'json':
@@ -80,11 +84,11 @@ export class FileImporter {
     /**
      * Import EPANET INP file
      */
-    private async importINP(file: File): Promise<ImportResult> {
+    private async importINP(file: File, sourceProjection?: string): Promise<ImportResult> {
         const text = await file.text();
 
-        // 1. Parse using the new robust parser
-        const projectData: ParsedProjectData = parseINP(text);
+        // 1. Parse using options
+        const projectData: ParsedProjectData = parseINP(text, sourceProjection);
 
         // 2. Generate stats
         const stats = {
@@ -108,21 +112,7 @@ export class FileImporter {
         };
     }
 
-    /**
-     * Import GeoJSON file
-     */
     private async importGeoJSON(file: File): Promise<ImportResult> {
-        const text = await file.text();
-        const data = JSON.parse(text);
-
-        // NOTE: You'll need a GeoJSON parser here similar to parseINP 
-        // that converts GeoJSON features to OpenLayers Features with correct types.
-        // For now, assuming your previous implementation or standard OL GeoJSON read.
-        // Returning dummy/empty for now to fix type error if you haven't implemented parseGeoJSON yet.
-        // Ideally:
-        // import GeoJSON from 'ol/format/GeoJSON';
-        // const features = new GeoJSON().readFeatures(data, { featureProjection: 'EPSG:3857' });
-
         return {
             success: false,
             features: [],
@@ -146,11 +136,11 @@ export class FileImporter {
         };
     }
 
-    /**
-     * Smart Handler: Decides whether to Replace (Project) or Merge (Data)
-     */
     private handleSuccess(result: ImportResult) {
         const store = useNetworkStore.getState();
+
+        // Use bulk operations to prevent UI freeze
+        console.log(`Processing ${result.features.length} features...`);
 
         // CASE A: Full Project Import (INP) -> Replace Everything
         if (result.settings) {
@@ -160,7 +150,7 @@ export class FileImporter {
                 settings: result.settings,
                 patterns: result.patterns || [],
                 curves: result.curves || [],
-                controls: result.controls || [] // Load controls
+                controls: result.controls || []
             });
 
             this.vectorSource.clear();
@@ -170,16 +160,17 @@ export class FileImporter {
         else {
             console.log("➕ Merging features...");
 
-            result.features.forEach(feature => {
-                // Ensure ID
+            // Assign IDs if missing
+            const validFeatures = result.features.map(feature => {
                 if (!feature.getId()) {
                     const type = feature.get('type') || 'junction';
                     feature.setId(store.generateUniqueId(type));
                 }
-
-                this.vectorSource.addFeature(feature);
-                store.addFeature(feature);
+                return feature;
             });
+            // Batch Add
+            this.vectorSource.addFeatures(validFeatures);
+            store.addFeatures(validFeatures); // New bulk action
         }
     }
 
