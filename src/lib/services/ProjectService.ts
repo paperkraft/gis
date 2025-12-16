@@ -1,6 +1,10 @@
+import { useMapStore } from "@/store/mapStore";
 import { parseINP } from "../import/inpParser";
 import { useNetworkStore } from "@/store/networkStore";
 import { ProjectSettings } from "@/types/network";
+import { Point } from "ol/geom";
+import { transform } from "ol/proj";
+import { Feature } from "ol";
 
 export interface ProjectMetadata {
     id: string;
@@ -9,7 +13,6 @@ export interface ProjectMetadata {
     nodeCount: number;
     linkCount: number;
 }
-
 export class ProjectService {
 
     // --- READ (List) ---
@@ -45,24 +48,60 @@ export class ProjectService {
             const { Feature } = await import("ol");
             const { Point, LineString } = await import("ol/geom");
 
-            // Rehydrate Features from JSON
-            const features = data.features.map((f: any) => {
+            const features: any[] = [];
+
+            data.features.forEach((f: any) => {
+                const props = { ...f };
+                delete props.geometry; // Separate props from geometry
+
+                // HANDLE PUMPS & VALVES (Special Case: Database=LineString -> App=Point+Visual)
+                if (['pump', 'valve'].includes(f.type) && f.geometry.type === 'LineString') {
+                    const coords = f.geometry.coordinates; // [[lon, lat], [lon, lat]] (4326)
+
+                    // 1. Create Main Component (Point at Midpoint)
+                    // We must transform coordinates individually or after creation
+                    // Let's create geometry in 4326 first, then transform.
+                    const midX = (coords[0][0] + coords[1][0]) / 2;
+                    const midY = (coords[0][1] + coords[1][1]) / 2;
+
+                    const pointGeom = new Point([midX, midY]).transform('EPSG:4326', 'EPSG:3857');
+
+                    const mainFeature = new Feature({ geometry: pointGeom });
+                    mainFeature.setId(f.id);
+                    mainFeature.setProperties(props);
+                    features.push(mainFeature);
+
+                    // 2. Create Visual Link (Dashed Line)
+                    const lineGeom = new LineString(coords).transform('EPSG:4326', 'EPSG:3857');
+                    const visualId = `VIS-${f.id}`;
+
+                    const visualFeature = new Feature({ geometry: lineGeom });
+                    visualFeature.setId(visualId);
+                    visualFeature.setProperties({
+                        type: 'visual',
+                        isVisualLink: true,
+                        parentLinkId: f.id,
+                        linkType: f.type,
+                        id: visualId
+                    });
+
+                    features.push(visualFeature);
+
+                    return; // Skip standard processing
+                }
+
+                // STANDARD HANDLING (Pipes, Junctions, Tanks)
                 let geom;
                 if (f.geometry.type === 'Point') {
-                    geom = new Point(f.geometry.coordinates);
+                    geom = new Point(f.geometry.coordinates).transform('EPSG:4326', 'EPSG:3857');
                 } else {
-                    geom = new LineString(f.geometry.coordinates);
+                    geom = new LineString(f.geometry.coordinates).transform('EPSG:4326', 'EPSG:3857');
                 }
 
                 const feature = new Feature({ geometry: geom });
                 feature.setId(f.id);
-
-                // Restore all properties
-                const { geometry, ...rest } = f;
-                rest.id = f.id;
-                feature.setProperties(rest);
-
-                return feature;
+                feature.setProperties(props);
+                features.push(feature);
             });
 
             useNetworkStore.getState().loadProject({
@@ -75,52 +114,137 @@ export class ProjectService {
 
             return true;
         } catch (e) {
-            console.error("Failed to load project", e);
+            console.error("Failed to load", e);
             return false;
+        }
+    }
+
+    // --- CREATE BLANK ---
+    static async createProjectFromSettings(name: string, settings: ProjectSettings): Promise<string> {
+        // Construct empty project payload
+        const projectData = {
+            features: [],
+            settings: { ...settings, title: name },
+            patterns: [],
+            curves: [],
+            controls: []
+        };
+
+        try {
+            const res = await fetch('/api/projects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: name,
+                    data: projectData,
+                    nodeCount: 0,
+                    linkCount: 0
+                })
+            });
+            return res.ok ? (await res.json()).id : "";
+        } catch (e) {
+            console.error("Failed to create blank project", e);
+            throw e;
         }
     }
 
     // --- WRITE (Save/Update) ---
     static async saveCurrentProject(id: string, name?: string) {
-        const store = useNetworkStore.getState();
+        const networkStore = useNetworkStore.getState();
+        const mapStore = useMapStore.getState();
 
-        // Serialize OpenLayers Features to JSON
-        const features = Array.from(store.features.values()).map(f => {
-            const geom = f.getGeometry();
-            const props = f.getProperties();
+        let rawFeatures: Feature[] = [];
 
-            // const { geometry, ...safeProps } = props;
-            const safeProps = this.deepSanitize(props);
+        if (mapStore.vectorSource) {
+            rawFeatures = mapStore.vectorSource.getFeatures();
+        } else {
+            // Fallback to store if headless or map not initialized
+            rawFeatures = Array.from(networkStore.features.values());
+        }
 
-            return {
-                ...safeProps,
-                id: f.getId(),
-                geometry: {
-                    type: geom?.getType(),
-                    coordinates: (geom as any)?.getCoordinates()
-                }
-            };
+        // Build a Lookup Map of *Current* Features (Critical for Pump/Valve Geometry Reconstruction)
+        const currentFeaturesMap = new Map<string, Feature>();
+        rawFeatures.forEach(f => {
+            const id = f.getId();
+            if (id) currentFeaturesMap.set(id.toString(), f);
         });
+
+        const features = rawFeatures
+            .filter(f => {
+                const type = f.get('type');
+                // Filter out Visual Links, Markers, Previews
+                return ['junction', 'tank', 'reservoir', 'pipe', 'pump', 'valve'].includes(type)
+                    && !f.get('isVisualLink')
+                    && !f.get('isVertexMarker')
+                    && !f.get('isPreview');
+            })
+            .map(f => {
+                const props = f.getProperties();
+                const type = f.get('type');
+                const safeProps = this.deepSanitize(props);
+
+                // Clone & Transform Geometry
+                // Using .clone() ensures we don't break the map view by transforming in place
+                let geometryType = f.getGeometry()?.getType();
+                let coordinates = (f.getGeometry() as any)?.getCoordinates();
+
+                // Normalize IDs
+                const sourceId = props.source || props.startNodeId || props.fromNode || props.properties?.startNodeId;
+                const targetId = props.target || props.endNodeId || props.toNode || props.properties?.endNodeId;
+
+                // SPECIAL HANDLING: Pump/Valve (Point -> LineString)
+                // We must use 'currentFeaturesMap' to get the MOVED node positions
+                if (['pump', 'valve'].includes(type) && geometryType === 'Point' && sourceId && targetId) {
+                    const sNode = currentFeaturesMap.get(sourceId);
+                    const tNode = currentFeaturesMap.get(targetId);
+
+                    if (sNode && tNode) {
+                        const sGeom = (sNode.getGeometry() as Point).getCoordinates();
+                        const tGeom = (tNode.getGeometry() as Point).getCoordinates();
+
+                        geometryType = 'LineString';
+                        coordinates = [sGeom, tGeom]; // [Start, End]
+                    }
+                }
+
+                // TRANSFORM: Map (3857) -> DB (4326)
+                // Assuming coordinates are currently in Map Projection (3857)
+                let finalCoords = coordinates;
+                if (coordinates && coordinates.length > 0) {
+                    if (geometryType === 'Point') {
+                        finalCoords = transform(coordinates, 'EPSG:3857', 'EPSG:4326');
+                    } else if (geometryType === 'LineString') {
+                        finalCoords = coordinates.map((c: number[]) => transform(c, 'EPSG:3857', 'EPSG:4326'));
+                    }
+                }
+
+                return {
+                    ...safeProps,
+                    id: f.getId(),
+                    type: type,
+                    source: sourceId,
+                    target: targetId,
+                    geometry: {
+                        type: geometryType,
+                        coordinates: finalCoords
+                    }
+                };
+            });
 
         const projectData = {
             features,
-            settings: { ...store.settings, title: name ?? store.settings.title },
-            patterns: store.patterns,
-            curves: store.curves,
-            controls: store.controls
+            settings: { ...networkStore.settings, title: name ?? networkStore.settings.title },
+            patterns: networkStore.patterns,
+            curves: networkStore.curves,
+            controls: networkStore.controls
         };
 
         const nodeCount = features.filter((f: any) => ['junction', 'tank', 'reservoir'].includes(f.type)).length;
         const linkCount = features.filter((f: any) => ['pipe', 'pump', 'valve'].includes(f.type)).length;
 
         try {
-            const check = await fetch(`/api/projects/${id}`, { cache: 'no-store' });
-
-            const method = check.status === 404 ? 'POST' : 'PUT';
-            const url = check.status === 404 ? '/api/projects' : `/api/projects/${id}`;
-
-            await fetch(url, {
-                method: method,
+            const res = await fetch(`/api/projects/${id}`, {
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     id,
@@ -131,17 +255,172 @@ export class ProjectService {
                 })
             });
 
-            console.log("Project saved to database.");
-
-            store.markSaved();
-            return {
-                success: true,
+            if (!res.ok) {
+                const err = await res.json();
+                console.error("Server Error:", err);
+                throw new Error(err.error || "Save failed");
             }
+
+            console.log("Project saved to PostGIS.");
+            networkStore.markSaved();
+            return { success: true };
         } catch (e) {
             console.error("Save failed", e);
-            return {
-                success: false,
+            return { success: false };
+        }
+    }
+
+    // --- CREATE FROM FILE ---
+    static async createProjectFromFile(name: string, inpContent: string, sourceProjection: string = 'EPSG:3857'): Promise<string> {
+        try {
+            // 1. Parse the INP content (Returns OpenLayers Features)
+            const data = parseINP(inpContent, sourceProjection);
+
+            // 2. Create Node Lookup Map (Critical for building Pump/Valve geometries)
+            const nodeMap = new Map<string, number[]>();
+            data.features.forEach(f => {
+                if (['junction', 'tank', 'reservoir'].includes(f.get('type'))) {
+                    // Coordinates in Source Projection (e.g. 3857 or local)
+                    const coords = (f.getGeometry() as Point).getCoordinates();
+                    nodeMap.set(f.getId() as string, coords);
+                }
+            });
+
+            // 3. Prepare Features for DB (Transform to EPSG:4326)
+            const serializableFeatures = data.features.map(f => {
+                const props = f.getProperties();
+                const type = f.get('type');
+                const id = f.getId();
+
+                // Sanitize props
+                const safeProps = this.deepSanitize(props);
+
+                // Normalize IDs
+                const sourceId = props.source || props.startNodeId || props.fromNode;
+                const targetId = props.target || props.endNodeId || props.toNode;
+
+                let geometryType = f.getGeometry()?.getType();
+                let coordinates = (f.getGeometry() as any)?.getCoordinates();
+
+                // FIX: Ensure Links (Pumps/Valves) are LineStrings for DB
+                if (['pump', 'valve', 'pipe'].includes(type)) {
+                    // If geometry is missing or just a point (some parsers do this), rebuild it
+                    if (geometryType !== 'LineString' || !coordinates || coordinates.length < 2) {
+                        const start = nodeMap.get(sourceId);
+                        const end = nodeMap.get(targetId);
+
+                        if (start && end) {
+                            geometryType = 'LineString';
+                            coordinates = [start, end];
+                        } else {
+                            console.warn(`Could not rebuild geometry for link ${id}`);
+                            // Fallback to avoid crash, backend will handle/ignore 0,0
+                            coordinates = [[0, 0], [0, 0]];
+                        }
+                    }
+                }
+
+                // TRANSFORM: Convert to EPSG:4326 (Lat/Lon) for PostGIS
+                let finalCoords = coordinates;
+                if (coordinates && coordinates.length > 0) {
+                    if (geometryType === 'Point') {
+                        finalCoords = transform(coordinates, sourceProjection, 'EPSG:4326');
+                    } else if (geometryType === 'LineString') {
+                        finalCoords = coordinates.map((c: number[]) =>
+                            transform(c, sourceProjection, 'EPSG:4326')
+                        );
+                    }
+                }
+
+                return {
+                    ...safeProps,
+                    id: id,
+                    type: type,
+                    source: sourceId,
+                    target: targetId,
+                    geometry: {
+                        type: geometryType,
+                        coordinates: finalCoords
+                    }
+                };
+            });
+
+            // 4. Calculate Stats
+            const nodeCount = serializableFeatures.filter((f: any) => ['junction', 'tank', 'reservoir'].includes(f.type)).length;
+            const linkCount = serializableFeatures.filter((f: any) => ['pipe', 'pump', 'valve'].includes(f.type)).length;
+
+            // 5. STEP 1: Create Project Shell (POST)
+            const projectData = {
+                settings: { ...data.settings, title: name },
+                patterns: data.patterns,
+                curves: data.curves,
+                controls: data.controls
+            };
+
+            const createRes = await fetch('/api/projects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: name,
+                    data: projectData,
+                    nodeCount,
+                    linkCount
+                })
+            });
+
+            if (!createRes.ok) throw new Error("Failed to create project shell");
+            const { id } = await createRes.json();
+
+            // 6. STEP 2: Save Spatial Features (PUT)
+            // We reuse the exact same format as saveCurrentProject
+            const savePayload = {
+                id: id,
+                title: name,
+                data: {
+                    features: serializableFeatures, // The heavy spatial data
+                    settings: projectData.settings,
+                    patterns: projectData.patterns,
+                    curves: projectData.curves,
+                    controls: projectData.controls
+                },
+                nodeCount,
+                linkCount
+            };
+
+            const saveRes = await fetch(`/api/projects/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(savePayload)
+            });
+
+            if (!saveRes.ok) throw new Error("Failed to save project features");
+
+            return id;
+
+        } catch (e) {
+            console.error("Error creating project from file:", e);
+            throw e;
+        }
+    }
+
+    // --- DELETE ---
+    static async deleteProject(id: string) {
+        try {
+            const res = await fetch(`/api/projects/${id}`, {
+                method: 'DELETE',
+                cache: 'no-store'
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                console.error("Delete failed:", err);
+                return false;
             }
+
+            return true;
+        } catch (e) {
+            console.error("Network error during delete", e);
+            return false;
         }
     }
 
@@ -178,99 +457,5 @@ export class ProjectService {
         // If it's an object but not a Array or Plain Object (e.g. a Class Instance), 
         // discard it. This is where the circular 'values_' usually lives.
         return undefined;
-    }
-
-    // --- CREATE FROM FILE (Direct to DB) ---
-    static async createProjectFromFile(name: string, inpContent: string, sourceProjection: string = 'EPSG:3857'): Promise<string> {
-        try {
-            // 1. Parse the INP content
-            const data = parseINP(inpContent, sourceProjection);
-
-            // 2. Transform Features to JSON (Serializable)
-            // Note: We don't load them into the map store here; we just process data.
-            const serializableFeatures = data.features.map(f => {
-                const props = f.getProperties();
-                const geom = f.getGeometry();
-                const safeProps = this.deepSanitize(props);
-                return {
-                    ...safeProps,
-                    id: f.getId(),
-                    geometry: {
-                        type: geom?.getType(),
-                        coordinates: (geom as any)?.getCoordinates()
-                    }
-                };
-            });
-
-            // 3. Construct the Full Project Data Object
-            const projectData = {
-                features: serializableFeatures,
-                settings: { ...data.settings, title: name }, // Override title with user input
-                patterns: data.patterns,
-                curves: data.curves,
-                controls: data.controls
-            };
-
-            // 4. Calculate Stats
-            const nodeCount = serializableFeatures.filter((f: any) => ['junction', 'tank', 'reservoir'].includes(f.type)).length;
-            const linkCount = serializableFeatures.filter((f: any) => ['pipe', 'pump', 'valve'].includes(f.type)).length;
-
-            // 5. Send to API (Create New)
-            const res = await fetch('/api/projects', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: name,
-                    data: projectData,
-                    nodeCount,
-                    linkCount
-                })
-            });
-
-            if (!res.ok) throw new Error("Failed to create project in database");
-
-            return (await res.json()).id;
-        } catch (e) {
-            console.error("Error creating project from file:", e);
-            throw e;
-        }
-    }
-
-    // --- CREATE BLANK ---
-    static async createProjectFromSettings(name: string, settings: ProjectSettings): Promise<string> {
-        // Construct empty project payload
-        const projectData = {
-            features: [],
-            settings: { ...settings, title: name },
-            patterns: [],
-            curves: [],
-            controls: []
-        };
-
-        try {
-            const res = await fetch('/api/projects', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: name,
-                    data: projectData,
-                    nodeCount: 0,
-                    linkCount: 0
-                })
-            });
-            return res.ok ? (await res.json()).id : "";
-        } catch (e) {
-            console.error("Failed to create blank project", e);
-            throw e;
-        }
-    }
-
-    // --- DELETE ---
-    static async deleteProject(id: string) {
-        try {
-            await fetch(`/api/projects/${id}`, { method: 'DELETE' });
-        } catch (e) {
-            console.error("Delete failed", e);
-        }
     }
 }

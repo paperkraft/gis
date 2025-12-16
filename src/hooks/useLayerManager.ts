@@ -25,7 +25,7 @@ export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
     } = useUIStore();
 
     // 2. Get Simulation & Style State
-    const { results: simulationResults } = useSimulationStore();
+    // const { results: simulationResults } = useSimulationStore();
     const {
         colorMode,
         labelMode,
@@ -131,7 +131,7 @@ export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
         flowAnimationSpeed,
         flowAnimationStyle,
 
-        simulationResults,
+        // simulationResults,
         colorMode,
         labelMode,
         minMax,

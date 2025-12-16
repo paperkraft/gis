@@ -9,6 +9,8 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
+  ReferenceLine,
+  ReferenceDot,
 } from "recharts";
 import { SimulationHistory } from "@/types/simulation";
 
@@ -19,6 +21,7 @@ interface ResultChartProps {
   dataType: "pressure" | "demand" | "flow" | "velocity" | "head";
   color?: string;
   unit?: string;
+  activeIndex?: number;
 }
 
 export function ResultChart({
@@ -28,6 +31,7 @@ export function ResultChart({
   dataType,
   color = "#8884d8",
   unit,
+  activeIndex = 0,
 }: ResultChartProps) {
   // Transform data for Recharts
   const data = useMemo(() => {
@@ -67,12 +71,15 @@ export function ResultChart({
       }
 
       return {
+        index,
         time: hours,
         value: Number(value.toFixed(3)), // Clean number
         formattedTime: `${hours.toString().padStart(2, "0")}:00`,
       };
     });
   }, [history, featureId, type, dataType]);
+
+  const activePoint = data[activeIndex];
 
   if (!data || data.length === 0)
     return (
@@ -158,8 +165,27 @@ export function ResultChart({
             fill={`url(#color-${safeId}-${dataType})`}
             strokeWidth={2}
             animationDuration={1000}
-            isAnimationActive={true}
+            isAnimationActive={false}
           />
+
+          {activePoint && (
+            <>
+              <ReferenceLine
+                x={activePoint.formattedTime}
+                stroke="#ef4444"
+                strokeDasharray="3 3"
+                opacity={0.8}
+              />
+              <ReferenceDot
+                x={activePoint.formattedTime}
+                y={activePoint.value}
+                r={4}
+                fill="#ef4444"
+                stroke="white"
+                strokeWidth={2}
+              />
+            </>
+          )}
         </AreaChart>
       </ResponsiveContainer>
     </div>
