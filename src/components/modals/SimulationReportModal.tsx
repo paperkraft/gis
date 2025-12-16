@@ -566,7 +566,7 @@ export function SimulationReportModal({
               </Button>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 h-40">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2">
               <ResultChart
                 key={`${selectedId}-${chartMetric}`} // Force re-render
                 featureId={selectedId}

@@ -45,6 +45,7 @@ interface UIState {
     simulationReportModalOpen: boolean;
     keyboardShortcutsModalOpen: boolean;
     componentSelectionModalOpen: boolean;
+    queryBuilderModalOpen: boolean;
 
     // Map control states
     activeTool: ToolType | null;
@@ -85,6 +86,7 @@ interface UIState {
     setProjectSettingsModalOpen: (open: boolean) => void;
     setDataManagerModalOpen: (open: boolean) => void;
     setControlManagerModalOpen: (open: boolean) => void;
+    setQueryBuilderModalOpen: (open: boolean) => void;
 
     // Actions - Map Controls
     setActiveTool: (tool: ToolType | null) => void;
@@ -131,6 +133,7 @@ const DEFAULT_STATE = {
     dataManagerModalOpen: false,
     validationModalOpen: false,
     deleteModalOpen: false,
+    queryBuilderModalOpen: false,
 
     importModalOpen: false,
     exportModalOpen: false,
@@ -182,6 +185,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     setProjectSettingsModalOpen: (open) => set({ projectSettingsModalOpen: open }),
     setControlManagerModalOpen: (open) => set({ controlManagerModalOpen: open }),
     setDataManagerModalOpen: (open) => set({ dataManagerModalOpen: open }),
+    setQueryBuilderModalOpen: (open) => set({ queryBuilderModalOpen: open }),
 
     setIsFlowAnimating: (animate) => set({ isFlowAnimating: animate }),
     setShowLocationSearch: (open) => set({ showLocationSearch: open }),

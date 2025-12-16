@@ -29,6 +29,7 @@ import { LocationSearch } from "./LocationSearch";
 import { cn } from "@/lib/utils";
 import { SimulationControls } from "./controls/SimulationControls";
 import { useSimulationStore } from "@/store/simulationStore";
+import { QueryBuilderModal } from "../modals/QueryBuilderModal";
 
 export function MapControls() {
   const {
@@ -168,6 +169,8 @@ export function MapControls() {
       />
 
       <StyleSettingsModal />
+
+      <QueryBuilderModal />
     </>
   );
 }
