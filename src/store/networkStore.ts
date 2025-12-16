@@ -131,12 +131,16 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
             pipe: 100,
         };
 
+        // 1. Load Features & Update Counters
         data.features.forEach(f => {
             const id = f.getId() as string;
             const type = f.get('type') as FeatureType;
 
             if (id) {
                 f.set('id', id);
+                if (['junction', 'tank', 'reservoir'].includes(type)) {
+                    f.set('connectedLinks', []);
+                }
                 featureMap.set(id, f);
 
                 // Only update counters for known component types
@@ -151,6 +155,30 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
                         }
                     }
                 }
+            }
+        });
+
+        // 2. REBUILD TOPOLOGY (Critical Fix)
+        // Iterate links to populate 'connectedLinks' on nodes
+        featureMap.forEach(f => {
+            const type = f.get('type');
+            if (['pipe', 'pump', 'valve'].includes(type)) {
+                const linkId = f.getId() as string;
+                const startNodeId = f.get('startNodeId') || f.get('source');
+                const endNodeId = f.get('endNodeId') || f.get('target');
+
+                [startNodeId, endNodeId].forEach(nodeId => {
+                    if (nodeId) {
+                        const node = featureMap.get(nodeId);
+                        if (node) {
+                            const links = node.get('connectedLinks') || [];
+                            if (!links.includes(linkId)) {
+                                links.push(linkId);
+                                node.set('connectedLinks', links);
+                            }
+                        }
+                    }
+                });
             }
         });
 

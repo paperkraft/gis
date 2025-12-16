@@ -165,11 +165,16 @@ export class PipeDrawingManager {
         const originalId = pipe.getId() as string;
 
         const pipeProps = { ...pipe.getProperties() };
+        // Clean up props to avoid carrying over old ID/topology
         delete pipeProps.geometry;
         delete pipeProps.id;
         delete pipeProps.length;
         delete pipeProps.startNodeId;
         delete pipeProps.endNodeId;
+        delete pipeProps.source;   // <--- CRITICAL
+        delete pipeProps.target;   // <--- CRITICAL
+        delete pipeProps.fromNode; // <--- Just in case
+        delete pipeProps.toNode;   // <--- Just in case
         delete pipeProps.label;
 
         const point1 = geometry.getClosestPoint(coordinate);
@@ -206,13 +211,35 @@ export class PipeDrawingManager {
         const p1Id = store.generateUniqueId('pipe');
         const p1 = new Feature({ geometry: new LineString(coords1) });
         p1.setId(p1Id);
-        p1.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p1Id, startNodeId: startNodeId, endNodeId: j1Id, label: p1Id, length: this.calculatePipeLength(p1.getGeometry() as LineString) });
+        p1.setProperties({
+            ...pipeProps,
+            type: 'pipe',
+            isNew: true,
+            id: p1Id,
+            startNodeId: startNodeId,
+            endNodeId: j1Id,
+            source: startNodeId,
+            target: j1Id,
+            label: p1Id,
+            length: this.calculatePipeLength(p1.getGeometry() as LineString)
+        });
 
         const coords2 = [point2, ...coords.slice(splitIndex + 1)];
         const p2Id = store.generateUniqueId('pipe');
         const p2 = new Feature({ geometry: new LineString(coords2) });
         p2.setId(p2Id);
-        p2.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p2Id, startNodeId: j2Id, endNodeId: endNodeId, label: p2Id, length: this.calculatePipeLength(p2.getGeometry() as LineString) });
+        p2.setProperties({
+            ...pipeProps,
+            type: 'pipe',
+            isNew: true,
+            id: p2Id,
+            startNodeId: j2Id,
+            endNodeId: endNodeId,
+            source: j2Id,
+            target: endNodeId,
+            label: p2Id,
+            length: this.calculatePipeLength(p2.getGeometry() as LineString)
+        });
 
         this.createLinkBetweenNodes(j1, j2, type);
 
@@ -225,8 +252,10 @@ export class PipeDrawingManager {
 
         store.updateNodeConnections(startNodeId, originalId, "remove");
         store.updateNodeConnections(endNodeId, originalId, "remove");
+
         store.updateNodeConnections(startNodeId, p1Id, "add");
         store.updateNodeConnections(j1Id, p1Id, "add");
+
         store.updateNodeConnections(j2Id, p2Id, "add");
         store.updateNodeConnections(endNodeId, p2Id, "add");
 
@@ -249,6 +278,10 @@ export class PipeDrawingManager {
         delete pipeProps.length;
         delete pipeProps.startNodeId;
         delete pipeProps.endNodeId;
+        delete pipeProps.source;
+        delete pipeProps.target;
+        delete pipeProps.fromNode;
+        delete pipeProps.toNode;
         delete pipeProps.label;
 
         const closestPoint = geometry.getClosestPoint(coordinate);
@@ -271,12 +304,34 @@ export class PipeDrawingManager {
         const p1Id = store.generateUniqueId('pipe');
         const p1 = new Feature({ geometry: new LineString(coords1) });
         p1.setId(p1Id);
-        p1.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p1Id, startNodeId: startNodeId, endNodeId: newNodeId, label: `${p1Id}`, length: this.calculatePipeLength(p1.getGeometry() as LineString) });
+        p1.setProperties({
+            ...pipeProps,
+            type: 'pipe',
+            isNew: true,
+            id: p1Id,
+            startNodeId: startNodeId,
+            endNodeId: newNodeId,
+            source: startNodeId, // Sync topology
+            target: newNodeId,
+            label: `${p1Id}`,
+            length: this.calculatePipeLength(p1.getGeometry() as LineString)
+        });
 
         const p2Id = store.generateUniqueId('pipe');
         const p2 = new Feature({ geometry: new LineString(coords2) });
         p2.setId(p2Id);
-        p2.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p2Id, startNodeId: newNodeId, endNodeId: endNodeId, label: `${p2Id}`, length: this.calculatePipeLength(p2.getGeometry() as LineString) });
+        p2.setProperties({
+            ...pipeProps,
+            type: 'pipe',
+            isNew: true,
+            id: p2Id,
+            startNodeId: newNodeId,
+            endNodeId: endNodeId,
+            source: newNodeId, // Sync topology
+            target: endNodeId,
+            label: `${p2Id}`,
+            length: this.calculatePipeLength(p2.getGeometry() as LineString)
+        });
 
         this.vectorSource.removeFeature(pipe);
         store.removeFeature(originalId);
@@ -286,8 +341,10 @@ export class PipeDrawingManager {
 
         store.updateNodeConnections(startNodeId, originalId, "remove");
         store.updateNodeConnections(endNodeId, originalId, "remove");
+
         store.updateNodeConnections(startNodeId, p1Id, "add");
         store.updateNodeConnections(newNodeId, p1Id, "add");
+
         store.updateNodeConnections(newNodeId, p2Id, "add");
         store.updateNodeConnections(endNodeId, p2Id, "add");
 

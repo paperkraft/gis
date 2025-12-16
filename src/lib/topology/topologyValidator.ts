@@ -1,7 +1,7 @@
 import VectorSource from "ol/source/Vector";
 import { Feature } from "ol";
 import { Point, LineString } from "ol/geom";
-import { NetworkValidation, ValidationError, ValidationWarning, FeatureType } from "@/types/network";
+import { NetworkValidation, ValidationError, ValidationWarning } from "@/types/network";
 
 export class TopologyValidator {
     private vectorSource: VectorSource;
@@ -20,6 +20,15 @@ export class TopologyValidator {
         // 1. Connectivity Checks
         const orphanedNodes = this.findOrphanedNodes();
         const disconnectedComponents = this.findDisconnectedComponents();
+
+        const isolatedNodeIds: string[] = [];
+        disconnectedComponents.forEach(component => {
+             const hasSource = component.some(nodeId => {
+                const node = this.findNodeById(nodeId);
+                return node && ['tank', 'reservoir'].includes(node.get('type'));
+            });
+            if (!hasSource) isolatedNodeIds.push(...component);
+        });
 
         // 2. Topology Checks
         const pipesWithMissingNodes = this.findPipesWithMissingNodes();
@@ -79,6 +88,14 @@ export class TopologyValidator {
             warnings.push({
                 type: "disconnected_network",
                 message: `Network is split into ${disconnectedComponents.length} disconnected sub-networks`,
+            });
+        }
+        
+        if (isolatedNodeIds.length > 0) {
+             warnings.push({
+                type: "isolated_subnetwork",
+                message: `${isolatedNodeIds.length} nodes are in sub-networks without a Tank or Reservoir (Hydraulically Isolated)`,
+                featureId: isolatedNodeIds.join(", "),
             });
         }
 

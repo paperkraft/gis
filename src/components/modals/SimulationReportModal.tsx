@@ -1,14 +1,26 @@
 "use client";
 
 import {
-    Activity, BarChart, ChevronDown, ChevronLeft, ChevronRight, Clock, Download, Droplets, Table, X
-} from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+  Activity,
+  BarChart,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Download,
+  Droplets,
+  LineChart,
+  Table,
+  X,
+  XCircle,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Button } from '@/components/ui/button';
-import { ResultExporter } from '@/lib/export/resultExporter';
-import { cn } from '@/lib/utils';
-import { useSimulationStore } from '@/store/simulationStore';
+import { Button } from "@/components/ui/button";
+import { ResultExporter } from "@/lib/export/resultExporter";
+import { cn } from "@/lib/utils";
+import { useSimulationStore } from "@/store/simulationStore";
+import { ResultChart } from "../simulation/ResultChart";
 
 interface SimulationReportModalProps {
   isOpen: boolean;
@@ -16,6 +28,18 @@ interface SimulationReportModalProps {
 }
 
 type ReportMode = "instant" | "summary";
+
+// Metric Definitions (Matches PropertyPanel)
+const NODE_METRICS = [
+  { value: "pressure", label: "Pressure", unit: "psi", color: "#0ea5e9" },
+  { value: "head", label: "Hydraulic Head", unit: "ft", color: "#10b981" },
+  { value: "demand", label: "Demand", unit: "GPM", color: "#f59e0b" },
+];
+
+const LINK_METRICS = [
+  { value: "flow", label: "Flow Rate", unit: "GPM", color: "#8b5cf6" },
+  { value: "velocity", label: "Velocity", unit: "ft/s", color: "#ec4899" },
+];
 
 export function SimulationReportModal({
   isOpen,
@@ -30,6 +54,10 @@ export function SimulationReportModal({
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
 
+  // Chart Selection State
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [chartMetric, setChartMetric] = useState<string>("");
+
   // Close export menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -43,6 +71,28 @@ export function SimulationReportModal({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Reset selection on tab change
+  useEffect(() => {
+    setSelectedId(null);
+  }, [activeTab]);
+
+  // Set default metric when an item is selected
+  useEffect(() => {
+    if (selectedId) {
+      if (
+        activeTab === "nodes" &&
+        !NODE_METRICS.find((m) => m.value === chartMetric)
+      ) {
+        setChartMetric("pressure");
+      } else if (
+        activeTab === "links" &&
+        !LINK_METRICS.find((m) => m.value === chartMetric)
+      ) {
+        setChartMetric("flow");
+      }
+    }
+  }, [selectedId, activeTab, chartMetric]);
 
   // Format time
   const formatTime = (seconds: number) => {
@@ -134,6 +184,13 @@ export function SimulationReportModal({
 
   const currentNodeList = Object.values(results.nodes);
   const currentLinkList = Object.values(results.links);
+
+  // Helper for Chart Data
+  const currentMetricOptions =
+    activeTab === "nodes" ? NODE_METRICS : LINK_METRICS;
+  const activeMetricConfig =
+    currentMetricOptions.find((m) => m.value === chartMetric) ||
+    currentMetricOptions[0];
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -241,8 +298,8 @@ export function SimulationReportModal({
                   : "border-transparent text-gray-500 hover:text-gray-700"
               )}
             >
-              <Activity className="w-4 h-4" /> 
-              Nodes 
+              <Activity className="w-4 h-4" />
+              Nodes
               <span className="ml-1 text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full text-gray-600 dark:text-gray-300">
                 {currentNodeList.length}
               </span>
@@ -256,7 +313,7 @@ export function SimulationReportModal({
                   : "border-transparent text-gray-500 hover:text-gray-700"
               )}
             >
-              <Droplets className="w-4 h-4" /> 
+              <Droplets className="w-4 h-4" />
               Links
               <span className="ml-1 text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full text-gray-600 dark:text-gray-300">
                 {currentLinkList.length}
@@ -348,9 +405,11 @@ export function SimulationReportModal({
               {activeTab === "nodes" &&
                 currentNodeList.map((node) => {
                   const stats = summaryData?.nodes[node.id];
+                  const isSelected = selectedId === node.id;
                   return (
                     <tr
                       key={node.id}
+                      onClick={() => setSelectedId(node.id)}
                       className="bg-white dark:bg-gray-800 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors"
                     >
                       <td className="px-6 py-3 font-semibold text-gray-900 dark:text-white border-r border-gray-100 dark:border-gray-700">
@@ -402,9 +461,11 @@ export function SimulationReportModal({
               {activeTab === "links" &&
                 currentLinkList.map((link) => {
                   const stats = summaryData?.links[link.id];
+                  const isSelected = selectedId === link.id;
                   return (
                     <tr
                       key={link.id}
+                      onClick={() => setSelectedId(link.id)}
                       className="bg-white dark:bg-gray-800 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors"
                     >
                       <td className="px-6 py-3 font-semibold text-gray-900 dark:text-white border-r border-gray-100 dark:border-gray-700">
@@ -462,6 +523,63 @@ export function SimulationReportModal({
             </tbody>
           </table>
         </div>
+
+        {/* --- CHART PANEL (Visible when Row Selected) --- */}
+        {selectedId && (
+          <div className="shrink-0 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 p-4 animate-in slide-in-from-bottom-10 duration-200">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-4">
+                <h3 className="text-sm font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                  <LineChart className="w-4 h-4 text-indigo-500" />
+                  Performance Analysis:{" "}
+                  <span className="font-mono text-indigo-600 dark:text-indigo-400">
+                    {selectedId}
+                  </span>
+                </h3>
+
+                {/* Metric Selector */}
+                <div className="flex items-center bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700 p-0.5">
+                  {currentMetricOptions.map((metric) => (
+                    <button
+                      key={metric.value}
+                      onClick={() => setChartMetric(metric.value)}
+                      className={cn(
+                        "px-2 py-1 text-[10px] uppercase font-bold rounded transition-all",
+                        chartMetric === metric.value
+                          ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300"
+                          : "text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+                      )}
+                    >
+                      {metric.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                onClick={() => setSelectedId(null)}
+              >
+                <XCircle className="w-4 h-4 text-gray-400 hover:text-red-500" />
+              </Button>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 h-40">
+              <ResultChart
+                key={`${selectedId}-${chartMetric}`} // Force re-render
+                featureId={selectedId}
+                type={activeTab === "nodes" ? "node" : "link"}
+                history={history}
+                dataType={activeMetricConfig.value as any}
+                color={activeMetricConfig.color}
+                unit={activeMetricConfig.unit}
+                activeIndex={currentTimeIndex}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end bg-gray-50 dark:bg-gray-900 rounded-b-xl shrink-0">

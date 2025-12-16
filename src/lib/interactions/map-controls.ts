@@ -52,8 +52,9 @@ export const handleZoomToExtent = (map: Map | null) => {
         console.warn("⚠️ No features to fit");
         // Fallback to default view
         map.getView().animate({
-            center: fromLonLat([74.2381, 16.7012]),
-            zoom: 14,
+            // center: fromLonLat([74.2381, 16.7012]),
+            center: fromLonLat([78.5974, 23.9908]),
+            zoom: 4.7,
             duration: 500,
         });
         return;
@@ -114,7 +115,7 @@ export const handlePrint = (map: Map | null) => {
             map.getViewport().querySelectorAll('.ol-layer canvas, canvas.ol-layer'),
             function (canvas: HTMLCanvasElement) {
                 if (canvas.width > 0) {
-                    const opacity = (canvas.parentNode as HTMLElement).style.dopacity || canvas.style.dopacity;
+                    const opacity = (canvas.parentNode as HTMLElement).style.opacity || canvas.style.opacity;
                     mapContext.globalAlpha = opacity === '' ? 1 : Number(opacity);
 
                     const transform = canvas.style.transform;

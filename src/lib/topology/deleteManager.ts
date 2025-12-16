@@ -80,12 +80,13 @@ export class DeleteManager {
             this.removeVisualLinkLine(featureId);
         }
 
-
         // Perform topology-aware deletion
         this.handleFeatureDeletion(feature);
 
         // Remove from vector source
-        this.vectorSource.removeFeature(feature);
+        if (this.vectorSource.getFeatureById(featureId)) {
+            this.vectorSource.removeFeature(feature);
+        }
 
         // Remove from Zustand store
         const networkStore = useNetworkStore.getState();
@@ -132,29 +133,47 @@ export class DeleteManager {
     }
 
     private deleteNodeWithConnectedPipes(node: Feature) {
-        const connectedLinks = node.get("connectedLinks") || [];
+        let connectedLinks = node.get("connectedLinks") || [];
+        const nodeId = node.getId() as string;
+
+        // --- FALLBACK: If topology metadata is missing, scan the vector source ---
+        if (connectedLinks.length === 0) {
+            console.warn("DeleteManager: Node has no connectedLinks metadata. Scanning vector source...");
+            this.vectorSource.getFeatures().forEach(f => {
+                if (['pipe', 'pump', 'valve'].includes(f.get('type'))) {
+                    // Check loosely for ID string match
+                    if (f.get('startNodeId') == nodeId || f.get('endNodeId') == nodeId) {
+                        connectedLinks.push(f.getId());
+                    }
+                }
+            });
+        }
+
         const networkStore = useNetworkStore.getState();
 
-        connectedLinks.forEach((linkId: string) => {
+        // Use a Set to ensure unique IDs and avoid duplicate deletion attempts
+        const uniqueLinks = Array.from(new Set(connectedLinks)) as string[];
+
+        uniqueLinks.forEach((linkId: string) => {
             const link = this.vectorSource.getFeatures().find((f) => f.getId() === linkId);
 
             if (link) {
                 const startNodeId = link.get("startNodeId");
                 const endNodeId = link.get("endNodeId");
-                const otherNodeId = startNodeId === node.getId() ? endNodeId : startNodeId;
+                const otherNodeId = startNodeId === nodeId ? endNodeId : startNodeId;
 
                 if (otherNodeId) {
-                    const otherNode = this.vectorSource
-                        .getFeatures()
-                        .find(
-                            (f) =>
-                                ["junction", "tank", "reservoir"].includes(f.get("type")) &&
-                                f.getId() === otherNodeId
-                        );
+                    // const otherNode = this.vectorSource
+                    //     .getFeatures()
+                    //     .find(
+                    //         (f) =>
+                    //             ["junction", "tank", "reservoir"].includes(f.get("type")) &&
+                    //             f.getId() === otherNodeId
+                    //     );
 
-                    if (otherNode) {
-                        networkStore.updateNodeConnections(otherNodeId, linkId, "remove");
-                    }
+                    // if (otherNode) {
+                    // }
+                    networkStore.updateNodeConnections(otherNodeId, linkId, "remove");
                 }
 
                 this.vectorSource.removeFeature(link);
@@ -173,21 +192,16 @@ export class DeleteManager {
 
         [startNodeId, endNodeId].forEach(nodeId => {
             if (nodeId) {
-                const node = networkStore.getFeatureById(nodeId);
-                if (node) {
-                    const conns = node.get("connectedLinks") || [];
+                // 1. UPDATE MAP FEATURE (Critical for Topology)
+                // We must find the feature in the vector source to update its metadata
+                const mapNode = this.vectorSource.getFeatureById(nodeId) ||
+                    this.vectorSource.getFeatures().find(f => f.getId() === nodeId);
+                if (mapNode) {
+                    const conns = mapNode.get("connectedLinks") || [];
                     const newConns = conns.filter((id: string) => id !== linkId);
-
-                    // Update OpenLayers Feature
-                    node.set("connectedLinks", newConns);
-
-                    // Update Store (triggers reactivity)
-                    networkStore.updateNodeConnections(nodeId, linkId, "remove");
-
-                    // OPTIONAL: Auto-delete orphan nodes?
-                    // GIS tools often ask: "Delete isolated nodes?" 
-                    // If newConns.length === 0, you might highlight this node as an orphan.
+                    mapNode.set("connectedLinks", newConns);
                 }
+                networkStore.updateNodeConnections(nodeId, linkId, "remove");
             }
         });
     }

@@ -1,7 +1,5 @@
 import { create } from 'zustand';
-import { Feature } from 'ol';
 import { SimulationSnapshot, SimulationHistory, SimulationStatus } from '@/types/simulation';
-import { generateINP } from '@/lib/export/inpWriter';
 
 interface SimulationState {
     status: SimulationStatus;
@@ -11,7 +9,7 @@ interface SimulationState {
     error: string | null;
     isPlaying: boolean;
 
-    runSimulation: (features: Feature[]) => Promise<void>;
+    runSimulation: (projectId: string) => Promise<void>;
     setTimeIndex: (index: number) => void;
     togglePlayback: () => void;
     resetSimulation: () => void;
@@ -26,18 +24,12 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     error: null,
     isPlaying: false,
 
-    runSimulation: async (features) => {
+    runSimulation: async (projectId) => {
         set({ status: 'running', error: null, history: null, results: null });
 
         try {
-            if (features.length === 0) throw new Error("Network is empty.");
-
-            const inpContent = generateINP(features);
-
-            const response = await fetch('/api/simulate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ inp: inpContent }),
+            const response = await fetch(`/api/projects/${projectId}/simulate`, {
+                method: 'POST'
             });
 
             if (!response.ok) {
@@ -49,9 +41,9 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
             set({
                 status: 'completed',
+                results: data.snapshots[0] || null,
                 history: data,
                 currentTimeIndex: 0,
-                results: data.snapshots[0] || null,
             });
 
         } catch (err) {

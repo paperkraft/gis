@@ -16,6 +16,7 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
 
     const [vectorLayer, setVectorLayer] = useState<VectorLayer<any> | null>(null);
     const { setMap, setVectorSource } = useMapStore();
+
     const initializedRef = useRef(false);
 
     useEffect(() => {
@@ -23,7 +24,6 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
 
         // 1. Create Vector Source & Layer
         const vectorSource = new VectorSource();
-
 
         const vecLayer = new VectorLayer({
             source: vectorSource,

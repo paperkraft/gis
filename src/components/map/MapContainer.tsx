@@ -14,6 +14,7 @@ import { useNetworkExport } from "@/hooks/useNetworkExport";
 import { useHistoryManager } from "@/hooks/useHistoryManager";
 import { useMeasurement } from "@/hooks/useMeasurement";
 import { useSnapping } from "@/hooks/useSnapping";
+import { useSimulationSync } from "@/hooks/useSimulationSync";
 
 // Stores & Types
 import { useMapStore } from "@/store/mapStore";
@@ -43,6 +44,7 @@ export function MapContainer() {
     activeTool,
     deleteModalOpen,
     showAttributeTable,
+    validationModalOpen,
     setDeleteModalOpen,
     setShowAttributeTable,
   } = useUIStore();
@@ -108,7 +110,11 @@ export function MapContainer() {
   // Measurement
   useMeasurement();
 
+  // Snapping
   useSnapping();
+
+  // Simulation
+  useSimulationSync({ vectorLayer });
 
   return (
     <div className="relative w-full h-full bg-gray-100 dark:bg-gray-900 flex flex-col">
@@ -127,7 +133,7 @@ export function MapContainer() {
           vectorSource={vectorSource || undefined}
         />
 
-        {selectedFeature && activeTool === "select" && (
+        {selectedFeature && activeTool === "select" && !validationModalOpen && (
           <PropertyPanel
             properties={selectedFeature.getProperties() as any}
             onDeleteRequest={handleDeleteRequestFromPanel}
