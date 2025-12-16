@@ -14,7 +14,6 @@ import { AnimationGroup } from "./controls/AnimationGroup";
 import { LabelControls } from "./controls/LabelControls";
 import { DataControls } from "./controls/DataControls";
 
-
 // Import Modals
 import { SimulationReportModal } from "../modals/SimulationReportModal";
 import { ProjectSettingsModal } from "../modals/ProjectSettingsModal";
@@ -28,6 +27,8 @@ import { ExportModal } from "../modals/ExportModal";
 import { LocationSearch } from "./LocationSearch";
 
 import { cn } from "@/lib/utils";
+import { SimulationControls } from "./controls/SimulationControls";
+import { useSimulationStore } from "@/store/simulationStore";
 
 export function MapControls() {
   const {
@@ -50,6 +51,8 @@ export function MapControls() {
     setControlManagerModalOpen,
     setShowLocationSearch,
   } = useUIStore();
+
+  const { results } = useSimulationStore();
 
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
 
@@ -101,6 +104,13 @@ export function MapControls() {
         <LabelControls activeGroup={activeGroup} onToggle={toggleGroup} />
         <AnimationGroup activeGroup={activeGroup} onToggle={toggleGroup} />
 
+        {results && (
+          <SimulationControls
+            activeGroup={activeGroup}
+            onToggle={toggleGroup}
+          />
+        )}
+
         <ValidationGroup
           activeGroup={activeGroup}
           onToggle={toggleGroup}
@@ -108,7 +118,10 @@ export function MapControls() {
         />
 
         <DataControls activeGroup={activeGroup} onToggle={toggleGroup} />
-        <ProjectSettingsGroup activeGroup={activeGroup} onToggle={toggleGroup} />
+        <ProjectSettingsGroup
+          activeGroup={activeGroup}
+          onToggle={toggleGroup}
+        />
       </div>
 
       {/* Modals */}

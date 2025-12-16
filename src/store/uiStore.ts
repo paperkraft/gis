@@ -52,6 +52,7 @@ interface UIState {
     measurementActive: boolean;
     showAttributeTable: boolean;
     showLocationSearch: boolean;
+    showAssetSearch: boolean;
 
     // Layer visibility
     layerVisibility: Record<string, boolean>;
@@ -100,6 +101,7 @@ interface UIState {
 
     // Actions - Search
     setShowLocationSearch: (focused: boolean) => void;
+    setShowAssetSearch: (show: boolean) => void;
 
     // Snapping
     setIsSnappingEnabled: (enabled: boolean) => void;
@@ -134,6 +136,8 @@ const DEFAULT_STATE = {
     exportModalOpen: false,
 
     showLocationSearch: false,
+    showAssetSearch: false,
+
     showAutoElevation: false,
     showAttributeTable: false,
 
@@ -158,7 +162,7 @@ const DEFAULT_STATE = {
         pipe: true,
         pump: true,
     },
-    
+
     showLabels: false,
     showPipeArrows: true,
 
@@ -181,6 +185,7 @@ export const useUIStore = create<UIState>((set, get) => ({
 
     setIsFlowAnimating: (animate) => set({ isFlowAnimating: animate }),
     setShowLocationSearch: (open) => set({ showLocationSearch: open }),
+    setShowAssetSearch: (show) => set({ showAssetSearch: show }),
     setShowAutoElevation: (open) => set({ showAutoElevation: open }),
 
     setValidationModalOpen: (open) => set({ validationModalOpen: open }),

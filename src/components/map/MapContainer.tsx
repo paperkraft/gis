@@ -14,7 +14,6 @@ import { useNetworkExport } from "@/hooks/useNetworkExport";
 import { useHistoryManager } from "@/hooks/useHistoryManager";
 import { useMeasurement } from "@/hooks/useMeasurement";
 import { useSnapping } from "@/hooks/useSnapping";
-import { useSimulationSync } from "@/hooks/useSimulationSync";
 
 // Stores & Types
 import { useMapStore } from "@/store/mapStore";
@@ -31,6 +30,7 @@ import { DrawingToolbar } from "./DrawingToolbar";
 import { StatusBar } from "./StatusBar";
 import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 import { Legend } from "./Legend";
+import { AssetSearch } from "./controls/AssetSearch";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -113,9 +113,6 @@ export function MapContainer() {
   // Snapping
   useSnapping();
 
-  // Simulation
-  useSimulationSync({ vectorLayer });
-
   return (
     <div className="relative w-full h-full bg-gray-100 dark:bg-gray-900 flex flex-col">
       <div className="flex-1 relative overflow-hidden">
@@ -125,6 +122,7 @@ export function MapContainer() {
         <DrawingToolbar />
         <MapControls />
         <Legend />
+        <AssetSearch />
 
         {/* Panels */}
         <AttributeTable

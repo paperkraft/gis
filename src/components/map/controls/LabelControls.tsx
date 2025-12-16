@@ -1,7 +1,6 @@
 "use client";
-import { CircleDot, Hash, Mountain, Tag, Type } from "lucide-react";
+import { CircleDot, Mountain, Tag, Type } from "lucide-react";
 
-import { useSimulationStore } from "@/store/simulationStore";
 import { useStyleStore } from "@/store/styleStore";
 import { useUIStore } from "@/store/uiStore";
 
@@ -15,7 +14,6 @@ interface LabelControlsProps {
 export function LabelControls({ activeGroup, onToggle }: LabelControlsProps) {
   const { showLabels, setShowLabels } = useUIStore();
   const { labelMode, setLabelMode } = useStyleStore();
-  const { results } = useSimulationStore();
 
   return (
     <ControlGroup
@@ -59,14 +57,6 @@ export function LabelControls({ activeGroup, onToggle }: LabelControlsProps) {
             icon={CircleDot}
             title="Show Pipe Diameter"
             label="Diam"
-          />
-          <ToolBtn
-            onClick={() => setLabelMode("result")}
-            isActive={labelMode === "result"}
-            icon={Hash}
-            disabled={!results}
-            title="Show Result Value"
-            label="Value"
           />
         </>
       )}
