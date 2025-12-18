@@ -44,7 +44,7 @@ export function ProjectSettingsModal({
 
   const handleSave = async () => {
     updateSettings(formData);
-    await ProjectService.saveCurrentProject(params.id as string, formData.title);
+    await ProjectService.saveCurrentProject(params.id as string);
     setHasChanges(false);
     onClose();
   };

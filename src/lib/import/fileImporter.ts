@@ -144,10 +144,9 @@ export class FileImporter {
 
         // CASE A: Full Project Import (INP) -> Replace Everything
         if (result.settings) {
-            console.log("🔄 Loading full project...");
             store.loadProject({
                 features: result.features,
-                settings: result.settings,
+                settings: { ...result.settings, title: store.settings.title },
                 patterns: result.patterns || [],
                 curves: result.curves || [],
                 controls: result.controls || []
@@ -158,8 +157,6 @@ export class FileImporter {
         }
         // CASE B: Simple Geometry Import (GeoJSON/etc) -> Merge/Add
         else {
-            console.log("➕ Merging features...");
-
             // Assign IDs if missing
             const validFeatures = result.features.map(feature => {
                 if (!feature.getId()) {

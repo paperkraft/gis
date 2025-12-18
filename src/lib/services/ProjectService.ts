@@ -233,7 +233,8 @@ export class ProjectService {
 
         const projectData = {
             features,
-            settings: { ...networkStore.settings, title: name ?? networkStore.settings.title },
+            // settings: { ...networkStore.settings, title: name ?? networkStore.settings.title },
+            settings: networkStore.settings,
             patterns: networkStore.patterns,
             curves: networkStore.curves,
             controls: networkStore.controls
@@ -248,7 +249,7 @@ export class ProjectService {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     id,
-                    title: name,
+                    title: name ?? networkStore.settings.title,
                     data: projectData,
                     nodeCount,
                     linkCount
