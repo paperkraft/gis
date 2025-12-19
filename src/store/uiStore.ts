@@ -45,6 +45,7 @@ interface UIState {
     simulationReportModalOpen: boolean;
     keyboardShortcutsModalOpen: boolean;
     componentSelectionModalOpen: boolean;
+    queryBuilderModalOpen: boolean;
 
     // Map control states
     activeTool: ToolType | null;
@@ -52,6 +53,7 @@ interface UIState {
     measurementActive: boolean;
     showAttributeTable: boolean;
     showLocationSearch: boolean;
+    showAssetSearch: boolean;
 
     // Layer visibility
     layerVisibility: Record<string, boolean>;
@@ -84,6 +86,7 @@ interface UIState {
     setProjectSettingsModalOpen: (open: boolean) => void;
     setDataManagerModalOpen: (open: boolean) => void;
     setControlManagerModalOpen: (open: boolean) => void;
+    setQueryBuilderModalOpen: (open: boolean) => void;
 
     // Actions - Map Controls
     setActiveTool: (tool: ToolType | null) => void;
@@ -100,6 +103,7 @@ interface UIState {
 
     // Actions - Search
     setShowLocationSearch: (focused: boolean) => void;
+    setShowAssetSearch: (show: boolean) => void;
 
     // Snapping
     setIsSnappingEnabled: (enabled: boolean) => void;
@@ -129,11 +133,14 @@ const DEFAULT_STATE = {
     dataManagerModalOpen: false,
     validationModalOpen: false,
     deleteModalOpen: false,
+    queryBuilderModalOpen: false,
 
     importModalOpen: false,
     exportModalOpen: false,
 
     showLocationSearch: false,
+    showAssetSearch: false,
+
     showAutoElevation: false,
     showAttributeTable: false,
 
@@ -158,7 +165,7 @@ const DEFAULT_STATE = {
         pipe: true,
         pump: true,
     },
-    
+
     showLabels: false,
     showPipeArrows: true,
 
@@ -178,9 +185,11 @@ export const useUIStore = create<UIState>((set, get) => ({
     setProjectSettingsModalOpen: (open) => set({ projectSettingsModalOpen: open }),
     setControlManagerModalOpen: (open) => set({ controlManagerModalOpen: open }),
     setDataManagerModalOpen: (open) => set({ dataManagerModalOpen: open }),
+    setQueryBuilderModalOpen: (open) => set({ queryBuilderModalOpen: open }),
 
     setIsFlowAnimating: (animate) => set({ isFlowAnimating: animate }),
     setShowLocationSearch: (open) => set({ showLocationSearch: open }),
+    setShowAssetSearch: (show) => set({ showAssetSearch: show }),
     setShowAutoElevation: (open) => set({ showAutoElevation: open }),
 
     setValidationModalOpen: (open) => set({ validationModalOpen: open }),

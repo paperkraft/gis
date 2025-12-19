@@ -1,19 +1,35 @@
 "use client";
 
 import {
-    Activity, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Download, FileText,
-    Loader2, Pause, Play, RotateCcw, Terminal, X
-} from 'lucide-react';
-import { useEffect, useState } from 'react';
+  Activity,
+  AlertCircle,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Download,
+  FileText,
+  Loader2,
+  Pause,
+  Play,
+  RotateCcw,
+  Terminal,
+  X,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
-import { Button } from '@/components/ui/button';
-import { generateINP } from '@/lib/export/inpWriter';
-import { cn } from '@/lib/utils';
-import { useNetworkStore } from '@/store/networkStore';
-import { useSimulationStore } from '@/store/simulationStore';
-import { useUIStore } from '@/store/uiStore';
+import { Button } from "@/components/ui/button";
+import { generateINP } from "@/lib/export/inpWriter";
+import { cn } from "@/lib/utils";
+import { useNetworkStore } from "@/store/networkStore";
+import { useSimulationStore } from "@/store/simulationStore";
+import { useUIStore } from "@/store/uiStore";
+import { useParams } from "next/navigation";
 
 export function SimulationPanel() {
+  const params = useParams();
+  const projectId = params.id;
+
   const { features } = useNetworkStore();
   const { setSimulationReportModalOpen, setActiveTab } = useUIStore();
 
@@ -74,7 +90,9 @@ export function SimulationPanel() {
 
   const handleRun = () => {
     setLogs(["> Starting simulation..."]);
-    runSimulation(Array.from(features.values()));
+    if (projectId) {
+      runSimulation(projectId as string);
+    }
   };
 
   const handleClose = () => {

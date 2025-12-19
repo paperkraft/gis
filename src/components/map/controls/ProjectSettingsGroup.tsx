@@ -28,9 +28,9 @@ export function ProjectSettingsGroup({ activeGroup, onToggle }: SettingsProps) {
 
   const { hasUnsavedChanges } = useNetworkStore();
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (params.id) {
-      ProjectService.saveCurrentProject(params.id as string);
+      await ProjectService.saveCurrentProject(params.id as string);
       alert("Project Saved!");
     }
   };

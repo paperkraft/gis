@@ -25,7 +25,14 @@ export function useFeatureSelection({
     onFeatureHover,
     enableHover = true,
 }: UseFeatureSelectionOptions) {
-    const { selectFeature, selectFeatures, selectedFeatureId } = useNetworkStore();
+
+    // Subscribe to the store's selected IDs
+    const selectedFeatureId = useNetworkStore((state) => state.selectedFeatureId);
+    const selectedFeatureIds = useNetworkStore((state) => state.selectedFeatureIds);
+
+    const selectFeatures = useNetworkStore((state) => state.selectFeatures);
+    const selectFeature = useNetworkStore((state) => state.selectFeature);
+
     const { activeTool } = useUIStore();
 
     const selectInteractionRef = useRef<Select | null>(null);
@@ -286,6 +293,42 @@ export function useFeatureSelection({
             }
         }
     }, [selectedFeatureId, selectFeatureById, clearSelection]);
+
+    useEffect(() => {
+        const select = selectInteractionRef.current;
+        if (!select || !vectorLayer) return;
+
+        const source = vectorLayer.getSource();
+        if (!source) return;
+
+        const selectedCollection = select.getFeatures();
+
+        // Create a set of IDs currently highlighted on the map
+        const currentMapIds = new Set(selectedCollection.getArray().map(f => f.getId()));
+
+        // Create a set of IDs that SHOULD be highlighted (from Store)
+        const targetIds = new Set(selectedFeatureIds);
+
+        // A. Remove features that are no longer selected
+        const toRemove: Feature[] = [];
+        selectedCollection.forEach((f) => {
+            if (!targetIds.has(f.getId() as string)) {
+                toRemove.push(f);
+            }
+        });
+        toRemove.forEach((f) => selectedCollection.remove(f));
+
+        // B. Add features that are new selections
+        selectedFeatureIds.forEach((id) => {
+            if (!currentMapIds.has(id)) {
+                const feature = source.getFeatureById(id);
+                if (feature) {
+                    selectedCollection.push(feature);
+                }
+            }
+        });
+
+    }, [selectedFeatureIds, vectorLayer]);
 
     return {
         selectedFeature: selectedFeatureRef.current,

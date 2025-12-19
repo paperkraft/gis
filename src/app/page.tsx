@@ -9,6 +9,7 @@ import {
   Search,
   ArrowRight,
   Droplet,
+  Loader2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ProjectService, ProjectMetadata } from "@/lib/services/ProjectService";
@@ -50,6 +51,17 @@ export default function Dashboard() {
     .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => b.lastModified - a.lastModified);
 
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <p className="text-gray-500">Loading Project...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
@@ -89,7 +101,7 @@ export default function Dashboard() {
         </div>
 
         {/* Project Grid */}
-        {filteredProjects.length > 0 ? (
+        {!loading && filteredProjects.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProjects.map((project) => (
               <div

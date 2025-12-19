@@ -30,6 +30,7 @@ import { DrawingToolbar } from "./DrawingToolbar";
 import { StatusBar } from "./StatusBar";
 import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 import { Legend } from "./Legend";
+import { AssetSearch } from "./controls/AssetSearch";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -43,6 +44,7 @@ export function MapContainer() {
     activeTool,
     deleteModalOpen,
     showAttributeTable,
+    validationModalOpen,
     setDeleteModalOpen,
     setShowAttributeTable,
   } = useUIStore();
@@ -108,6 +110,7 @@ export function MapContainer() {
   // Measurement
   useMeasurement();
 
+  // Snapping
   useSnapping();
 
   return (
@@ -119,6 +122,7 @@ export function MapContainer() {
         <DrawingToolbar />
         <MapControls />
         <Legend />
+        <AssetSearch />
 
         {/* Panels */}
         <AttributeTable
@@ -127,7 +131,7 @@ export function MapContainer() {
           vectorSource={vectorSource || undefined}
         />
 
-        {selectedFeature && activeTool === "select" && (
+        {selectedFeature && activeTool === "select" && !validationModalOpen && (
           <PropertyPanel
             properties={selectedFeature.getProperties() as any}
             onDeleteRequest={handleDeleteRequestFromPanel}

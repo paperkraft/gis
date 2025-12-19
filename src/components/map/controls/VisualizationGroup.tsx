@@ -1,18 +1,10 @@
 "use client";
-import {
-  Activity as ActivityIcon,
-  CircleDotDashed,
-  Diameter,
-  Palette,
-  Settings2,
-  Waves,
-} from "lucide-react";
+import { CircleDotDashed, Diameter, Palette, Settings2 } from "lucide-react";
 
 import { useStyleStore } from "@/store/styleStore";
+import { useUIStore } from "@/store/uiStore";
 
 import { ControlGroup, Divider, ToolBtn } from "./Shared";
-import { useUIStore } from "@/store/uiStore";
-import { useSimulationStore } from "@/store/simulationStore";
 
 interface VisualizationGroupProps {
   activeGroup: string | null;
@@ -25,14 +17,13 @@ export function VisualizationGroup({
 }: VisualizationGroupProps) {
   const { colorMode, setColorMode } = useStyleStore();
   const { setStyleSettingsModalOpen } = useUIStore();
-  const { results } = useSimulationStore();
 
   return (
     <ControlGroup
       id="vis"
       icon={Palette}
       label="Visualization"
-      isActiveGroup={colorMode !== "none"}
+      isActiveGroup={colorMode == "diameter" || colorMode == "roughness"}
       activeGroup={activeGroup}
       onToggle={onToggle}
     >
@@ -64,25 +55,6 @@ export function VisualizationGroup({
         icon={CircleDotDashed}
         title="Color by Roughness"
         label="Rough"
-      />
-
-      <Divider />
-
-      <ToolBtn
-        onClick={() => setColorMode("pressure")}
-        isActive={colorMode === "pressure"}
-        icon={ActivityIcon}
-        disabled={!results}
-        title="Pressure Map"
-        label="Pres"
-      />
-      <ToolBtn
-        onClick={() => setColorMode("velocity")}
-        isActive={colorMode === "velocity"}
-        icon={Waves}
-        disabled={!results}
-        title="Velocity Map"
-        label="Vel"
       />
     </ControlGroup>
   );

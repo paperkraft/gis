@@ -1,55 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { db } from '@/db';
+import { projects } from '@/db/schema';
+import { desc } from 'drizzle-orm';
 
-// GET /api/projects - List all projects (lightweight metadata only)
+// GET LIST
 export async function GET() {
     try {
-        const projects = await prisma.project.findMany({
-            select: {
-                id: true,
-                title: true,
-                updatedAt: true,
-                nodeCount: true,
-                linkCount: true,
-                // We do NOT fetch the heavy 'data' field here for performance
-            },
-            orderBy: {
-                updatedAt: 'desc'
-            }
-        });
+        // We only fetch metadata, not the heavy nodes/links
+        const allProjects = await db.select({
+            id: projects.id,
+            title: projects.title,
+            updatedAt: projects.updatedAt,
+            nodeCount: projects.nodeCount,
+            linkCount: projects.linkCount
+        })
+            .from(projects)
+            .orderBy(desc(projects.updatedAt));
 
-        // Map dates to ISO strings for frontend consistency
-        const sanitized = projects.map((p: any) => ({
-            ...p,
-            updatedAt: p.updatedAt.toISOString(), // Ensure serializable dates
-            lastModified: p.updatedAt.toISOString() // Alias for frontend compatibility
-        }));
-
-        return NextResponse.json(sanitized);
+        return NextResponse.json(allProjects);
     } catch (error) {
-        console.error("Database Error:", error);
-        return NextResponse.json({ error: "Failed to fetch projects" }, { status: 500 });
+        return NextResponse.json({ error: "Fetch failed" }, { status: 500 });
     }
 }
 
-// POST /api/projects - Create a new project
+// CREATE NEW
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
         const { title, data, nodeCount, linkCount } = body;
 
-        const project = await prisma.project.create({
-            data: {
-                title,
-                data,
-                nodeCount: nodeCount || 0,
-                linkCount: linkCount || 0,
-            }
-        });
+        // Insert metadata only. 
+        // NOTE: For 'Create from File', the frontend usually calls PUT immediately after 
+        // to save the nodes/links. If you want to do it here, you'd replicate the PUT logic.
+        const [newProject] = await db.insert(projects).values({
+            title,
+            settings: data?.settings || {},
+            patterns: data?.patterns || [],
+            curves: data?.curves || [],
+            controls: data?.controls || [],
+            nodeCount: nodeCount || 0,
+            linkCount: linkCount || 0
+        }).returning({ id: projects.id });
 
-        return NextResponse.json({ success: true, id: project.id });
+        return NextResponse.json({ success: true, id: newProject.id });
     } catch (error) {
-        console.error("Database Error:", error);
-        return NextResponse.json({ error: "Failed to create project" }, { status: 500 });
+        return NextResponse.json({ error: "Create failed" }, { status: 500 });
     }
 }
