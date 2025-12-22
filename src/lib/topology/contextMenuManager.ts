@@ -3,7 +3,7 @@ import { LineString, Point } from 'ol/geom';
 import Map from 'ol/Map';
 import VectorSource from 'ol/source/Vector';
 
-import { COMPONENT_TYPES, SNAPPING_TOLERANCE } from '@/constants/networkComponents';
+import { COMPONENT_TYPES } from '@/constants/networkComponents';
 import { useNetworkStore } from '@/store/networkStore';
 import { FeatureType } from '@/types/network';
 
@@ -224,6 +224,11 @@ export class ContextMenuManager {
             }
         }
 
+        this.addSectionHeader('Actions');
+        this.addMenuItem('Reverse Direction', '🔁', 'Swap start and end nodes', () => {
+            this.reversePipeDirection();
+        });
+
         // INSERT COMPONENTS
         this.addSectionHeader('Nodes');
         this.addPipeInsertMenuItem('Junction', 'junction', () => this.insertNodeOnPipe('junction'));
@@ -288,6 +293,38 @@ export class ContextMenuManager {
             linkType
         );
         this.hideContextMenu();
+    }
+
+    // --- NEW REVERSE FUNCTION ---
+    private reversePipeDirection() {
+        if (!this.currentPipe) return;
+
+        const store = useNetworkStore.getState();
+        const pipeId = this.currentPipe.getId() as string;
+
+        // 1. Swap Start/End IDs
+        const startNodeId = this.currentPipe.get('startNodeId');
+        const endNodeId = this.currentPipe.get('endNodeId');
+
+        // 2. Reverse Geometry Coordinates
+        const geometry = this.currentPipe.getGeometry() as LineString;
+        const coordinates = geometry.getCoordinates().reverse();
+        geometry.setCoordinates(coordinates);
+
+        // 3. Update Store
+        // This triggers 'updateFeature', which now adds the ID to 'modifiedIds'
+        store.updateFeature(pipeId, {
+            startNodeId: endNodeId,
+            endNodeId: startNodeId,
+            // (Optional) If you track vertices in properties, update them too
+        });
+
+        // 4. Force map refresh & hide menu
+        this.vectorSource.changed();
+        this.hideContextMenu();
+
+        // Safety check: Explicitly mark modified if updateFeature logic is ever bypassed
+        store.markModified(pipeId);
     }
 
     // ============================================

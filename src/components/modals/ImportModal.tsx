@@ -1,14 +1,24 @@
 "use client";
 
-import { AlertCircle, CheckCircle2, DownloadCloud, FileText, Trash2, Upload } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  DownloadCloud,
+  FileText,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
-import { Button } from '@/components/ui/button';
-import { FileImporter, ImportResult } from '@/lib/import/fileImporter';
-import { cn } from '@/lib/utils';
-import { useMapStore } from '@/store/mapStore';
+import { Button } from "@/components/ui/button";
+import { FileImporter, ImportResult } from "@/lib/import/fileImporter";
+import { cn } from "@/lib/utils";
+import { useMapStore } from "@/store/mapStore";
 
-import { ModalDialog } from '../ui/modal-dialog';
+import { ModalDialog } from "../ui/modal-dialog";
+import { useNetworkStore } from "@/store/networkStore";
+import { useParams } from "next/navigation";
+import { ProjectService } from "@/lib/services/ProjectService";
 
 interface ImportModalProps {
   isOpen: boolean;
@@ -24,7 +34,11 @@ export function ImportModal({ isOpen, onClose }: ImportModalProps) {
   const importerRef = useRef<FileImporter | null>(null);
 
   const map = useMapStore((state) => state.map);
+  const networkStore = useNetworkStore((state) => state);
   const vectorSource = useMapStore((state) => state.vectorSource);
+
+  const params = useParams();
+  const projectId = params?.id as string;
 
   useEffect(() => {
     if (vectorSource) {
@@ -63,12 +77,18 @@ export function ImportModal({ isOpen, onClose }: ImportModalProps) {
       setResult(importResult);
 
       // Zoom to imported features if successful
-      if (importResult.success && map && vectorSource) {
+      if (importResult.success) {
+        networkStore.markUnSaved();
+
+        if (projectId) {
+          console.log("Auto-saving imported data...");
+          await ProjectService.saveCurrentProject(projectId);
+        }
         // Force a small delay to ensure the render cycle completes
         setTimeout(() => {
-          const extent = vectorSource.getExtent();
+          const extent = vectorSource?.getExtent();
           if (extent && extent[0] !== Infinity) {
-            map.getView().fit(extent, {
+            map?.getView().fit(extent, {
               padding: [100, 100, 100, 100],
               duration: 1000,
               maxZoom: 19,

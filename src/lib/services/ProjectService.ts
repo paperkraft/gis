@@ -9,6 +9,7 @@ import { Feature } from "ol";
 export interface ProjectMetadata {
     id: string;
     name: string;
+    description?: string;
     lastModified: number;
     nodeCount: number;
     linkCount: number;
@@ -25,6 +26,7 @@ export class ProjectService {
             return data.map((p: any) => ({
                 id: p.id,
                 name: p.title,
+                description: p.description,
                 lastModified: p.updatedAt,
                 nodeCount: p.nodeCount,
                 linkCount: p.linkCount
@@ -106,7 +108,7 @@ export class ProjectService {
 
             useNetworkStore.getState().loadProject({
                 features,
-                settings: data.settings,
+                settings: { ...data.settings, description: project?.description },
                 patterns: data.patterns,
                 curves: data.curves,
                 controls: data.controls
@@ -120,26 +122,19 @@ export class ProjectService {
     }
 
     // --- CREATE BLANK ---
-    static async createProjectFromSettings(name: string, settings: ProjectSettings): Promise<string> {
+    static async createProjectFromSettings(name: string, description: string, settings: ProjectSettings): Promise<string> {
         // Construct empty project payload
-        const projectData = {
-            features: [],
+        const payload = {
+            title: name,
+            description: description,
             settings: { ...settings, title: name },
-            patterns: [],
-            curves: [],
-            controls: []
         };
 
         try {
             const res = await fetch('/api/projects', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: name,
-                    data: projectData,
-                    nodeCount: 0,
-                    linkCount: 0
-                })
+                body: JSON.stringify(payload)
             });
             return res.ok ? (await res.json()).id : "";
         } catch (e) {
@@ -153,6 +148,16 @@ export class ProjectService {
         const networkStore = useNetworkStore.getState();
         const mapStore = useMapStore.getState();
 
+        // 1. Get Tracking Sets
+        const modifiedIds = networkStore.modifiedIds;
+        const deletedIds = Array.from(networkStore.deletedIds);
+
+        // If nothing changed, return early
+        if (modifiedIds.size === 0 && deletedIds.length === 0 && !name && !networkStore.hasUnsavedChanges) {
+            console.log("No changes to save.");
+            return { success: true };
+        }
+
         let rawFeatures: Feature[] = [];
 
         if (mapStore.vectorSource) {
@@ -162,6 +167,12 @@ export class ProjectService {
             rawFeatures = Array.from(networkStore.features.values());
         }
 
+        // Filter only Modified Features
+        const featuresToUpsert = rawFeatures.filter(f => {
+            const fid = f.getId();
+            return fid && modifiedIds.has(fid.toString());
+        });
+
         // Build a Lookup Map of *Current* Features (Critical for Pump/Valve Geometry Reconstruction)
         const currentFeaturesMap = new Map<string, Feature>();
         rawFeatures.forEach(f => {
@@ -169,7 +180,7 @@ export class ProjectService {
             if (id) currentFeaturesMap.set(id.toString(), f);
         });
 
-        const features = rawFeatures
+        const features = featuresToUpsert
             .filter(f => {
                 const type = f.get('type');
                 // Filter out Visual Links, Markers, Previews
@@ -231,29 +242,24 @@ export class ProjectService {
                 };
             });
 
-        const projectData = {
-            features,
-            // settings: { ...networkStore.settings, title: name ?? networkStore.settings.title },
+        // 4. Construct Incremental Payload
+        const payload = {
+            title: name ?? networkStore.settings.title,
+            description: networkStore.settings.description ?? "",
+            modifications: features,
+            deletions: deletedIds,
+            // Always send settings/metadata as they are lightweight
             settings: networkStore.settings,
             patterns: networkStore.patterns,
             curves: networkStore.curves,
-            controls: networkStore.controls
+            controls: networkStore.controls,
         };
-
-        const nodeCount = features.filter((f: any) => ['junction', 'tank', 'reservoir'].includes(f.type)).length;
-        const linkCount = features.filter((f: any) => ['pipe', 'pump', 'valve'].includes(f.type)).length;
 
         try {
             const res = await fetch(`/api/projects/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id,
-                    title: name ?? networkStore.settings.title,
-                    data: projectData,
-                    nodeCount,
-                    linkCount
-                })
+                body: JSON.stringify(payload)
             });
 
             if (!res.ok) {
@@ -272,7 +278,7 @@ export class ProjectService {
     }
 
     // --- CREATE FROM FILE ---
-    static async createProjectFromFile(name: string, inpContent: string, sourceProjection: string = 'EPSG:3857'): Promise<string> {
+    static async createProjectFromFile(name: string, description: string, inpContent: string, sourceProjection: string = 'EPSG:3857'): Promise<string> {
         try {
             // 1. Parse the INP content (Returns OpenLayers Features)
             const data = parseINP(inpContent, sourceProjection);
@@ -346,27 +352,24 @@ export class ProjectService {
                 };
             });
 
-            // 4. Calculate Stats
-            const nodeCount = serializableFeatures.filter((f: any) => ['junction', 'tank', 'reservoir'].includes(f.type)).length;
-            const linkCount = serializableFeatures.filter((f: any) => ['pipe', 'pump', 'valve'].includes(f.type)).length;
-
             // 5. STEP 1: Create Project Shell (POST)
-            const projectData = {
-                settings: { ...data.settings, title: name },
-                patterns: data.patterns,
-                curves: data.curves,
-                controls: data.controls
-            };
+            const payload = {
+                title: name,
+                description,
+                settings: {
+                    ...data.settings,
+                    title: name,
+                    description,
+                    patterns: data.patterns[0] || [],
+                    curves: data.curves[0] || [],
+                    controls: data.controls[0] || []
+                }
+            }
 
             const createRes = await fetch('/api/projects', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: name,
-                    data: projectData,
-                    nodeCount,
-                    linkCount
-                })
+                body: JSON.stringify(payload)
             });
 
             if (!createRes.ok) throw new Error("Failed to create project shell");
@@ -375,17 +378,9 @@ export class ProjectService {
             // 6. STEP 2: Save Spatial Features (PUT)
             // We reuse the exact same format as saveCurrentProject
             const savePayload = {
-                id: id,
-                title: name,
-                data: {
-                    features: serializableFeatures, // The heavy spatial data
-                    settings: projectData.settings,
-                    patterns: projectData.patterns,
-                    curves: projectData.curves,
-                    controls: projectData.controls
-                },
-                nodeCount,
-                linkCount
+                ...payload,
+                modifications: serializableFeatures,
+                deletions: [],
             };
 
             const saveRes = await fetch(`/api/projects/${id}`, {

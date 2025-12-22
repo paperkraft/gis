@@ -61,6 +61,7 @@ export interface ValidationWarning {
 }
 export interface ProjectSettings {
     title: string;
+    description?: string;
     units: FlowUnit;
     headloss: HeadlossFormula;
     specificGravity: number;
@@ -69,6 +70,9 @@ export interface ProjectSettings {
     accuracy: number;
     demandMultiplier: number;
     projection: string;
+    patterns?: TimePattern[];
+    curves?: PumpCurve[];
+    controls?: NetworkControl[];
 }
 export interface TimePattern {
     id: string;

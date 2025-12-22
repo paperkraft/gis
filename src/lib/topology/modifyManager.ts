@@ -60,10 +60,19 @@ export class ModifyManager {
         });
 
         this.modifyInteraction.on('modifyend', (event) => {
+            const store = useNetworkStore.getState();
+            const modifiedIds: string[] = [];
+
             event.features.forEach((feature) => {
                 const type = feature.get('type');
+                const id = feature.getId() as string;
+
+                // 1. Mark the node itself as modified
+                modifiedIds.push(id);
+
+                // 2. Handle Connected Features (Rubber-banding)
                 if (['junction', 'tank', 'reservoir'].includes(type)) {
-                    this.handleJunctionModification(feature as Feature);
+                    this.handleJunctionModification(feature as Feature, modifiedIds);
                     this.checkForPipeSplit(feature as Feature);
                 }
                 if (type === 'pipe') {
@@ -71,9 +80,11 @@ export class ModifyManager {
                     feature.set('length', Math.round(geom.getLength()));
                 }
             });
+
+            store.markModified(modifiedIds);
             this.modifyStartCoordinates = {};
             this.vectorSource.changed();
-            useNetworkStore.getState().markUnSaved();
+            store.markUnSaved();
         });
 
         this.map.addInteraction(this.modifyInteraction);
@@ -208,7 +219,7 @@ export class ModifyManager {
         return Math.sqrt(Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2));
     }
 
-    private handleJunctionModification(junction: Feature) {
+    private handleJunctionModification(junction: Feature, modifiedIdList: string[]) {
         const junctionId = junction.getId() as string;
         const newCoord = (junction.getGeometry() as Point).getCoordinates();
 
@@ -217,6 +228,7 @@ export class ModifyManager {
             if (f.get('type') !== 'pipe') return;
             const geom = f.getGeometry() as LineString;
             const coords = geom.getCoordinates();
+            let isModified = false;
 
             if (f.get('startNodeId') === junctionId) {
                 coords[0] = newCoord;
@@ -225,6 +237,14 @@ export class ModifyManager {
                 coords[coords.length - 1] = newCoord;
                 geom.setCoordinates(coords);
             }
+
+            if (isModified) {
+                // Add pipe ID to list so it gets saved
+                modifiedIdList.push(f.getId() as string);
+
+                // Recalculate length while we are at it
+                f.set('length', Math.round(geom.getLength()));
+            }
         });
 
         // Update connected links (pumps/valves)
@@ -232,6 +252,7 @@ export class ModifyManager {
         if (connectedLink) {
             // Update visual link line
             const linkId = connectedLink.getId();
+            modifiedIdList.push(linkId as string);
             const visualLine = this.vectorSource.getFeatures().find(
                 f => f.get('isVisualLink') && f.get('parentLinkId') === linkId
             );

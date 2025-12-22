@@ -31,12 +31,21 @@ export function ProjectSettingsForm({
         </h3>
 
         {mode === "edit" && (
-          <Input
-            type="text"
-            label="Project Title"
-            value={settings.title}
-            onChange={(v) => onChange("title", v as string)}
-          />
+          <>
+            <Input
+              type="text"
+              label="Project Title"
+              value={settings.title}
+              onChange={(v) => onChange("title", v as string)}
+            />
+
+            <Input
+              type="text"
+              label="Description"
+              value={settings.description || ""}
+              onChange={(v) => onChange("description", v as string)}
+            />
+          </>
         )}
 
         <div className="space-y-1">

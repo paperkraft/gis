@@ -36,6 +36,7 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("name-choice");
   const [projectName, setProjectName] = useState("");
+  const [description, setProjectDescription] = useState("");
   const [settings, setSettings] = useState<ProjectSettings>(DEFAULT_SETTINGS);
 
   const [file, setFile] = useState<File | null>(null);
@@ -46,6 +47,7 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
     if (isOpen) {
       setStep("name-choice");
       setProjectName("");
+      setProjectDescription("");
       setSettings(DEFAULT_SETTINGS);
       setFile(null);
       setIsProcessing(false);
@@ -59,7 +61,7 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
 
   const handleCreateBlank = () => {
     if (!projectName) return;
-    setSettings((prev) => ({ ...prev, title: projectName }));
+    setSettings((prev) => ({ ...prev, title: projectName, description }));
     setStep("settings");
   };
 
@@ -77,6 +79,7 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
       const finalSettings = { ...settings, title: projectName };
       const id = await ProjectService.createProjectFromSettings(
         projectName,
+        description,
         finalSettings
       );
       router.push(`/project/${id}`);
@@ -98,6 +101,7 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
       // Pass the selected projection from the form
       const id = await ProjectService.createProjectFromFile(
         projectName,
+        description,
         text,
         settings.projection
       );
@@ -180,6 +184,13 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
             value={projectName}
             placeholder="e.g. Downtown Water Network"
             onChange={(v) => setProjectName(v as string)}
+          />
+
+          <Input
+            label="Description"
+            value={description}
+            placeholder="Description of Water Network"
+            onChange={(v) => setProjectDescription(v as string)}
           />
 
           <div className="grid grid-cols-2 gap-4">

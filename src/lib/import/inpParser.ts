@@ -88,7 +88,7 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
             headloss: (optionsMap['HEADLOSS'] as any) || 'H-W',
             specificGravity: parseFloat(optionsMap['SPECIFIC GRAVITY'] || '1.0'),
             viscosity: parseFloat(optionsMap['VISCOSITY'] || '1.0'),
-            trials: parseInt(optionsMap['TRIALS'] || '40'),
+            trials: parseInt(optionsMap['TRIALS'] || '24'),
             accuracy: parseFloat(optionsMap['ACCURACY'] || '0.001'),
             demandMultiplier: parseFloat(optionsMap['DEMAND MULTIPLIER'] || '1.0'),
             projection: sourceProjection,

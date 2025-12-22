@@ -1,20 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  Plus,
-  Clock,
-  FileText,
-  Trash2,
-  Search,
-  ArrowRight,
-  Droplet,
-  Loader2,
-} from "lucide-react";
-import { useRouter } from "next/navigation";
-import { ProjectService, ProjectMetadata } from "@/lib/services/ProjectService";
-import { Button } from "@/components/ui/button";
-import { NewProjectModal } from "@/components/modals/NewProjectModal";
+import { ArrowRight, Clock, Droplet, FileText, Loader2, Plus, Search, Trash2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+
+import { NewProjectModal } from '@/components/modals/NewProjectModal';
+import { Button } from '@/components/ui/button';
+import { ProjectMetadata, ProjectService } from '@/lib/services/ProjectService';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -124,6 +116,10 @@ export default function Dashboard() {
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-blue-600 transition-colors">
                   {project.name}
                 </h3>
+
+                <div className="text-sm text-gray-500 mb-4">
+                  {project.description}
+                </div>
 
                 <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
                   <div className="flex items-center gap-1">

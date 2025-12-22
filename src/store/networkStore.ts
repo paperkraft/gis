@@ -24,9 +24,14 @@ interface NetworkState {
     past: Feature[][];
     future: Feature[][];
 
+    // Tracking
+    modifiedIds: Set<string>;
+    deletedIds: Set<string>;
+
     // Actions
     markSaved: () => void;
     markUnSaved: () => void;
+    markModified: (id: string | string[]) => void;
 
     setSelectedFeature: (feature: Feature | null) => void;
     addFeature: (feature: Feature) => void;
@@ -58,7 +63,7 @@ interface NetworkState {
     findNodeById: (nodeId: string) => Feature | undefined;
 
     // Project Actions
-    loadProject: (data: ParsedProjectData) => void;
+    loadProject: (data: ParsedProjectData, isUnsavedImport?: boolean) => void;
 
     setPatterns: (patterns: TimePattern[]) => void;
     setCurves: (curves: PumpCurve[]) => void;
@@ -80,7 +85,8 @@ const DEFAULT_PATTERNS: TimePattern[] = [
 ];
 
 const DEFAULT_SETTINGS: ProjectSettings = {
-    title: "Untitled Project",
+    title: "Untitled",
+    description: "",
     units: "GPM",
     headloss: "H-W",
     specificGravity: 1.0,
@@ -116,20 +122,15 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         pipe: 100,
     },
 
-    markSaved: () => set({ hasUnsavedChanges: false }),
-    markUnSaved: () => set({ hasUnsavedChanges: true }),
+    modifiedIds: new Set(),
+    deletedIds: new Set(),
 
-    loadProject: (data) => {
+    // ---------------- Project ---------------- //
+
+    loadProject: (data, isUnsavedImport = false) => {
         const featureMap = new Map<string, Feature>();
 
-        const newCounters = {
-            junction: 100,
-            tank: 100,
-            reservoir: 100,
-            pump: 100,
-            valve: 100,
-            pipe: 100,
-        };
+        const newCounters = { ...get().nextIdCounter };
 
         // 1. Load Features & Update Counters
         data.features.forEach(f => {
@@ -141,6 +142,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
                 if (['junction', 'tank', 'reservoir'].includes(type)) {
                     f.set('connectedLinks', []);
                 }
+
                 featureMap.set(id, f);
 
                 // Only update counters for known component types
@@ -182,25 +184,28 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
             }
         });
 
+        // IF IMPORTING, MARK ALL AS MODIFIED
+        const initialModified = isUnsavedImport ? new Set(featureMap.keys()) : new Set<string>();
+
         set({
             features: featureMap,
             settings: data.settings,
-            patterns: data.patterns.length > 0 ? data.patterns : DEFAULT_PATTERNS,
-            curves: data.curves || [],
+            patterns: data.settings.patterns ?? DEFAULT_PATTERNS,
+            curves: data.settings.curves || [],
+            controls: data.controls || [],
+
             past: [],
             future: [],
-            controls: data.controls || [],
             selectedFeature: null,
             selectedFeatureId: null,
             selectedFeatureIds: [],
             nextIdCounter: newCounters,
-            hasUnsavedChanges: false,
+
+            hasUnsavedChanges: isUnsavedImport,
+            modifiedIds: initialModified,
+            deletedIds: new Set(),
         });
     },
-
-    setPatterns: (patterns) => set({ patterns, hasUnsavedChanges: true }),
-    setCurves: (curves) => set({ curves, hasUnsavedChanges: true }),
-    setControls: (controls) => set({ controls, hasUnsavedChanges: true }),
 
     updateSettings: (newSettings) => {
         set((state) => ({
@@ -209,6 +214,22 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         }));
     },
 
+    generateUniqueId: (type) => {
+        const counter = get().nextIdCounter[type];
+        set((state) => ({
+            nextIdCounter: {
+                ...state.nextIdCounter,
+                [type]: counter + 1,
+            },
+        }));
+
+        const prefix = COMPONENT_TYPES[type]?.prefix || type.toUpperCase();
+        return `${prefix}-${counter}`;
+    },
+
+    // ---------------- Patterns ---------------- //
+
+    setPatterns: (patterns) => set({ patterns, hasUnsavedChanges: true }),
     addPattern: (pattern) => set((state) => ({ patterns: [...state.patterns, pattern], hasUnsavedChanges: true })),
 
     updatePattern: (id, updated) => set((state) => ({
@@ -221,6 +242,9 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         hasUnsavedChanges: true
     })),
 
+    // ---------------- Curves ---------------- //
+
+    setCurves: (curves) => set({ curves, hasUnsavedChanges: true }),
     addCurve: (curve) => set((state) => ({ curves: [...state.curves, curve], hasUnsavedChanges: true })),
 
     updateCurve: (id, updated) => set((state) => ({
@@ -233,10 +257,10 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         hasUnsavedChanges: true
     })),
 
-    addControl: (control) => set((state) => ({
-        controls: [...state.controls, control],
-        hasUnsavedChanges: true
-    })),
+    // ---------------- Controls ---------------- //
+
+    setControls: (controls) => set({ controls, hasUnsavedChanges: true }),
+    addControl: (control) => set((state) => ({ controls: [...state.controls, control], hasUnsavedChanges: true })),
 
     updateControl: (id, updated) => set((state) => ({
         controls: state.controls.map(c => c.id === id ? updated : c),
@@ -248,85 +272,9 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         hasUnsavedChanges: true
     })),
 
-    clearFeatures: () => set({
-        features: new Map(),
-        past: [],
-        future: [],
-        settings: DEFAULT_SETTINGS,
-        patterns: DEFAULT_PATTERNS,
-        curves: [],
-        controls: [],
-        hasUnsavedChanges: false,
-        selectedFeature: null,
-        selectedFeatureId: null,
-        selectedFeatureIds: []
-    }),
+    // ---------------- Features ---------------- //
 
     setSelectedFeature: (feature) => set({ selectedFeature: feature }),
-
-    addFeature: (feature) => {
-        const id = feature.getId() as string;
-        if (id) {
-            feature.set('id', id);
-        }
-
-        set((state) => {
-            const newFeatures = new Map(state.features);
-            newFeatures.set(id, feature);
-            return { features: newFeatures, hasUnsavedChanges: true };
-        });
-    },
-
-    addFeatures: (features) => {
-        set((state) => {
-            const newFeatures = new Map(state.features);
-            features.forEach(f => {
-                const id = f.getId() as string;
-                if (id) {
-                    f.set('id', id);
-                    newFeatures.set(id, f);
-                }
-            });
-            return { features: newFeatures, hasUnsavedChanges: true };
-        });
-    },
-
-    removeFeature: (id) => {
-        set((state) => {
-            const newFeatures = new Map(state.features);
-            newFeatures.delete(id);
-            return { features: newFeatures, hasUnsavedChanges: true };
-        });
-    },
-
-    updateFeature: (id, properties) => {
-        const feature = get().features.get(id);
-        if (feature) {
-            feature.setProperties({ ...feature.getProperties(), ...properties });
-            set((state) => {
-                const newFeatures = new Map(state.features);
-                newFeatures.set(id, feature);
-                return { features: newFeatures, hasUnsavedChanges: true };
-            });
-        }
-    },
-
-    updateFeatures: (updates) => {
-        set((state) => {
-            const newFeatures = new Map(state.features);
-            let hasChanges = false;
-
-            Object.entries(updates).forEach(([id, props]) => {
-                const feature = newFeatures.get(id);
-                if (feature) {
-                    feature.setProperties({ ...feature.getProperties(), ...props });
-                    hasChanges = true;
-                }
-            });
-
-            return hasChanges ? { features: newFeatures, hasUnsavedChanges: true } : {};
-        });
-    },
 
     selectFeature: (id) => set((state) => ({
         selectedFeatureId: id,
@@ -344,22 +292,127 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
     getFeatureById: (id) => get().features.get(id),
 
-    getFeaturesByType: (type) =>
-        Array.from(get().features.values()).filter(
-            (f) => f.get("type") === type
-        ),
+    getFeaturesByType: (type) => Array.from(get().features.values()).filter((f) => f.get("type") === type),
 
-    generateUniqueId: (type) => {
-        const counter = get().nextIdCounter[type];
-        set((state) => ({
-            nextIdCounter: {
-                ...state.nextIdCounter,
-                [type]: counter + 1,
-            },
-        }));
+    addFeature: (feature) => {
+        const id = feature.getId() as string;
+        if (id) {
+            feature.set('id', id);
+        }
 
-        const prefix = COMPONENT_TYPES[type]?.prefix || type.toUpperCase();
-        return `${prefix}-${counter}`;
+        set((state) => {
+            const newFeatures = new Map(state.features);
+            newFeatures.set(id, feature);
+
+            // TRACKING: Add to modified, ensure not in deleted
+            const newModified = new Set(state.modifiedIds).add(id);
+            const newDeleted = new Set(state.deletedIds);
+            newDeleted.delete(id);
+
+            return {
+                features: newFeatures,
+                hasUnsavedChanges: true,
+                modifiedIds: newModified,
+                deletedIds: newDeleted
+            };
+        });
+    },
+
+    addFeatures: (features) => {
+        set((state) => {
+            const newFeatures = new Map(state.features);
+            const newModified = new Set(state.modifiedIds);
+            const newDeleted = new Set(state.deletedIds);
+
+            features.forEach(f => {
+                const id = f.getId() as string;
+                if (id) {
+                    f.set('id', id);
+                    newFeatures.set(id, f);
+                    newModified.add(id);
+                    newDeleted.delete(id);
+                }
+            });
+
+
+            return {
+                features: newFeatures,
+                hasUnsavedChanges: true,
+                modifiedIds: newModified,
+                deletedIds: newDeleted
+            };
+        });
+    },
+
+    updateFeature: (id, properties) => {
+        const feature = get().features.get(id);
+        if (feature) {
+            feature.setProperties({ ...feature.getProperties(), ...properties });
+            set((state) => {
+                const newFeatures = new Map(state.features);
+                newFeatures.set(id, feature);
+                const newModified = new Set(state.modifiedIds).add(id);
+                return {
+                    features: newFeatures,
+                    hasUnsavedChanges: true,
+                    modifiedIds: newModified
+                };
+            });
+        }
+    },
+
+    updateFeatures: (updates) => {
+        set((state) => {
+            const newFeatures = new Map(state.features);
+            const newModified = new Set(state.modifiedIds);
+            let hasChanges = false;
+
+            Object.entries(updates).forEach(([id, props]) => {
+                const feature = newFeatures.get(id);
+                if (feature) {
+                    feature.setProperties({ ...feature.getProperties(), ...props });
+                    newModified.add(id);
+                    hasChanges = true;
+                }
+            });
+
+            return hasChanges ? { features: newFeatures, hasUnsavedChanges: true, modifiedIds: newModified } : {};
+        });
+    },
+
+    clearFeatures: () => set({
+        features: new Map(),
+        past: [],
+        future: [],
+        settings: DEFAULT_SETTINGS,
+        patterns: DEFAULT_PATTERNS,
+        curves: [],
+        controls: [],
+        hasUnsavedChanges: false,
+        modifiedIds: new Set(),
+        deletedIds: new Set(),
+        selectedFeature: null,
+        selectedFeatureId: null,
+        selectedFeatureIds: []
+    }),
+
+    removeFeature: (id) => {
+        set((state) => {
+            const newFeatures = new Map(state.features);
+            newFeatures.delete(id);
+
+            // TRACKING: Add to deleted, remove from modified (if it was new/unsaved)
+            const newDeleted = new Set(state.deletedIds).add(id);
+            const newModified = new Set(state.modifiedIds);
+            newModified.delete(id); // Don't need to upsert if we are deleting it
+
+            return {
+                features: newFeatures,
+                hasUnsavedChanges: true,
+                deletedIds: newDeleted,
+                modifiedIds: newModified
+            };
+        });
     },
 
     updateNodeConnections: (nodeId, linkId, action) => {
@@ -374,6 +427,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
             if (index > -1) connections.splice(index, 1);
         }
         node.set("connectedLinks", connections);
+        // Topology updates count as modifications!
+        get().markModified(nodeId);
     },
 
     getConnectedLinks: (nodeId) => {
@@ -388,6 +443,31 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
                 f.getId() === nodeId
         );
     },
+
+    // ---------------- Actions ---------------- //
+
+    markSaved: () => set({
+        hasUnsavedChanges: false,
+        modifiedIds: new Set(),
+        deletedIds: new Set()
+    }),
+
+    markUnSaved: () => set({ hasUnsavedChanges: true }),
+
+    markModified: (ids) => set((state) => {
+        const newModified = new Set(state.modifiedIds);
+        const idArray = Array.isArray(ids) ? ids : [ids];
+
+        idArray.forEach(id => newModified.add(id));
+
+        // Ensure we don't track deleted items as modified
+        const newDeleted = new Set(state.deletedIds);
+        idArray.forEach(id => newDeleted.delete(id));
+
+        return { modifiedIds: newModified, hasUnsavedChanges: true, deletedIds: newDeleted };
+    }),
+
+    // ---------------- History ---------------- //
 
     snapshot: () => {
         const currentFeatures = Array.from(get().features.values());

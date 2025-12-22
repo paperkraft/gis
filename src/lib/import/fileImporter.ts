@@ -150,7 +150,7 @@ export class FileImporter {
                 patterns: result.patterns || [],
                 curves: result.curves || [],
                 controls: result.controls || []
-            });
+            }, true);
 
             this.vectorSource.clear();
             this.vectorSource.addFeatures(result.features);
@@ -171,9 +171,6 @@ export class FileImporter {
         }
     }
 
-    /**
-     * Clear existing network
-     */
     public clearNetwork() {
         this.vectorSource.clear();
         useNetworkStore.getState().clearFeatures();

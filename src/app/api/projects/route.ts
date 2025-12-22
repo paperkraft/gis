@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { projects } from '@/db/schema';
-import { desc } from 'drizzle-orm';
+import { links, nodes, projects } from '@/db/schema';
+import { desc, eq, sql } from 'drizzle-orm';
 
 // GET LIST
 export async function GET() {
@@ -10,11 +10,17 @@ export async function GET() {
         const allProjects = await db.select({
             id: projects.id,
             title: projects.title,
+            description: projects.description,
             updatedAt: projects.updatedAt,
-            nodeCount: projects.nodeCount,
-            linkCount: projects.linkCount
+
+            // Subquery to count nodes for this specific project
+            nodeCount: sql<number>`count(distinct ${nodes.id})`.mapWith(Number),
+            linkCount: sql<number>`count(distinct ${links.id})`.mapWith(Number),
         })
             .from(projects)
+            .leftJoin(nodes, eq(projects.id, nodes.projectId))
+            .leftJoin(links, eq(projects.id, links.projectId))
+            .groupBy(projects.id)
             .orderBy(desc(projects.updatedAt));
 
         return NextResponse.json(allProjects);
@@ -27,21 +33,10 @@ export async function GET() {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { title, data, nodeCount, linkCount } = body;
+        const { title, description, settings } = body;
 
         // Insert metadata only. 
-        // NOTE: For 'Create from File', the frontend usually calls PUT immediately after 
-        // to save the nodes/links. If you want to do it here, you'd replicate the PUT logic.
-        const [newProject] = await db.insert(projects).values({
-            title,
-            settings: data?.settings || {},
-            patterns: data?.patterns || [],
-            curves: data?.curves || [],
-            controls: data?.controls || [],
-            nodeCount: nodeCount || 0,
-            linkCount: linkCount || 0
-        }).returning({ id: projects.id });
-
+        const [newProject] = await db.insert(projects).values({ title, description, settings }).returning({ id: projects.id });
         return NextResponse.json({ success: true, id: newProject.id });
     } catch (error) {
         return NextResponse.json({ error: "Create failed" }, { status: 500 });
