@@ -1,22 +1,14 @@
 "use client";
 
-import {
-  ArrowRight,
-  Clock,
-  Droplet,
-  FileText,
-  Loader2,
-  Plus,
-  Search,
-  Trash2,
-} from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { NewProjectModal } from "@/components/modals/NewProjectModal";
-import { Button } from "@/components/ui/button";
 import { ProjectMetadata, ProjectService } from "@/lib/services/ProjectService";
-import NewDashboard from "@/components/new_layout/Dashboard";
+import AppLayout from "@/components/new_layout/AppLayout";
+import { Button } from "@/components/ui/button";
+import { NewProjectModal } from "@/components/modals/NewProjectModal";
+import ProjectList from "@/components/new_layout/ProjectList";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -32,8 +24,8 @@ export default function Dashboard() {
     setLoading(false);
   };
 
+  // Load projects on mount
   useEffect(() => {
-    // Load projects on mount
     loadProjects();
   }, []);
 
@@ -64,113 +56,23 @@ export default function Dashboard() {
     );
   }
 
-  return <NewDashboard />;
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="bg-blue-600 p-2 rounded-lg">
-              <Droplet className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              Water Network
+    <>
+      <AppLayout>
+        <div className="px-4 py-3 flex items-center justify-between border-b">
+          <div>
+            <h1 className="text-xl font-medium text-slate-800 mb-1">
+              My Projects
             </h1>
           </div>
-          <Button
-            onClick={handleCreate}
-            className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-          >
-            <Plus className="w-4 h-4" /> New Project
+          <Button size={"sm"} onClick={() => handleCreate()}>
+            <Plus size={18} /> New Project
           </Button>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-6 py-10">
-        {/* Search Bar */}
-        <div className="mb-8">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search projects..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-            />
-          </div>
-        </div>
+        <ProjectList projects={filteredProjects} handleDelete={handleDelete} />
+      </AppLayout>
 
-        {/* Project Grid */}
-        {!loading && filteredProjects.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProjects.map((project) => (
-              <div
-                key={project.id}
-                onClick={() => router.push(`/project/${project.id}`)}
-                className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 cursor-pointer hover:shadow-lg hover:border-blue-500 dark:hover:border-blue-500 transition-all duration-200"
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-600 dark:text-blue-400">
-                    <FileText className="w-6 h-6" />
-                  </div>
-                  <button
-                    onClick={(e) => handleDelete(e, project.id)}
-                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-blue-600 transition-colors">
-                  {project.name}
-                </h3>
-
-                <div className="text-sm text-gray-500 mb-4">
-                  {project.description}
-                </div>
-
-                <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" />
-                    {new Date(project.lastModified).toLocaleDateString()}
-                  </div>
-                  <div>
-                    {project.nodeCount} Nodes • {project.linkCount} Links
-                  </div>
-                </div>
-
-                <div className="flex items-center text-sm font-medium text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity transform -translate-x-2.5 group-hover:translate-x-0 duration-200">
-                  Open Editor <ArrowRight className="w-4 h-4 ml-1" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-20">
-            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FileText className="w-8 h-8 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              No projects found
-            </h3>
-            <p className="text-gray-500 mb-6">
-              Create a new project to start modeling.
-            </p>
-            <Button
-              onClick={handleCreate}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              Create New Project
-            </Button>
-          </div>
-        )}
-      </main>
-
-      {/* Render Modal */}
       <NewProjectModal
         isOpen={isModalOpen}
         onClose={() => {
@@ -178,6 +80,6 @@ export default function Dashboard() {
           loadProjects();
         }}
       />
-    </div>
+    </>
   );
 }

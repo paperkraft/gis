@@ -18,6 +18,7 @@ import { useUIStore, WorkbenchModalType } from "@/store/uiStore";
 
 import { DraggableModal } from "./DraggableModal";
 import { MenuItem, WORKBENCH_MENU } from "@/data/workbenchMenu";
+import { ContextMenu } from "./ContextMenu";
 
 export default function WorkbenchLayout({ children }: { children: ReactNode }) {
   const [sidebarWidth, setSidebarWidth] = useState(260);
@@ -27,8 +28,11 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
 
   const {
     activeModal,
-    setActiveModal,
     layerVisibility,
+    activeStyleLayer,
+    setActiveModal,
+    setContextMenu,
+    setActiveStyleLayer,
     toggleLayerVisibility,
   } = useUIStore();
 
@@ -47,9 +51,12 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
 
     features.forEach((f) => {
       const type = f.get("type") as string;
-      if (counts[type] !== undefined) {
+      if (Object.prototype.hasOwnProperty.call(counts, type)) {
         counts[type]++;
       }
+      // if (counts[type] !== undefined) {
+      //   counts[type]++;
+      // }
     });
     return counts;
   }, [features]);
@@ -169,21 +176,24 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
   // --- RECURSIVE RENDERER ---
   const renderTreeNodes = (nodes: MenuItem[]) => {
     return nodes.map((node) => {
+      // GROUP RENDER
       if (node.type === "GROUP") {
         return (
           <TreeGroup
             key={node.id}
             label={node.label}
             count={node.count}
-            forceOpen={isSearching} // Pass forceOpen prop
+            forceOpen={isSearching}
           >
             {node.children && renderTreeNodes(node.children)}
           </TreeGroup>
         );
       }
+
+      // ITEM RENDER
       if (node.type === "ITEM") {
         let dynamicCount: number | undefined = undefined;
-
+        // Inject dynamic counts for layers
         if (node.layerKey && typeof layerCounts[node.layerKey] === "number") {
           dynamicCount = layerCounts[node.layerKey];
         }
@@ -192,24 +202,55 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
           ? layerVisibility[node.layerKey]
           : undefined;
 
+        const isActive =
+          (node.modalType && activeModal === node.modalType) ||
+          (node.layerKey &&
+            activeModal === "STYLE_SETTINGS" &&
+            activeStyleLayer === node.layerKey);
+
         return (
           <TreeItem
             key={node.id}
             label={node.label}
             icon={node.icon}
+            active={isActive}
+            count={dynamicCount}
+            isVisible={isVisible}
+            // LEFT CLICK: Open Style Settings if it's a layer, or specific modal if defined
+            // onClick={() => {
+            //   if (node.layerKey) {
+            //     setActiveStyleLayer(node.layerKey);
+            //     setActiveModal("STYLE_SETTINGS");
+            //   } else if (node.modalType) {
+            //     setActiveModal(node.modalType as WorkbenchModalType);
+            //   }
+            // }}
+
             onClick={
-              node.modalType
+              !node.layerKey && node.modalType
                 ? () => setActiveModal(node.modalType as WorkbenchModalType)
                 : undefined
             }
-            active={node.modalType ? activeModal === node.modalType : false}
-            count={dynamicCount}
-            isVisible={isVisible}
+            // VISIBILITY TOGGLE
             onToggleVisibility={
               node.layerKey
                 ? (e: any) => {
                     e.stopPropagation();
                     if (node.layerKey) toggleLayerVisibility(node.layerKey);
+                  }
+                : undefined
+            }
+            // RIGHT CLICK: Context Menu
+            onContextMenu={
+              node.layerKey
+                ? (e: React.MouseEvent) => {
+                    e.preventDefault();
+                    setContextMenu({
+                      x: e.clientX,
+                      y: e.clientY,
+                      type: "layer",
+                      id: node.layerKey!,
+                    });
                   }
                 : undefined
             }
@@ -344,13 +385,12 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
             sidebarWidth={isCollapsed ? 0 : sidebarWidth}
           />
         )}
+
+        <ContextMenu />
       </div>
     </div>
   );
 }
-
-// --- UPDATED SUB-COMPONENTS ---
-// We need to update TreeSection and TreeGroup to accept 'forceOpen'
 
 function TreeSection({
   title,
@@ -361,10 +401,9 @@ function TreeSection({
 }: any) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
-  // Sync state when forceOpen changes (during search)
   useEffect(() => {
     if (forceOpen) {
-      setIsOpen(true); // Expand on search
+      setIsOpen(true);
     } else {
       setIsOpen(defaultOpen);
     }
@@ -407,7 +446,6 @@ function TreeSection({
 function TreeGroup({ label, count, children, forceOpen = false }: any) {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Sync state when forceOpen changes
   useEffect(() => {
     if (forceOpen) {
       setIsOpen(true);
@@ -442,7 +480,6 @@ function TreeGroup({ label, count, children, forceOpen = false }: any) {
   );
 }
 
-// TreeItem remains unchanged
 function TreeItem({
   label,
   active,
@@ -451,10 +488,12 @@ function TreeItem({
   count,
   isVisible,
   onToggleVisibility,
+  onContextMenu,
 }: any) {
   return (
     <div
       onClick={onClick}
+      onContextMenu={onContextMenu}
       className={`ml-2 flex items-center px-2 py-1.5 cursor-pointer rounded-sm text-xs transition-all relative ${
         active
           ? "bg-blue-50 text-blue-700 font-medium"
@@ -473,7 +512,6 @@ function TreeItem({
 
       {/* Layer Controls (Visibility Toggle & Count) */}
       <div className="ml-auto flex items-center gap-2">
-        {/* Visibility Toggle (Only if onToggleVisibility is provided) */}
         {onToggleVisibility && (
           <button
             onClick={onToggleVisibility}
@@ -486,15 +524,11 @@ function TreeItem({
             {isVisible === false ? <EyeOff size={10} /> : <Eye size={10} />}
           </button>
         )}
-
-        {/* Count Badge (Only if count is provided) */}
-        {count !== undefined && (
+        {count !== undefined && typeof count === "number" && (
           <span className="text-[9px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-mono min-w-5 text-center">
             {count}
           </span>
         )}
-
-        {/* Default Context Menu (Hidden for now, shown on hover in original design) */}
         {!onToggleVisibility && count === undefined && (
           <MoreVertical
             size={10}

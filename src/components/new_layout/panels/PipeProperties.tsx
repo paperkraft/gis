@@ -7,7 +7,6 @@ import {
   SaveActions,
   TopologyInfo,
 } from "./FormControls";
-import { ArrowRightLeft } from "lucide-react";
 
 export function PipeProperties() {
   const {
@@ -49,13 +48,13 @@ export function PipeProperties() {
         <div className="flex gap-2 items-end">
           <FormInput
             label="Length (m)"
-            value={formData.length ?? 0}
+            value={formData.length || 1}
             onChange={(v) => handleChange("length", parseFloat(v))}
             type="number"
           />
           <FormInput
             label="Diameter (mm)"
-            value={formData.diameter ?? 0}
+            value={formData.diameter || 1}
             onChange={(v) => handleChange("diameter", parseFloat(v))}
             type="number"
           />
@@ -65,7 +64,7 @@ export function PipeProperties() {
       <FormGroup label="Hydraulics">
         <FormInput
           label="Roughness"
-          value={formData.roughness ?? 0}
+          value={formData.roughness || 1}
           onChange={(v) => handleChange("roughness", parseFloat(v))}
           type="number"
         />

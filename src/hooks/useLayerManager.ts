@@ -21,7 +21,7 @@ export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
         showLabels,
         isFlowAnimating,
         flowAnimationSpeed,
-        flowAnimationStyle
+        flowAnimationStyle,
     } = useUIStore();
 
     // 2. Get Simulation & Style State
@@ -32,7 +32,8 @@ export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
         minMax,
         gradientStops,
         styleType,
-        classCount
+        classCount,
+        layerStyles
     } = useStyleStore();
 
     // Local State for Animation
@@ -137,6 +138,7 @@ export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
         minMax,
         gradientStops,
         styleType,
-        classCount
+        classCount,
+        layerStyles
     ]);
 }

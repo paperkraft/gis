@@ -13,6 +13,7 @@ interface NetworkState {
 
     // Tracking State
     hasUnsavedChanges: boolean;
+    version: number;
 
     // Project Data
     settings: ProjectSettings;
@@ -124,6 +125,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
     modifiedIds: new Set(),
     deletedIds: new Set(),
+    version: 0,
 
     // ---------------- Project ---------------- //
 
@@ -348,6 +350,9 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         const feature = get().features.get(id);
         if (feature) {
             feature.setProperties({ ...feature.getProperties(), ...properties });
+
+            feature.changed();
+
             set((state) => {
                 const newFeatures = new Map(state.features);
                 newFeatures.set(id, feature);
@@ -355,7 +360,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
                 return {
                     features: newFeatures,
                     hasUnsavedChanges: true,
-                    modifiedIds: newModified
+                    modifiedIds: newModified,
+                    version: state.version + 1
                 };
             });
         }
@@ -372,11 +378,12 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
                 if (feature) {
                     feature.setProperties({ ...feature.getProperties(), ...props });
                     newModified.add(id);
+                    feature.changed();
                     hasChanges = true;
                 }
             });
 
-            return hasChanges ? { features: newFeatures, hasUnsavedChanges: true, modifiedIds: newModified } : {};
+            return hasChanges ? { features: newFeatures, hasUnsavedChanges: true, modifiedIds: newModified, version: state.version + 1 } : {};
         });
     },
 

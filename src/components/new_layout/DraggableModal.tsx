@@ -1,29 +1,20 @@
 "use client";
 
-import React, { useState } from "react";
 import {
-  X,
-  Maximize2,
-  Minimize2,
-  Upload,
-  Box,
-  Settings,
-  Activity,
-  Save,
-  FileText,
-  CheckCircle2,
-  ArrowRightCircle,
-  Database,
-  Cylinder,
-  Zap,
-} from "lucide-react";
-import { WorkbenchModalType } from "@/store/uiStore";
-import { JunctionProperties } from "./panels/JunctionProperties";
-import { ReservoirProperties } from "./panels/ReservoirProperties";
-import { TankProperties } from "./panels/TankProperties";
-import { PipeProperties } from "./panels/PipeProperties";
-import { PumpProperties } from "./panels/PumpProperties";
-import { ValveProperties } from "./panels/ValveProperties";
+    Activity, ArrowRightCircle, Box, Cylinder, Database, Maximize2, Minimize2, Palette, Save,
+    Settings, Upload, X, Zap
+} from 'lucide-react';
+import React, { useState } from 'react';
+
+import { WorkbenchModalType } from '@/store/uiStore';
+
+import { JunctionProperties } from './panels/JunctionProperties';
+import { PipeProperties } from './panels/PipeProperties';
+import { PumpProperties } from './panels/PumpProperties';
+import { ReservoirProperties } from './panels/ReservoirProperties';
+import { StyleSettingsPanel } from './panels/StyleSettingsPanel';
+import { TankProperties } from './panels/TankProperties';
+import { ValveProperties } from './panels/ValveProperties';
 
 interface DraggableModalProps {
   type: WorkbenchModalType;
@@ -62,6 +53,8 @@ export function DraggableModal({
   // --- CONTENT SWITCHER ---
   const renderContent = () => {
     switch (type) {
+      case "STYLE_SETTINGS":
+        return <StyleSettingsPanel />;
       case "GEOMETRY_IMPORT":
         return <GeometryImportContent />;
       case "SIMULATION_CONFIG":
@@ -86,6 +79,8 @@ export function DraggableModal({
 
   const getHeaderInfo = () => {
     switch (type) {
+      case "STYLE_SETTINGS":
+        return { title: "Edit Symbology", icon: Palette };
       case "GEOMETRY_IMPORT":
         return { title: "Import Network", icon: Upload };
       case "SIMULATION_CONFIG":

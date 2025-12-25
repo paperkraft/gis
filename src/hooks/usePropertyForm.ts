@@ -1,13 +1,32 @@
 'use client';
 
-import { ElevationService } from "@/lib/services/ElevationService";
-import { useMapStore } from "@/store/mapStore";
-import { useNetworkStore } from "@/store/networkStore";
-import { LineString, Point } from "ol/geom";
-import { useEffect, useState } from "react";
+import { Feature } from 'ol';
+import { LineString, Point } from 'ol/geom';
+import { useEffect, useState } from 'react';
+
+import { ElevationService } from '@/lib/services/ElevationService';
+import { useMapStore } from '@/store/mapStore';
+import { useNetworkStore } from '@/store/networkStore';
+
+// Helper to prevent React crashes with OL objects
+export const sanitizeProperties = (props: Record<string, any>): Record<string, any> => {
+    const clean: Record<string, any> = {};
+    Object.keys(props).forEach(key => {
+        const val = props[key];
+        if (key === 'geometry') return;
+        if (val instanceof Feature || (val && typeof val.getId === 'function')) {
+            clean[key] = val.getId()?.toString() || "[Feature]";
+        } else if (val && typeof val === 'object' && !Array.isArray(val)) {
+            clean[key] = val.id || val.Id || val.ID || "[Object]";
+        } else {
+            clean[key] = val;
+        }
+    });
+    return clean;
+};
 
 export const usePropertyForm = () => {
-    const { selectedFeature, selectedFeatureId, updateFeature, removeFeature } = useNetworkStore();
+    const { version, selectedFeature, selectedFeatureId, updateFeature, removeFeature } = useNetworkStore();
     const map = useMapStore(state => state.map);
 
     // Local state for form editing
@@ -18,10 +37,13 @@ export const usePropertyForm = () => {
     // Sync local state with store selection
     useEffect(() => {
         if (selectedFeature) {
-            setFormData(selectedFeature.getProperties());
+            // setFormData(selectedFeature.getProperties());
+            setFormData(sanitizeProperties(selectedFeature.getProperties()));
             setHasChanges(false);
+        } else {
+            setFormData({});
         }
-    }, [selectedFeatureId, selectedFeature]);
+    }, [selectedFeatureId, selectedFeature, version]);
 
     const handleChange = (key: string, value: any) => {
         setFormData(prev => ({ ...prev, [key]: value }));
@@ -31,7 +53,7 @@ export const usePropertyForm = () => {
     const handleSave = () => {
         if (selectedFeatureId) {
             updateFeature(selectedFeatureId, formData);
-            setHasChanges(false);
+            // setHasChanges(false);
         }
     };
 
@@ -53,7 +75,7 @@ export const usePropertyForm = () => {
         if (!map || !selectedFeature) return;
         const geom = selectedFeature.getGeometry();
         if (geom) {
-            map.getView().fit(geom.getExtent(), { padding: [100, 100, 100, 100], maxZoom: 19, duration: 500 });
+            map.getView().fit(geom.getExtent(), { padding: [100, 100, 100, 100], maxZoom: 18, duration: 500 });
         }
     };
 

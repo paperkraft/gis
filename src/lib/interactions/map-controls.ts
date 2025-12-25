@@ -86,7 +86,7 @@ export const handleZoomToExtent = (map: Map | null) => {
 
     // Fit the view to the extent with padding
     map.getView().fit(extent, {
-        padding: [50, 50, 50, 50], // top, right, bottom, left padding
+        padding: [100, 100, 100, 100], // top, right, bottom, left padding
         duration: 500,
         maxZoom: 18, // Don't zoom in too much
     });

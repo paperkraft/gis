@@ -7,31 +7,7 @@ import { FeatureType } from '@/types/network';
 import { createSegmentArrows } from './pipeArrowStyles';
 import { useMapStore } from '@/store/mapStore';
 import { useUIStore } from '@/store/uiStore';
-import { interpolateColor } from './helper';
-
-// Main Color Function
-function getColor(value: number, min: number, max: number): string {
-    if (value === undefined || value === null || isNaN(value)) return '#999';
-
-    const { gradientStops, styleType, classCount } = useStyleStore.getState();
-
-    // Normalize value to 0..100
-    let t = ((value - min) / (max - min)) * 100;
-    t = Math.max(0, Math.min(100, t));
-
-    if (styleType === 'discrete') {
-        // Quantize 't' into bins
-        // e.g., 5 classes = 20% width per bin.
-        // We use the CENTER of the bin to pick the color.
-        const step = 100 / classCount;
-        const binIndex = Math.min(Math.floor(t / step), classCount - 1);
-        const binCenter = (binIndex * step) + (step / 2);
-
-        return interpolateColor(binCenter, gradientStops);
-    }
-
-    return interpolateColor(t, gradientStops);
-}
+import { getColor, hexToRgba } from './helper';
 
 export const getFeatureStyle = (feature: Feature): Style | Style[] => {
     const featureType = feature.get("type") as FeatureType;
@@ -46,55 +22,81 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
     const config = COMPONENT_TYPES[featureType];
     if (!config) return new Style({});
 
-    // --- THEMATIC COLORING LOGIC ---
-    const { colorMode, labelMode, minMax } = useStyleStore.getState();
+    // 1. Get Stores
+    const { colorMode, labelMode, minMax, layerStyles } = useStyleStore.getState();
     const { results, history, currentTimeIndex } = useSimulationStore.getState();
     const { showLabels, showPipeArrows } = useUIStore.getState();
 
+    // 2. Resolve Base Style (Uniform)
+    const customStyle = layerStyles[featureType];
+
+    // Default to uniform color first
+    let color = customStyle?.color || config.color;
+
+    let strokeWidth = customStyle?.width || 2;
+    let pointRadius = customStyle?.radius || 6;
+    let pointStrokeWidth = customStyle?.strokeWidth || 2;
+    let opacity = customStyle?.opacity ?? 1;
+    const isAutoScale = customStyle?.autoScale ?? false;
+
+    // 3. Determine Dynamic Values (Gradient)
     const activeResults = (history && history.snapshots[currentTimeIndex])
         ? history.snapshots[currentTimeIndex]
         : results;
 
-    let color = config.color; // Default component color
-    let labelText = feature.get("label") || featureId;
-    let strokeWidth = 2;
-
-    // 1. Calculate Dynamic Color
     let value: number | null = null;
     let range = { min: 0, max: 100 };
 
-    if (['junction', 'tank', 'reservoir'].includes(featureType)) {
-        if (colorMode === 'pressure' && activeResults?.nodes[featureId]) {
-            value = activeResults.nodes[featureId].pressure;
-            range = minMax.pressure;
-        } else if (colorMode === 'head' && activeResults?.nodes[featureId]) {
-            value = activeResults.nodes[featureId].head;
-            range = minMax.head || { min: 0, max: 200 };
-        }
-    } else if (featureType === 'pipe') {
-        const diameter = feature.get('diameter');
-        strokeWidth = Math.max(1.5, Math.min(diameter / 100, 8));
+    // --- PIPES ---
+    if (featureType === 'pipe') {
+        const diameter = feature.get('diameter') || 100;
 
-        if (colorMode === 'velocity' && activeResults?.links[featureId]) {
+        // Auto Scale Logic (Overrides fixed width)
+        if (isAutoScale) {
+            strokeWidth = Math.max(1.5, Math.min(diameter / 50, 8));
+        }
+
+        // Color Mode Logic
+        if (colorMode === 'diameter') {
+            value = diameter;
+            range = minMax.diameter || { min: 0, max: 500 };
+        } else if (colorMode === 'roughness') {
+            value = feature.get('roughness');
+            range = minMax.roughness || { min: 80, max: 150 };
+        } else if (colorMode === 'velocity' && activeResults?.links[featureId]) {
             value = activeResults.links[featureId].velocity;
             range = minMax.velocity;
         } else if (colorMode === 'flow' && activeResults?.links[featureId]) {
             value = Math.abs(activeResults.links[featureId].flow);
-            range = minMax.flow || { min: 0, max: 1000 };
-        } else if (colorMode === 'diameter') {
-            value = diameter;
-            range = minMax.diameter;
-        } else if (colorMode === 'roughness') {
-            value = feature.get('roughness');
-            range = minMax.roughness;
+            range = minMax.flow;
         }
     }
 
+    // --- NODES ---
+    else if (['junction', 'tank', 'reservoir'].includes(featureType)) {
+        if (colorMode === 'elevation') {
+            value = feature.get('elevation');
+            range = { min: 0, max: 100 };
+        } else if (colorMode === 'pressure' && activeResults?.nodes[featureId]) {
+            value = activeResults.nodes[featureId].pressure;
+            range = minMax.pressure;
+        } else if (colorMode === 'head' && activeResults?.nodes[featureId]) {
+            value = activeResults.nodes[featureId].head;
+            range = minMax.head;
+        }
+    }
+
+    // 4. Apply Gradient Override
     if (value !== null && colorMode !== 'none') {
         color = getColor(value, range.min, range.max);
     }
 
-    // 2. Calculate Label
+    // 5. Finalize Color with Opacity
+    const rgbaColor = hexToRgba(color, opacity);
+    const borderRgba = hexToRgba('#FFFFFF', opacity);
+
+    // 6. Labels
+    let labelText = feature.get("label") || featureId;
     if (labelMode === 'elevation' && ['junction', 'tank', 'reservoir'].includes(featureType)) {
         labelText = `${feature.get('elevation')}m`;
     } else if (labelMode === 'diameter' && featureType === 'pipe') {
@@ -104,7 +106,6 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
     }
 
     // --- APPLY STYLES (Preserving Shapes) ---
-
     const textStyle = showLabels ? new Text({
         text: labelText?.toString(),
         font: '10px "Inter", sans-serif',
@@ -117,7 +118,7 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
     // PIPE
     if (featureType === "pipe") {
         const baseStyle = new Style({
-            stroke: new Stroke({ color: color, width: strokeWidth }),
+            stroke: new Stroke({ color: rgbaColor, width: strokeWidth }),
             text: textStyle,
             zIndex: 99,
         });
@@ -132,10 +133,10 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
     if (featureType === "tank") {
         return new Style({
             image: new RegularShape({
-                fill: new Fill({ color: color }),
-                stroke: new Stroke({ color: "#ffffff", width: 2 }),
+                fill: new Fill({ color: rgbaColor }),
+                stroke: new Stroke({ color: borderRgba, width: pointStrokeWidth }),
                 points: 5,
-                radius: 12,
+                radius: pointRadius + 4,
                 angle: 0,
             }),
             text: textStyle,
@@ -147,10 +148,10 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
     if (featureType === "reservoir") {
         return new Style({
             image: new RegularShape({
-                fill: new Fill({ color: color }),
-                stroke: new Stroke({ color: "#ffffff", width: 2 }),
+                fill: new Fill({ color: rgbaColor }),
+                stroke: new Stroke({ color: borderRgba, width: pointStrokeWidth }),
                 points: 6,
-                radius: 12,
+                radius: pointRadius + 4,
                 angle: 0,
             }),
             text: textStyle,
@@ -162,10 +163,10 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
     if (featureType === "pump") {
         return new Style({
             image: new RegularShape({
-                fill: new Fill({ color: color }),
-                stroke: new Stroke({ color: "#ffffff", width: 2 }),
+                fill: new Fill({ color: rgbaColor }),
+                stroke: new Stroke({ color: borderRgba, width: pointStrokeWidth }),
                 points: 3,
-                radius: 10,
+                radius: pointRadius + 2,
                 // angle: Math.PI / 4, 
             }),
             text: textStyle,
@@ -177,10 +178,10 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
     if (featureType === "valve") {
         return new Style({
             image: new RegularShape({
-                fill: new Fill({ color: color }),
-                stroke: new Stroke({ color: "#ffffff", width: 2 }),
+                fill: new Fill({ color: rgbaColor }),
+                stroke: new Stroke({ color: borderRgba, width: pointStrokeWidth }),
                 points: 4,
-                radius: 10,
+                radius: pointRadius + 2,
                 angle: Math.PI / 4,
             }),
             text: textStyle,
@@ -203,14 +204,23 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
 
     return new Style({
         image: new CircleStyle({
-            radius: 6,
-            fill: new Fill({ color: color }),
-            stroke: new Stroke({ color: "#FFFFFF", width: 2 }),
+            radius: pointRadius,
+            fill: new Fill({ color: rgbaColor }),
+            stroke: new Stroke({ color: borderRgba, width: pointStrokeWidth }),
         }),
         text: textStyle,
         zIndex: 100,
     });
 };
+
+function getVisualLinkStyle(feature: Feature): Style {
+    const linkType = feature.get("linkType");
+    const color = linkType === "pump" ? "#F59E0B" : "#EC4899";
+    return new Style({
+        stroke: new Stroke({ color: color, width: 2, lineDash: [6, 4] }),
+        zIndex: 98,
+    });
+}
 
 export const getSelectedStyle = (feature: Feature): Style[] => {
     const featureType = feature.get("type");
@@ -246,14 +256,7 @@ export const getSelectedStyle = (feature: Feature): Style[] => {
     return styles;
 };
 
-function getVisualLinkStyle(feature: Feature): Style {
-    const linkType = feature.get("linkType");
-    const color = linkType === "pump" ? "#F59E0B" : "#EC4899";
-    return new Style({
-        stroke: new Stroke({ color: color, width: 2, lineDash: [6, 4] }),
-        zIndex: 98,
-    });
-}
+
 
 // Helper to detect if a junction is just a connector for a pump/valve
 export function isJunctionConnectedToLink(junction: Feature): boolean {

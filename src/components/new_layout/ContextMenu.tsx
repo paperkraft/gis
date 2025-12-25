@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Palette, Eye, EyeOff, Maximize, Settings, Trash2 } from "lucide-react";
+import { Palette, Eye, EyeOff, Maximize, Settings } from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
+import { useMapStore } from "@/store/mapStore";
+import { useNetworkStore } from "@/store/networkStore";
+import { createEmpty, extend, isEmpty } from "ol/extent";
 
 export function ContextMenu() {
   const menuRef = useRef<HTMLDivElement>(null);
+
   const {
     contextMenu,
     setContextMenu,
@@ -14,6 +18,9 @@ export function ContextMenu() {
     setActiveStyleLayer,
     setActiveModal,
   } = useUIStore();
+
+  const map = useMapStore((state) => state.map);
+  const features = useNetworkStore((state) => state.features);
 
   // Close on click outside
   useEffect(() => {
@@ -44,6 +51,44 @@ export function ContextMenu() {
     setContextMenu(null);
   };
 
+  const handleZoomToLayer = () => {
+    if (!map) return;
+
+    // 1. Filter features belonging to this layer (e.g., 'pipe', 'junction')
+    const layerFeatures = Array.from(features.values()).filter(
+      (f) => f.get("type") === id
+    );
+
+    if (layerFeatures.length === 0) {
+      console.warn("No features found for layer:", id);
+      setContextMenu(null);
+      return;
+    }
+
+    // 2. Calculate the total extent
+    const totalExtent = createEmpty();
+    let hasValidGeo = false;
+
+    layerFeatures.forEach((feature) => {
+      const geometry = feature.getGeometry();
+      if (geometry) {
+        extend(totalExtent, geometry.getExtent());
+        hasValidGeo = true;
+      }
+    });
+
+    // 3. Zoom the map
+    if (hasValidGeo && !isEmpty(totalExtent)) {
+      map.getView().fit(totalExtent, {
+        padding: [100, 100, 100, 100], // Add padding so features aren't at the very edge
+        duration: 800, // Smooth animation
+        maxZoom: 18, // Prevent zooming in too close on single points
+      });
+    }
+
+    setContextMenu(null);
+  };
+
   return (
     <div
       ref={menuRef}
@@ -69,18 +114,7 @@ export function ContextMenu() {
       <MenuItem
         icon={Maximize}
         label="Zoom to Layer"
-        onClick={() => {
-          console.log("Zoom to", id);
-          setContextMenu(null);
-        }}
-      />
-
-      <div className="h-px bg-slate-100 my-1" />
-
-      <MenuItem
-        icon={Settings}
-        label="Properties"
-        onClick={() => setContextMenu(null)}
+        onClick={handleZoomToLayer}
       />
     </div>
   );

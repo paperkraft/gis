@@ -35,6 +35,7 @@ import { PropertyPanel } from "./PropertyPanel";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
+  const lastSelectedIdRef = useRef<string | null>(null);
 
   // Initialize Map & Layers
   const map = useMapStore((state) => state.map);
@@ -88,8 +89,16 @@ export function MapContainer() {
   });
 
   useEffect(() => {
-    if (selectedFeature && activeTool === "select") {
-      const type = selectedFeature.get("type");
+    const currentId = selectedFeature
+      ? selectedFeature.getId()?.toString() || null
+      : null;
+
+    if (
+      currentId &&
+      currentId !== lastSelectedIdRef.current &&
+      activeTool === "select"
+    ) {
+      const type = selectedFeature?.get("type");
       let modalType: WorkbenchModalType = "NONE";
 
       // Map Feature Types to Modal Types
@@ -119,11 +128,15 @@ export function MapContainer() {
       if (modalType !== "NONE") {
         setActiveModal(modalType);
       }
-    } else {
+
+      lastSelectedIdRef.current = currentId;
+    } else if (!selectedFeature && lastSelectedIdRef.current !== null) {
       // If nothing is selected, close the property modal
       if (activeModal.endsWith("_PROP")) {
         setActiveModal("NONE");
       }
+
+      lastSelectedIdRef.current = null;
     }
   }, [selectedFeature, activeTool, activeModal, setActiveModal]);
 
