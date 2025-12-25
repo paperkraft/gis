@@ -19,6 +19,17 @@ export type ToolType =
     | 'add-pump'
     | 'add-valve';
 
+export type WorkbenchModalType =
+    | "NONE"
+    | "GEOMETRY_IMPORT"
+    | "SIMULATION_CONFIG"
+    | "JUNCTION_PROP"
+    | "RESERVOIR_PROP"
+    | "TANK_PROP"
+    | "PIPE_PROP"
+    | "PUMP_PROP"
+    | "VALVE_PROP";
+
 interface UIState {
 
     // Sidebar
@@ -46,6 +57,9 @@ interface UIState {
     keyboardShortcutsModalOpen: boolean;
     componentSelectionModalOpen: boolean;
     queryBuilderModalOpen: boolean;
+
+    activeModal: WorkbenchModalType;
+
 
     // Map control states
     activeTool: ToolType | null;
@@ -87,6 +101,8 @@ interface UIState {
     setDataManagerModalOpen: (open: boolean) => void;
     setControlManagerModalOpen: (open: boolean) => void;
     setQueryBuilderModalOpen: (open: boolean) => void;
+
+    setActiveModal: (modal: WorkbenchModalType) => void;
 
     // Actions - Map Controls
     setActiveTool: (tool: ToolType | null) => void;
@@ -135,6 +151,8 @@ const DEFAULT_STATE = {
     deleteModalOpen: false,
     queryBuilderModalOpen: false,
 
+    activeModal: "NONE" as WorkbenchModalType,
+
     importModalOpen: false,
     exportModalOpen: false,
 
@@ -171,6 +189,7 @@ const DEFAULT_STATE = {
 
     isSnappingEnabled: true,
     styleSettingsModalOpen: false,
+
 };
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -186,6 +205,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     setControlManagerModalOpen: (open) => set({ controlManagerModalOpen: open }),
     setDataManagerModalOpen: (open) => set({ dataManagerModalOpen: open }),
     setQueryBuilderModalOpen: (open) => set({ queryBuilderModalOpen: open }),
+    setActiveModal: (modal) => set({ activeModal: modal }),
 
     setIsFlowAnimating: (animate) => set({ isFlowAnimating: animate }),
     setShowLocationSearch: (open) => set({ showLocationSearch: open }),

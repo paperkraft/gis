@@ -104,7 +104,8 @@ export const indiaBoundaryLayer = new VectorLayer({
     }),
     style: new Style({
         stroke: new Stroke({
-            color: '#707070',
+            // color: '#707070',
+            color: 'rgb(191 170 185)',
             width: 1.5,
         }),
     }),

@@ -70,10 +70,10 @@ export function StatusBar() {
       {/* RIGHT: Map Info */}
       <div className="flex items-center gap-4 font-mono">
         <div className="flex items-center gap-1">
-          <span className="text-gray-400">Z:</span>
+          <span className="text-gray-400">Zoom:</span>
           <span>{zoom.toFixed(1)}</span>
         </div>
-        <div className="flex items-center gap-1 min-w-[120px] justify-end">
+        <div className="flex items-center gap-1 min-w-30 justify-end">
           <span className="text-gray-800 dark:text-gray-200">
             {coordinates}
           </span>

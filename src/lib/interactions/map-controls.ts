@@ -52,9 +52,8 @@ export const handleZoomToExtent = (map: Map | null) => {
         console.warn("⚠️ No features to fit");
         // Fallback to default view
         map.getView().animate({
-            // center: fromLonLat([74.2381, 16.7012]),
             center: fromLonLat([78.5974, 23.9908]),
-            zoom: 4.7,
+            zoom: 4.5,
             duration: 500,
         });
         return;

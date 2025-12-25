@@ -18,19 +18,20 @@ import { useSnapping } from "@/hooks/useSnapping";
 // Stores & Types
 import { useMapStore } from "@/store/mapStore";
 import { useNetworkStore } from "@/store/networkStore";
-import { useUIStore } from "@/store/uiStore";
+import { useUIStore, WorkbenchModalType } from "@/store/uiStore";
 
 import { handleZoomToExtent } from "@/lib/interactions/map-controls";
 
 // Components
 import { MapControls } from "./MapControls";
 import { AttributeTable } from "./AttributeTable";
-import { PropertyPanel } from "./PropertyPanel";
+// import { PropertyPanel } from "./PropertyPanel";
 import { DrawingToolbar } from "./DrawingToolbar";
 import { StatusBar } from "./StatusBar";
 import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 import { Legend } from "./Legend";
 import { AssetSearch } from "./controls/AssetSearch";
+import { PropertyPanel } from "./PropertyPanel";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -45,6 +46,8 @@ export function MapContainer() {
     deleteModalOpen,
     showAttributeTable,
     validationModalOpen,
+    activeModal,
+    setActiveModal,
     setDeleteModalOpen,
     setShowAttributeTable,
   } = useUIStore();
@@ -83,6 +86,46 @@ export function MapContainer() {
     enableHover: activeTool === "select",
     onFeatureSelect: setSelectedFeature,
   });
+
+  useEffect(() => {
+    if (selectedFeature && activeTool === "select") {
+      const type = selectedFeature.get("type");
+      let modalType: WorkbenchModalType = "NONE";
+
+      // Map Feature Types to Modal Types
+      switch (type) {
+        case "junction":
+          modalType = "JUNCTION_PROP";
+          break;
+        case "reservoir":
+          modalType = "RESERVOIR_PROP";
+          break;
+        case "tank":
+          modalType = "TANK_PROP";
+          break;
+        case "pipe":
+          modalType = "PIPE_PROP";
+          break;
+        case "pump":
+          modalType = "PUMP_PROP";
+          break;
+        case "valve":
+          modalType = "VALVE_PROP";
+          break;
+        default:
+          modalType = "NONE";
+      }
+
+      if (modalType !== "NONE") {
+        setActiveModal(modalType);
+      }
+    } else {
+      // If nothing is selected, close the property modal
+      if (activeModal.endsWith("_PROP")) {
+        setActiveModal("NONE");
+      }
+    }
+  }, [selectedFeature, activeTool, activeModal, setActiveModal]);
 
   // Handle Map Events (Coordinates, Fit)
   useMapEvents({ map });
@@ -131,12 +174,12 @@ export function MapContainer() {
           vectorSource={vectorSource || undefined}
         />
 
-        {selectedFeature && activeTool === "select" && !validationModalOpen && (
+        {/* {selectedFeature && activeTool === "select" && !validationModalOpen && (
           <PropertyPanel
             properties={selectedFeature.getProperties() as any}
             onDeleteRequest={handleDeleteRequestFromPanel}
           />
-        )}
+        )} */}
 
         <DeleteConfirmationModal
           isOpen={deleteModalOpen}

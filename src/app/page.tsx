@@ -1,12 +1,22 @@
 "use client";
 
-import { ArrowRight, Clock, Droplet, FileText, Loader2, Plus, Search, Trash2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import {
+  ArrowRight,
+  Clock,
+  Droplet,
+  FileText,
+  Loader2,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
-import { NewProjectModal } from '@/components/modals/NewProjectModal';
-import { Button } from '@/components/ui/button';
-import { ProjectMetadata, ProjectService } from '@/lib/services/ProjectService';
+import { NewProjectModal } from "@/components/modals/NewProjectModal";
+import { Button } from "@/components/ui/button";
+import { ProjectMetadata, ProjectService } from "@/lib/services/ProjectService";
+import NewDashboard from "@/components/new_layout/Dashboard";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -53,6 +63,8 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  return <NewDashboard />;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

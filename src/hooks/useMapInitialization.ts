@@ -1,6 +1,8 @@
 'use client';
 
 import { defaults as defaultControls, ScaleLine } from 'ol/control';
+import { defaults as defaultInteractions } from 'ol/interaction/defaults.js';
+import DragRotateAndZoom from 'ol/interaction/DragRotateAndZoom.js';
 import VectorLayer from 'ol/layer/Vector';
 import Map from 'ol/Map';
 import { fromLonLat } from 'ol/proj';
@@ -43,11 +45,12 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
             layers: [...baseLayers, vecLayer, indiaBoundaryLayer],
             view: new View({
                 center: fromLonLat([78.6677, 22.3511]),
-                zoom: 5,
+                zoom: 4.5,
             }),
             controls: defaultControls({ zoom: false, attribution: true }).extend([
                 new ScaleLine({ units: 'metric' }),
             ]),
+            // interactions: defaultInteractions().extend([new DragRotateAndZoom()]),
         });
 
         // 4. Update Stores & State
