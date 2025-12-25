@@ -6,7 +6,7 @@ import {
   FormSelect,
   SaveActions,
   TopologyInfo,
-} from "../form-controls/FormControls";
+} from "./FormControls";
 import { ArrowRightLeft } from "lucide-react";
 
 export function PipeProperties() {

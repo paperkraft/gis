@@ -23,12 +23,20 @@ export type WorkbenchModalType =
     | "NONE"
     | "GEOMETRY_IMPORT"
     | "SIMULATION_CONFIG"
+    | "STYLE_SETTINGS"
     | "JUNCTION_PROP"
     | "RESERVOIR_PROP"
     | "TANK_PROP"
     | "PIPE_PROP"
     | "PUMP_PROP"
     | "VALVE_PROP";
+
+export interface ContextMenuState {
+    x: number;
+    y: number;
+    type: 'layer' | 'feature';
+    id: string; // layerKey or featureId
+}
 
 interface UIState {
 
@@ -81,6 +89,10 @@ interface UIState {
     flowAnimationStyle: FlowAnimationStyle;
     styleSettingsModalOpen: boolean;
 
+    // Context Menu & Styling State
+    contextMenu: ContextMenuState | null;
+    activeStyleLayer: string | null;
+
 
     // Actions - Sidebar
     toggleSidebar: () => void;
@@ -132,6 +144,8 @@ interface UIState {
 
     // Actions - Tab navigation
     setActiveTab: (tab: string) => void;
+    setContextMenu: (menu: ContextMenuState | null) => void;
+    setActiveStyleLayer: (layer: string | null) => void;
 
     // Utility - Reset all tools
     resetAllTools: () => void;
@@ -190,12 +204,18 @@ const DEFAULT_STATE = {
     isSnappingEnabled: true,
     styleSettingsModalOpen: false,
 
+    contextMenu: null,
+    activeStyleLayer: null,
+
 };
 
 export const useUIStore = create<UIState>((set, get) => ({
 
     // default state
     ...DEFAULT_STATE,
+
+    setContextMenu: (menu) => set({ contextMenu: menu }),
+    setActiveStyleLayer: (layer) => set({ activeStyleLayer: layer }),
 
     // Modal actions
     setComponentSelectionModalOpen: (open) => set({ componentSelectionModalOpen: open }),

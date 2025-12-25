@@ -1,16 +1,14 @@
-import { Mountain, RefreshCw } from "lucide-react";
+import { usePropertyForm } from "@/hooks/usePropertyForm";
 import {
   FeatureHeader,
   FormGroup,
   FormInput,
-  FormSelect,
   SaveActions,
   TopologyInfo,
-} from "../form-controls/FormControls";
-import { usePropertyForm } from "@/hooks/usePropertyForm";
-import { Button } from "@/components/ui/button";
+} from "./FormControls";
+import { Mountain, RefreshCw } from "lucide-react";
 
-export function JunctionProperties() {
+export function TankProperties() {
   const {
     formData,
     hasChanges,
@@ -23,7 +21,6 @@ export function JunctionProperties() {
     handleAutoElevate,
     selectedFeatureId,
   } = usePropertyForm();
-
   if (!selectedFeatureId) return null;
 
   return (
@@ -48,6 +45,22 @@ export function JunctionProperties() {
       <FormGroup label="Geometry">
         <div className="flex gap-2 items-end">
           <FormInput
+            label="Diameter (m)"
+            value={formData.diameter ?? 0}
+            onChange={(v) => handleChange("diameter", parseFloat(v))}
+            type="number"
+          />
+
+          <FormInput
+            label="Capacity"
+            value={formData.capacity ?? 0}
+            onChange={(v) => handleChange("capacity", parseFloat(v))}
+            type="number"
+          />
+        </div>
+
+        <div className="flex gap-2 items-end">
+          <FormInput
             label="Elevation (m)"
             value={formData.elevation ?? 0}
             onChange={(v) => handleChange("elevation", parseFloat(v))}
@@ -70,22 +83,29 @@ export function JunctionProperties() {
         </div>
       </FormGroup>
 
-      <FormGroup label="Demand">
+      <FormGroup label="Water Levels">
         <FormInput
-          label="Base Demand (LPS)"
-          value={formData.demand ?? 0}
-          onChange={(v) => handleChange("demand", parseFloat(v))}
+          label="Initial Level (m)"
+          value={formData.initialLevel ?? 0}
+          onChange={(v) => handleChange("initialLevel", parseFloat(v))}
           type="number"
-          placeholder="Base Demand"
         />
-
-        <FormSelect
-          label="Demand Pattern"
-          value={formData.pattern || "1"}
-          onChange={(v) => handleChange("pattern", v)}
-          options={[{ value: "1", label: "Default Pattern" }]}
-        />
+        <div className="flex gap-2 items-end">
+          <FormInput
+            label="Min Level (m)"
+            value={formData.minLevel ?? 0}
+            onChange={(v) => handleChange("minLevel", parseFloat(v))}
+            type="number"
+          />
+          <FormInput
+            label="Max Level (m)"
+            value={formData.maxLevel ?? 0}
+            onChange={(v) => handleChange("maxLevel", parseFloat(v))}
+            type="number"
+          />
+        </div>
       </FormGroup>
+
       <SaveActions onSave={handleSave} disabled={!hasChanges} />
     </div>
   );

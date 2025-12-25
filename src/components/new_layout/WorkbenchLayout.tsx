@@ -1,22 +1,23 @@
 "use client";
-import { DraggableModal } from "./DraggableModal";
-import { Header } from "@/components/new_layout/Header";
-import { WORKBENCH_MENU, MenuItem } from "./workbenchMenu";
 import {
+  ChevronRight,
+  Eye,
+  EyeOff,
   MoreVertical,
   MousePointer,
   Move,
-  Plus,
   Search,
-  ZoomIn,
-  ChevronRight,
   X,
-  EyeOff,
-  Eye,
+  ZoomIn,
 } from "lucide-react";
-import { ReactNode, useCallback, useEffect, useState, useMemo } from "react";
-import { useUIStore, WorkbenchModalType } from "@/store/uiStore";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+
+import { Header } from "@/components/new_layout/Header";
 import { useNetworkStore } from "@/store/networkStore";
+import { useUIStore, WorkbenchModalType } from "@/store/uiStore";
+
+import { DraggableModal } from "./DraggableModal";
+import { MenuItem, WORKBENCH_MENU } from "@/data/workbenchMenu";
 
 export default function WorkbenchLayout({ children }: { children: ReactNode }) {
   const [sidebarWidth, setSidebarWidth] = useState(260);
@@ -221,7 +222,11 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="h-screen w-screen bg-slate-50 overflow-hidden flex flex-col font-sans text-slate-700">
-      <Header isWorkbench projectName={settings.title} description={settings.description} />
+      <Header
+        isWorkbench
+        projectName={settings.title}
+        description={settings.description}
+      />
 
       <div className="flex-1 relative overflow-hidden">
         <div className="absolute inset-0 z-0 bg-slate-200">

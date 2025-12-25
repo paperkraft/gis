@@ -1,5 +1,4 @@
-import { usePropertyForm } from "@/hooks/usePropertyForm";
-
+import { Mountain, RefreshCw } from "lucide-react";
 import {
   FeatureHeader,
   FormGroup,
@@ -7,15 +6,16 @@ import {
   FormSelect,
   SaveActions,
   TopologyInfo,
-} from "../form-controls/FormControls";
-import { Mountain, RefreshCw } from "lucide-react";
+} from "./FormControls";
+import { usePropertyForm } from "@/hooks/usePropertyForm";
+import { Button } from "@/components/ui/button";
 
-export function ReservoirProperties() {
+export function JunctionProperties() {
   const {
     formData,
     hasChanges,
-    connectionInfo,
     isLoading,
+    connectionInfo,
     handleChange,
     handleSave,
     handleDelete,
@@ -70,25 +70,22 @@ export function ReservoirProperties() {
         </div>
       </FormGroup>
 
-      <FormGroup label="Hydraulic Head">
+      <FormGroup label="Demand">
         <FormInput
-          label="Total Head (m)"
-          value={formData.head ?? 0}
-          onChange={(v) => handleChange("head", parseFloat(v))}
+          label="Base Demand (LPS)"
+          value={formData.demand ?? 0}
+          onChange={(v) => handleChange("demand", parseFloat(v))}
           type="number"
+          placeholder="Base Demand"
         />
 
         <FormSelect
-          label="Head Pattern"
-          value={formData.headPattern || "NONE"}
-          onChange={(v) => handleChange("headPattern", v)}
-          options={[
-            { value: "NONE", label: "Node (Fixed Head)" },
-            { value: "TIDAL", label: "Tidal Variation" },
-          ]}
+          label="Demand Pattern"
+          value={formData.pattern || "1"}
+          onChange={(v) => handleChange("pattern", v)}
+          options={[{ value: "1", label: "Default Pattern" }]}
         />
       </FormGroup>
-
       <SaveActions onSave={handleSave} disabled={!hasChanges} />
     </div>
   );

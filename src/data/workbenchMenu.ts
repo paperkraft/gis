@@ -1,3 +1,4 @@
+import { WorkbenchModalType } from "@/store/uiStore";
 import {
     Layers, Box, Database, Cylinder, Circle, Activity,
     Settings, FileText, PenTool, Edit3, Calculator,
@@ -16,11 +17,8 @@ export type MenuItem = {
     status?: "ready" | "warning" | "empty"; // For Sections
     defaultOpen?: boolean;
     count?: number; // For Groups
-
-    // Logic
-    modalType?: "NONE" | "GEOMETRY_IMPORT" | "PIPE_PROP" | "SIMULATION_CONFIG";
-
-    // Recursion
+    layerKey?: "pipe" | "junction" | "reservoir" | "tank" | "valve" | "pump";
+    modalType?: WorkbenchModalType;
     children?: MenuItem[];
 };
 
@@ -40,12 +38,12 @@ export const WORKBENCH_MENU: MenuItem[] = [
                 label: "Network Layers",
                 icon: Layers,
                 children: [
-                    { id: "itm_pipe", type: "ITEM", label: "Pipe", icon: Activity, modalType: "PIPE_PROP" },
-                    { id: "itm_junction", type: "ITEM", label: "Junction", icon: Circle },
-                    { id: "itm_reservoir", type: "ITEM", label: "Reservoir", icon: Database },
-                    { id: "itm_tank", type: "ITEM", label: "Tank", icon: Cylinder },
-                    { id: "itm_valve", type: "ITEM", label: "Valve", icon: Box },
-                    { id: "itm_pump", type: "ITEM", label: "Pump", icon: Zap },
+                    { id: "itm_pipe", type: "ITEM", label: "Pipe", icon: Activity, modalType: "PIPE_PROP", layerKey: "pipe" },
+                    { id: "itm_junction", type: "ITEM", label: "Junction", icon: Circle, modalType: "JUNCTION_PROP", layerKey: "junction" },
+                    { id: "itm_reservoir", type: "ITEM", label: "Reservoir", icon: Database, modalType: "RESERVOIR_PROP", layerKey: "reservoir" },
+                    { id: "itm_tank", type: "ITEM", label: "Tank", icon: Cylinder, modalType: "TANK_PROP", layerKey: "tank" },
+                    { id: "itm_valve", type: "ITEM", label: "Valve", icon: Box, modalType: "VALVE_PROP", layerKey: "valve" },
+                    { id: "itm_pump", type: "ITEM", label: "Pump", icon: Zap, modalType: "PUMP_PROP", layerKey: "pump" },
                 ]
             },
             { id: "itm_headworks", type: "ITEM", label: "Headworks", icon: Box },

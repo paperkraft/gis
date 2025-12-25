@@ -18,12 +18,12 @@ import {
   Zap,
 } from "lucide-react";
 import { WorkbenchModalType } from "@/store/uiStore";
-import { JunctionProperties } from "./properties/JunctionProperties";
-import { ReservoirProperties } from "./properties/ReservoirProperties";
-import { TankProperties } from "./properties/TankProperties";
-import { PipeProperties } from "./properties/PipeProperties";
-import { PumpProperties } from "./properties/PumpProperties";
-import { ValveProperties } from "./properties/ValveProperties";
+import { JunctionProperties } from "./panels/JunctionProperties";
+import { ReservoirProperties } from "./panels/ReservoirProperties";
+import { TankProperties } from "./panels/TankProperties";
+import { PipeProperties } from "./panels/PipeProperties";
+import { PumpProperties } from "./panels/PumpProperties";
+import { ValveProperties } from "./panels/ValveProperties";
 
 interface DraggableModalProps {
   type: WorkbenchModalType;

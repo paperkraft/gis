@@ -6,7 +6,7 @@ import {
   FormSelect,
   SaveActions,
   TopologyInfo,
-} from "../form-controls/FormControls";
+} from "./FormControls";
 
 export function ValveProperties() {
   const {

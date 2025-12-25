@@ -1,19 +1,21 @@
 import { usePropertyForm } from "@/hooks/usePropertyForm";
+
 import {
   FeatureHeader,
   FormGroup,
   FormInput,
+  FormSelect,
   SaveActions,
   TopologyInfo,
-} from "../form-controls/FormControls";
+} from "./FormControls";
 import { Mountain, RefreshCw } from "lucide-react";
 
-export function TankProperties() {
+export function ReservoirProperties() {
   const {
     formData,
     hasChanges,
-    isLoading,
     connectionInfo,
+    isLoading,
     handleChange,
     handleSave,
     handleDelete,
@@ -21,6 +23,7 @@ export function TankProperties() {
     handleAutoElevate,
     selectedFeatureId,
   } = usePropertyForm();
+
   if (!selectedFeatureId) return null;
 
   return (
@@ -45,22 +48,6 @@ export function TankProperties() {
       <FormGroup label="Geometry">
         <div className="flex gap-2 items-end">
           <FormInput
-            label="Diameter (m)"
-            value={formData.diameter ?? 0}
-            onChange={(v) => handleChange("diameter", parseFloat(v))}
-            type="number"
-          />
-
-          <FormInput
-            label="Capacity"
-            value={formData.capacity ?? 0}
-            onChange={(v) => handleChange("capacity", parseFloat(v))}
-            type="number"
-          />
-        </div>
-
-        <div className="flex gap-2 items-end">
-          <FormInput
             label="Elevation (m)"
             value={formData.elevation ?? 0}
             onChange={(v) => handleChange("elevation", parseFloat(v))}
@@ -83,27 +70,23 @@ export function TankProperties() {
         </div>
       </FormGroup>
 
-      <FormGroup label="Water Levels">
+      <FormGroup label="Hydraulic Head">
         <FormInput
-          label="Initial Level (m)"
-          value={formData.initialLevel ?? 0}
-          onChange={(v) => handleChange("initialLevel", parseFloat(v))}
+          label="Total Head (m)"
+          value={formData.head ?? 0}
+          onChange={(v) => handleChange("head", parseFloat(v))}
           type="number"
         />
-        <div className="flex gap-2 items-end">
-          <FormInput
-            label="Min Level (m)"
-            value={formData.minLevel ?? 0}
-            onChange={(v) => handleChange("minLevel", parseFloat(v))}
-            type="number"
-          />
-          <FormInput
-            label="Max Level (m)"
-            value={formData.maxLevel ?? 0}
-            onChange={(v) => handleChange("maxLevel", parseFloat(v))}
-            type="number"
-          />
-        </div>
+
+        <FormSelect
+          label="Head Pattern"
+          value={formData.headPattern || "NONE"}
+          onChange={(v) => handleChange("headPattern", v)}
+          options={[
+            { value: "NONE", label: "Node (Fixed Head)" },
+            { value: "TIDAL", label: "Tidal Variation" },
+          ]}
+        />
       </FormGroup>
 
       <SaveActions onSave={handleSave} disabled={!hasChanges} />
