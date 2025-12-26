@@ -1,27 +1,26 @@
 import { Mountain, RefreshCw } from "lucide-react";
-import {
-  FeatureHeader,
-  FormGroup,
-  FormInput,
-  FormSelect,
-  SaveActions,
-  TopologyInfo,
-} from "./FormControls";
+
+import { FormGroup } from "@/components/form-controls/FormGroup";
+import { FormInput } from "@/components/form-controls/FormInput";
+import { FormSelect } from "@/components/form-controls/FormSelect";
 import { usePropertyForm } from "@/hooks/usePropertyForm";
-import { Button } from "@/components/ui/button";
+
+import { FeatureHeader } from "./FeatureHeader";
+import { TopologyInfo } from "./TopologyInfo";
+import { SaveActions } from "../form-controls/SaveActions";
 
 export function JunctionProperties() {
   const {
     formData,
-    hasChanges,
     isLoading,
+    hasChanges,
     connectionInfo,
-    handleChange,
-    handleSave,
-    handleDelete,
-    handleZoom,
-    handleAutoElevate,
     selectedFeatureId,
+    handleSave,
+    handleZoom,
+    handleChange,
+    handleDelete,
+    handleAutoElevate,
   } = usePropertyForm();
 
   if (!selectedFeatureId) return null;

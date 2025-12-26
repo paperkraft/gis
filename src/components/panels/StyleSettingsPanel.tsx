@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
 import { Palette, RotateCcw, Type } from "lucide-react";
-import { useUIStore } from "@/store/uiStore";
+import React, { useEffect, useState } from "react";
+
 import { useStyleStore } from "@/store/styleStore";
-import { StyleTab } from "./style-tabs/StyleTab";
+import { useUIStore } from "@/store/uiStore";
+
 import { LabelTab } from "./style-tabs/LabelTab";
+import { StyleTab } from "./style-tabs/StyleTab";
 
 export function StyleSettingsPanel() {
   const { activeStyleLayer } = useUIStore();

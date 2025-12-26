@@ -69,7 +69,6 @@ export const useStyleStore = create<StyleState>((set, get) => ({
         head: { min: 0, max: 100 }
     },
     gradientStops: [
-        { offset: 0, color: '#440154' },
         { offset: 25, color: '#3b528b' },
         { offset: 50, color: '#21918c' },
         { offset: 75, color: '#5ec962' },

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { Palette, Eye, EyeOff, Maximize, Settings } from "lucide-react";
-import { useUIStore } from "@/store/uiStore";
-import { useMapStore } from "@/store/mapStore";
-import { useNetworkStore } from "@/store/networkStore";
-import { createEmpty, extend, isEmpty } from "ol/extent";
+import { Eye, EyeOff, Maximize, Palette } from 'lucide-react';
+import { createEmpty, extend, isEmpty } from 'ol/extent';
+import { useEffect, useRef } from 'react';
+
+import { useMapStore } from '@/store/mapStore';
+import { useNetworkStore } from '@/store/networkStore';
+import { useUIStore } from '@/store/uiStore';
 
 export function ContextMenu() {
   const menuRef = useRef<HTMLDivElement>(null);

@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { ProjectMetadata, ProjectService } from "@/lib/services/ProjectService";
-import AppLayout from "@/components/new_layout/AppLayout";
+import AppLayout from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { NewProjectModal } from "@/components/modals/NewProjectModal";
-import ProjectList from "@/components/new_layout/ProjectList";
+import ProjectList from "@/components/layout/ProjectList";
 
 export default function Dashboard() {
   const router = useRouter();

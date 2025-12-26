@@ -1,12 +1,11 @@
-import { usePropertyForm } from "@/hooks/usePropertyForm";
-import {
-  FeatureHeader,
-  FormGroup,
-  FormInput,
-  FormSelect,
-  SaveActions,
-  TopologyInfo,
-} from "./FormControls";
+import { FormGroup } from '@/components/form-controls/FormGroup';
+import { FormInput } from '@/components/form-controls/FormInput';
+import { FormSelect } from '@/components/form-controls/FormSelect';
+import { usePropertyForm } from '@/hooks/usePropertyForm';
+
+import { SaveActions } from '../form-controls/SaveActions';
+import { FeatureHeader } from './FeatureHeader';
+import { TopologyInfo } from './TopologyInfo';
 
 export function PumpProperties() {
   const {

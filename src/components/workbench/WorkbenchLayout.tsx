@@ -1,24 +1,18 @@
 "use client";
-import {
-  ChevronRight,
-  Eye,
-  EyeOff,
-  MoreVertical,
-  MousePointer,
-  Move,
-  Search,
-  X,
-  ZoomIn,
-} from "lucide-react";
-import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { MousePointer, Move, Search, X, ZoomIn } from 'lucide-react';
+import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Header } from "@/components/new_layout/Header";
-import { useNetworkStore } from "@/store/networkStore";
-import { useUIStore, WorkbenchModalType } from "@/store/uiStore";
+import { Header } from '@/components/layout/Header';
+import { MenuItem, WORKBENCH_MENU } from '@/data/workbenchMenu';
+import { useNetworkStore } from '@/store/networkStore';
+import { useUIStore, WorkbenchModalType } from '@/store/uiStore';
 
-import { DraggableModal } from "./DraggableModal";
-import { MenuItem, WORKBENCH_MENU } from "@/data/workbenchMenu";
-import { ContextMenu } from "./ContextMenu";
+import { ContextMenu } from './ContextMenu';
+import ToolButton from './ToolButton';
+import TreeGroup from './TreeGroup';
+import TreeItem from './TreeItem';
+import TreeSection from './TreeSection';
+import { WorkbenchModal } from './WorkbenchModal';
 
 export default function WorkbenchLayout({ children }: { children: ReactNode }) {
   const [sidebarWidth, setSidebarWidth] = useState(260);
@@ -32,7 +26,6 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
     activeStyleLayer,
     setActiveModal,
     setContextMenu,
-    setActiveStyleLayer,
     toggleLayerVisibility,
   } = useUIStore();
 
@@ -217,15 +210,6 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
             count={dynamicCount}
             isVisible={isVisible}
             // LEFT CLICK: Open Style Settings if it's a layer, or specific modal if defined
-            // onClick={() => {
-            //   if (node.layerKey) {
-            //     setActiveStyleLayer(node.layerKey);
-            //     setActiveModal("STYLE_SETTINGS");
-            //   } else if (node.modalType) {
-            //     setActiveModal(node.modalType as WorkbenchModalType);
-            //   }
-            // }}
-
             onClick={
               !node.layerKey && node.modalType
                 ? () => setActiveModal(node.modalType as WorkbenchModalType)
@@ -369,16 +353,16 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
           {/* Drawing tools */}
           <div className="hidden absolute top-3 left-1/2 -translate-x-1/2 pointer-events-auto">
             <div className="bg-white/90 backdrop-blur rounded-full shadow-lg border border-slate-200 p-1 flex items-center gap-1">
-              <ToolBtn icon={MousePointer} active />
-              <ToolBtn icon={Move} />
+              <ToolButton icon={MousePointer} active />
+              <ToolButton icon={Move} />
               <div className="w-px h-4 bg-slate-200 mx-1" />
-              <ToolBtn icon={ZoomIn} />
+              <ToolButton icon={ZoomIn} />
             </div>
           </div>
         </div>
 
         {activeModal !== "NONE" && (
-          <DraggableModal
+          <WorkbenchModal
             key={activeModal}
             type={activeModal}
             onClose={handleModalClose}
@@ -389,167 +373,5 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
         <ContextMenu />
       </div>
     </div>
-  );
-}
-
-function TreeSection({
-  title,
-  children,
-  status,
-  defaultOpen = false,
-  forceOpen = false,
-}: any) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-
-  useEffect(() => {
-    if (forceOpen) {
-      setIsOpen(true);
-    } else {
-      setIsOpen(defaultOpen);
-    }
-  }, [forceOpen, defaultOpen]);
-
-  const statusColor =
-    status === "ready"
-      ? "bg-green-500"
-      : status === "warning"
-      ? "bg-amber-400"
-      : "bg-slate-300";
-
-  return (
-    <div className="mb-1">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center px-2 py-1.5 hover:bg-slate-50 transition-colors group"
-      >
-        <span
-          className={`text-slate-400 mr-1 transition-transform duration-200 ${
-            isOpen ? "rotate-90" : ""
-          }`}
-        >
-          <ChevronRight size={10} />
-        </span>
-        <span className="text-[11px] font-bold uppercase text-slate-500 tracking-wider flex-1 text-left group-hover:text-slate-700">
-          {title}
-        </span>
-        <div className={`w-1.5 h-1.5 rounded-full ${statusColor}`} />
-      </button>
-      {isOpen && (
-        <div className="ml-1 pl-2 border-l border-slate-100 space-y-0.5 mb-2">
-          {children}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TreeGroup({ label, count, children, forceOpen = false }: any) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    if (forceOpen) {
-      setIsOpen(true);
-    } else {
-      setIsOpen(false);
-    }
-  }, [forceOpen]);
-
-  return (
-    <div className="ml-2">
-      <div
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center px-2 py-1 cursor-pointer rounded-sm hover:bg-slate-100 text-slate-600"
-      >
-        <ChevronRight
-          size={10}
-          className={`mr-1.5 text-slate-400 transition-transform ${
-            isOpen ? "rotate-90" : ""
-          }`}
-        />
-        <span className="text-xs truncate flex-1">{label}</span>
-        {count && (
-          <span className="text-[9px] bg-slate-100 text-slate-400 px-1 rounded">
-            {count}
-          </span>
-        )}
-      </div>
-      {isOpen && (
-        <div className="ml-4 border-l border-slate-200 pl-1">{children}</div>
-      )}
-    </div>
-  );
-}
-
-function TreeItem({
-  label,
-  active,
-  icon: Icon,
-  onClick,
-  count,
-  isVisible,
-  onToggleVisibility,
-  onContextMenu,
-}: any) {
-  return (
-    <div
-      onClick={onClick}
-      onContextMenu={onContextMenu}
-      className={`ml-2 flex items-center px-2 py-1.5 cursor-pointer rounded-sm text-xs transition-all relative ${
-        active
-          ? "bg-blue-50 text-blue-700 font-medium"
-          : "text-slate-600 hover:bg-slate-100"
-      }`}
-    >
-      {active && (
-        <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-blue-600 rounded-r" />
-      )}
-      {Icon ? (
-        <Icon size={12} className="mr-2 opacity-70" />
-      ) : (
-        <div className="w-1 h-1 bg-current rounded-full mr-3 opacity-50" />
-      )}
-      <span className="truncate">{label}</span>
-
-      {/* Layer Controls (Visibility Toggle & Count) */}
-      <div className="ml-auto flex items-center gap-2">
-        {onToggleVisibility && (
-          <button
-            onClick={onToggleVisibility}
-            className={`p-0.5 rounded hover:bg-slate-200 transition-colors ${
-              isVisible === false
-                ? "text-slate-300"
-                : "text-slate-400 hover:text-slate-600"
-            }`}
-          >
-            {isVisible === false ? <EyeOff size={10} /> : <Eye size={10} />}
-          </button>
-        )}
-        {count !== undefined && typeof count === "number" && (
-          <span className="text-[9px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded font-mono min-w-5 text-center">
-            {count}
-          </span>
-        )}
-        {!onToggleVisibility && count === undefined && (
-          <MoreVertical
-            size={10}
-            className="ml-auto opacity-0 group-hover:opacity-100 text-slate-400"
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ToolBtn({ icon: Icon, active }: any) {
-  return (
-    <button
-      className={`p-1.5 rounded-full transition-all ${
-        active
-          ? "bg-blue-100 text-blue-600"
-          : "hover:bg-slate-100 text-slate-500"
-      }`}
-    >
-      <Icon size={16} />
-    </button>
   );
 }

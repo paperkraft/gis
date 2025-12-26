@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 
 import { ProjectService } from "@/lib/services/ProjectService";
 import { useNetworkStore } from "@/store/networkStore";
-import WorkbenchLayout from "@/components/new_layout/WorkbenchLayout";
+import WorkbenchLayout from "@/components/workbench/WorkbenchLayout";
 
 const MapContainer = dynamic(
   () => import("@/components/map/MapContainer").then((mod) => mod.MapContainer),

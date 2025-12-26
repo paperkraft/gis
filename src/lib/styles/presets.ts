@@ -2,7 +2,6 @@ export const PRESETS = [
     {
         name: "Viridis",
         stops: [
-            { offset: 0, color: '#440154' },
             { offset: 25, color: '#3b528b' },
             { offset: 50, color: '#21918c' },
             { offset: 75, color: '#5ec962' },
@@ -12,7 +11,6 @@ export const PRESETS = [
     {
         name: "Plasma",
         stops: [
-            { offset: 0, color: '#0d0887' },
             { offset: 25, color: '#7e03a8' },
             { offset: 50, color: '#cc4778' },
             { offset: 75, color: '#f89540' },
@@ -22,12 +20,10 @@ export const PRESETS = [
     {
         name: "Turbo",
         stops: [
-            { offset: 0, color: '#30123b' },
-            { offset: 20, color: '#28bceb' },
-            { offset: 40, color: '#a4fc3c' },
-            { offset: 60, color: '#f29e2e' },
-            { offset: 80, color: '#d23105' },
-            { offset: 100, color: '#7a0403' }
+            { offset: 0, color: '#28bceb' },
+            { offset: 33, color: '#a4fc3c' },
+            { offset: 66, color: '#f29e2e' },
+            { offset: 100, color: '#d23105' },
         ]
     },
     {

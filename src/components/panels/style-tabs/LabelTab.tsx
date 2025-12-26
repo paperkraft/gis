@@ -1,21 +1,12 @@
 "use client";
 
-import {
-  Activity,
-  Check,
-  Cylinder,
-  Eye,
-  EyeOff,
-  Mountain,
-  Tag,
-} from "lucide-react";
-import React from "react";
+import { Activity, Check, Cylinder, Eye, EyeOff, Mountain, Tag } from 'lucide-react';
+import React from 'react';
 
-import { useStyleStore } from "@/store/styleStore";
-import { useUIStore } from "@/store/uiStore";
-
-import { FormGroup } from "../FormControls";
-import { cn } from "@/lib/utils";
+import { FormGroup } from '@/components/form-controls/FormGroup';
+import { cn } from '@/lib/utils';
+import { useStyleStore } from '@/store/styleStore';
+import { useUIStore } from '@/store/uiStore';
 
 export function LabelTab({ layerId }: { layerId: string }) {
   const { showLabels, setShowLabels } = useUIStore();

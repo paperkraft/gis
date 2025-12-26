@@ -1,9 +1,14 @@
 import { WorkbenchModalType } from "@/store/uiStore";
 import {
-    Layers, Box, Database, Cylinder, Circle, Activity,
+    Layers, Box, Circle,
     Settings, FileText, PenTool, Edit3, Calculator,
     TrendingUp, Map, Droplets, BarChart3,
-    Zap, Table2, MousePointer2
+    Zap, Table2, MousePointer2,
+    Minus,
+    Pentagon,
+    Hexagon,
+    Square,
+    Triangle
 } from "lucide-react";
 
 // 1. Schema Definition
@@ -38,12 +43,12 @@ export const WORKBENCH_MENU: MenuItem[] = [
                 label: "Network Layers",
                 icon: Layers,
                 children: [
-                    { id: "itm_pipe", type: "ITEM", label: "Pipe", icon: Activity, modalType: "PIPE_PROP", layerKey: "pipe" },
-                    { id: "itm_junction", type: "ITEM", label: "Junction", icon: Circle, modalType: "JUNCTION_PROP", layerKey: "junction" },
-                    { id: "itm_reservoir", type: "ITEM", label: "Reservoir", icon: Database, modalType: "RESERVOIR_PROP", layerKey: "reservoir" },
-                    { id: "itm_tank", type: "ITEM", label: "Tank", icon: Cylinder, modalType: "TANK_PROP", layerKey: "tank" },
-                    { id: "itm_valve", type: "ITEM", label: "Valve", icon: Box, modalType: "VALVE_PROP", layerKey: "valve" },
-                    { id: "itm_pump", type: "ITEM", label: "Pump", icon: Zap, modalType: "PUMP_PROP", layerKey: "pump" },
+                    { id: "itm_pipe", type: "ITEM", label: "Pipe", icon: Minus, layerKey: "pipe" },
+                    { id: "itm_junction", type: "ITEM", label: "Junction", icon: Circle, layerKey: "junction" },
+                    { id: "itm_reservoir", type: "ITEM", label: "Reservoir", icon: Hexagon, layerKey: "reservoir" },
+                    { id: "itm_tank", type: "ITEM", label: "Tank", icon: Pentagon, layerKey: "tank" },
+                    { id: "itm_valve", type: "ITEM", label: "Valve", icon: Square, layerKey: "valve" },
+                    { id: "itm_pump", type: "ITEM", label: "Pump", icon: Triangle, layerKey: "pump" },
                 ]
             },
             { id: "itm_headworks", type: "ITEM", label: "Headworks", icon: Box },
