@@ -1,15 +1,30 @@
 import { create } from 'zustand';
-import { SimulationSnapshot, SimulationHistory, SimulationStatus } from '@/types/simulation';
+
+// --- Types ---
+export type SimulationStatus = 'idle' | 'running' | 'completed' | 'error';
+
+export interface SimulationSnapshot {
+    time: number;
+    nodes: Record<string, { pressure: number; demand: number; head: number }>;
+    links: Record<string, { flow: number; velocity: number; headloss: number; status: string }>;
+}
+
+export interface SimulationHistory {
+    timestamps: number[];
+    snapshots: SimulationSnapshot[];
+    summary: { nodeCount: number; linkCount: number; duration: number };
+}
 
 interface SimulationState {
     status: SimulationStatus;
-    history: SimulationHistory | null;
-    results: SimulationSnapshot | null;
+    history: SimulationHistory | null;    // Holds ALL time steps
+    results: SimulationSnapshot | null;   // Holds CURRENT time step data
     currentTimeIndex: number;
     error: string | null;
     isPlaying: boolean;
+    isSimulating: boolean;
 
-    runSimulation: (projectId: string) => Promise<void>;
+    runSimulation: (networkData: any) => Promise<boolean>; // Changed to return boolean for UI feedback
     setTimeIndex: (index: number) => void;
     togglePlayback: () => void;
     resetSimulation: () => void;
@@ -23,41 +38,50 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     currentTimeIndex: 0,
     error: null,
     isPlaying: false,
+    isSimulating: false,
 
-    runSimulation: async (projectId) => {
-        set({ status: 'running', error: null, history: null, results: null });
+    runSimulation: async (networkData) => {
+        set({ status: 'running', isSimulating: true, error: null, history: null, results: null });
 
         try {
-            const response = await fetch(`/api/projects/${projectId}/simulate`, {
-                method: 'POST'
+            // Using the new API route that accepts JSON body
+            const response = await fetch('/api/simulation/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(networkData),
             });
 
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.details || errData.error || "Server simulation failed");
+            const json = await response.json();
+
+            if (!response.ok || !json.success) {
+                throw new Error(json.error || "Simulation failed");
             }
 
-            const data: SimulationHistory = await response.json();
+            const data: SimulationHistory = json.data;
+            const lastIndex = data.snapshots.length - 1;
 
             set({
                 status: 'completed',
-                results: data.snapshots[0] || null,
+                isSimulating: false,
                 history: data,
-                currentTimeIndex: 0,
+                results: data.snapshots[lastIndex], // Default to last step
+                currentTimeIndex: lastIndex,
             });
+            return true;
 
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
             set({
                 status: 'error',
-                error: err instanceof Error ? err.message : "Simulation error"
+                isSimulating: false,
+                error: err.message || "Simulation error"
             });
+            return false;
         }
     },
 
     setTimeIndex: (index) => {
         const { history } = get();
-        // if (!history || !history.snapshots[index]) return;
         if (!history || index < 0 || index >= history.timestamps.length) return;
         set({ currentTimeIndex: index, results: history.snapshots[index] });
     },
@@ -65,8 +89,8 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     togglePlayback: () => set((state) => ({ isPlaying: !state.isPlaying })),
 
     nextStep: () => {
-        const { history, currentTimeIndex, isPlaying } = get();
-        if (!history || !isPlaying) return;
+        const { history, currentTimeIndex } = get();
+        if (!history) return;
         let nextIndex = currentTimeIndex + 1;
         if (nextIndex >= history.snapshots.length) nextIndex = 0;
         set({ currentTimeIndex: nextIndex, results: history.snapshots[nextIndex] });

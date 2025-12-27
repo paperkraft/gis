@@ -1,18 +1,19 @@
 "use client";
-import { MousePointer, Move, Search, X, ZoomIn } from 'lucide-react';
-import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { MousePointer, Move, Search, X, ZoomIn } from "lucide-react";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
-import { Header } from '@/components/layout/Header';
-import { MenuItem, WORKBENCH_MENU } from '@/data/workbenchMenu';
-import { useNetworkStore } from '@/store/networkStore';
-import { useUIStore, WorkbenchModalType } from '@/store/uiStore';
+import { Header } from "@/components/layout/Header";
+import { MenuItem, WORKBENCH_MENU } from "@/data/workbenchMenu";
+import { useNetworkStore } from "@/store/networkStore";
+import { useUIStore, WorkbenchModalType } from "@/store/uiStore";
 
-import { ContextMenu } from './ContextMenu';
-import ToolButton from './ToolButton';
-import TreeGroup from './TreeGroup';
-import TreeItem from './TreeItem';
-import TreeSection from './TreeSection';
-import { WorkbenchModal } from './WorkbenchModal';
+import { ContextMenu } from "./ContextMenu";
+import ToolButton from "./ToolButton";
+import TreeGroup from "./TreeGroup";
+import TreeItem from "./TreeItem";
+import TreeSection from "./TreeSection";
+import { WorkbenchModal } from "./WorkbenchModal";
+import { SimulationPanel } from "../simulation/SimulationPanel";
 
 export default function WorkbenchLayout({ children }: { children: ReactNode }) {
   const [sidebarWidth, setSidebarWidth] = useState(260);
@@ -245,6 +246,8 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
     });
   };
 
+  const isSimulationMode = activeModal === "SIMULATION_CONFIG";
+
   return (
     <div className="h-screen w-screen bg-slate-50 overflow-hidden flex flex-col font-sans text-slate-700">
       <Header
@@ -274,59 +277,66 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
                 isCollapsed ? "opacity-0 flex" : "opacity-100 flex"
               }`}
             >
-              {/* --- SEARCH INPUT --- */}
-              <div className="p-3 border-b border-slate-100">
-                <div className="relative">
-                  <Search
-                    className="absolute left-2.5 top-2 text-slate-400"
-                    size={16}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Filter tree..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Escape") {
-                        e.preventDefault();
-                        setSearchTerm("");
-                        e.currentTarget.blur();
-                      }
-                    }}
-                    className="w-full pl-8 pr-3 py-1.5 text-[11px] bg-slate-50 border border-slate-200 rounded text-slate-700 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
-                  />
-                  {/* Clear Button */}
-                  {searchTerm && (
-                    <button
-                      onClick={() => setSearchTerm("")}
-                      className="absolute right-2 top-2 text-slate-400 hover:text-red-500 font-bold"
-                    >
-                      <X size={16} />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* --- DYNAMIC TREE --- */}
-              <div className="flex-1 overflow-y-auto p-1 space-y-1">
-                {filteredMenu.length > 0 ? (
-                  filteredMenu.map((section) => (
-                    <TreeSection
-                      key={section.id}
-                      title={section.label}
-                      status={section.status}
-                      defaultOpen={section.defaultOpen}
-                      forceOpen={isSearching}
-                    >
-                      {section.children && renderTreeNodes(section.children)}
-                    </TreeSection>
-                  ))
-                ) : (
-                  <div className="p-4 text-center text-xs text-slate-400 italic">
-                    No items found for "{searchTerm}"
+              {isSimulationMode ? (
+                <SimulationPanel />
+              ) : (
+                <>
+                  {/* --- SEARCH INPUT --- */}
+                  <div className="p-3 border-b border-slate-100">
+                    <div className="relative">
+                      <Search
+                        className="absolute left-2.5 top-2 text-slate-400"
+                        size={16}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Filter tree..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            e.preventDefault();
+                            setSearchTerm("");
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        className="w-full pl-8 pr-3 py-1.5 text-[11px] bg-slate-50 border border-slate-200 rounded text-slate-700 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                      />
+                      {/* Clear Button */}
+                      {searchTerm && (
+                        <button
+                          onClick={() => setSearchTerm("")}
+                          className="absolute right-2 top-2 text-slate-400 hover:text-red-500 font-bold"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
+
+                  {/* --- DYNAMIC TREE --- */}
+                  <div className="flex-1 overflow-y-auto p-1 space-y-1">
+                    {filteredMenu.length > 0 ? (
+                      filteredMenu.map((section) => (
+                        <TreeSection
+                          key={section.id}
+                          title={section.label}
+                          status={section.status}
+                          defaultOpen={section.defaultOpen}
+                          forceOpen={isSearching}
+                        >
+                          {section.children &&
+                            renderTreeNodes(section.children)}
+                        </TreeSection>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-xs text-slate-400 italic">
+                        No items found for "{searchTerm}"
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Resize Handle */}
@@ -350,7 +360,7 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          {/* Drawing tools */}
+          {/* Drawing tools Hidden*/}
           <div className="hidden absolute top-3 left-1/2 -translate-x-1/2 pointer-events-auto">
             <div className="bg-white/90 backdrop-blur rounded-full shadow-lg border border-slate-200 p-1 flex items-center gap-1">
               <ToolButton icon={MousePointer} active />
@@ -361,12 +371,13 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        {activeModal !== "NONE" && (
+        {activeModal !== "NONE" && activeModal !== "SIMULATION_CONFIG" && (
           <WorkbenchModal
             key={activeModal}
             type={activeModal}
             onClose={handleModalClose}
             sidebarWidth={isCollapsed ? 0 : sidebarWidth}
+            maximized={activeModal === "SIMULATION_GRAPHS"}
           />
         )}
 

@@ -19,7 +19,7 @@ const MapContainer = dynamic(
 
 const SimulationPanel = dynamic(
   () =>
-    import("@/components/simulation/SimulationPanel").then(
+    import("@/components/simulation/SimulationPanelOG").then(
       (mod) => mod.SimulationPanel
     ),
   { ssr: false }

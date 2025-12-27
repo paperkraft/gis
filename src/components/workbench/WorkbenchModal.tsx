@@ -1,35 +1,53 @@
 "use client";
 
 import {
-    Activity, ArrowRightCircle, Box, Cylinder, Database, Maximize2, Minimize2, Palette, Settings,
-    Upload, X, Zap
-} from 'lucide-react';
-import React, { useState } from 'react';
+  Activity,
+  ArrowRightCircle,
+  BarChart3Icon,
+  Box,
+  Cylinder,
+  Database,
+  Maximize2,
+  Minimize2,
+  Palette,
+  Settings,
+  Upload,
+  X,
+  Zap,
+} from "lucide-react";
+import React, { useState } from "react";
 
-import { WorkbenchModalType } from '@/store/uiStore';
+import { WorkbenchModalType } from "@/store/uiStore";
 
-import GeometryImportPanel from '../panels/GeometryImportPanel';
-import SimulationConfig from '../panels/SimulationConfig';
-import { StyleSettingsPanel } from '../panels/StyleSettingsPanel';
-import { JunctionProperties } from '../properties/JunctionProperties';
-import { PipeProperties } from '../properties/PipeProperties';
-import { PumpProperties } from '../properties/PumpProperties';
-import { ReservoirProperties } from '../properties/ReservoirProperties';
-import { TankProperties } from '../properties/TankProperties';
-import { ValveProperties } from '../properties/ValveProperties';
+import GeometryImportPanel from "../panels/GeometryImportPanel";
+import SimulationConfig from "../panels/SimulationConfig";
+import { StyleSettingsPanel } from "../panels/StyleSettingsPanel";
+import { JunctionProperties } from "../properties/JunctionProperties";
+import { PipeProperties } from "../properties/PipeProperties";
+import { PumpProperties } from "../properties/PumpProperties";
+import { ReservoirProperties } from "../properties/ReservoirProperties";
+import { TankProperties } from "../properties/TankProperties";
+import { ValveProperties } from "../properties/ValveProperties";
+import { SimulationGraphs } from "../simulation/SimulationGraphs";
 
 interface DraggableModalProps {
   type: WorkbenchModalType;
   onClose: () => void;
   sidebarWidth: number;
+  initialWidth?: number;
+  initialHeight?: number;
+  maximized?: boolean;
 }
 
 export function WorkbenchModal({
   type,
   onClose,
   sidebarWidth,
+  initialWidth,
+  initialHeight,
+  maximized= false
 }: DraggableModalProps) {
-  const [isMaximized, setIsMaximized] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(maximized);
 
   // --- 1. DOCKED STYLING ---
   const modalStyle: React.CSSProperties = isMaximized
@@ -38,7 +56,7 @@ export function WorkbenchModal({
         top: 12,
         left: sidebarWidth + 24,
         right: 16,
-        bottom: 16,
+        bottom: 40,
         width: "auto",
         height: "auto",
         zIndex: 50,
@@ -47,8 +65,8 @@ export function WorkbenchModal({
         position: "absolute",
         top: 12,
         left: sidebarWidth + 24,
-        width: "320px",
-        maxHeight: "calc(100vh - 100px)",
+        width: initialWidth || "320px",
+        maxHeight: initialHeight || "calc(100vh - 100px)",
         zIndex: 50,
       };
 
@@ -61,6 +79,8 @@ export function WorkbenchModal({
         return <GeometryImportPanel />;
       case "SIMULATION_CONFIG":
         return <SimulationConfig />;
+      case "SIMULATION_GRAPHS":
+        return <SimulationGraphs />;
       // Network Components
       case "JUNCTION_PROP":
         return <JunctionProperties />;
@@ -87,6 +107,8 @@ export function WorkbenchModal({
         return { title: "Import Network", icon: Upload };
       case "SIMULATION_CONFIG":
         return { title: "Simulation Options", icon: Activity };
+      case "SIMULATION_GRAPHS":
+        return { title: "Simulation Results", icon: BarChart3Icon };
       case "JUNCTION_PROP":
         return { title: "Junction Properties", icon: ArrowRightCircle };
       case "RESERVOIR_PROP":

@@ -24,7 +24,8 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
 
     // 1. Get Stores
     const { colorMode, labelMode, minMax, layerStyles } = useStyleStore.getState();
-    const { results, history, currentTimeIndex } = useSimulationStore.getState();
+    // const { results, history, currentTimeIndex } = useSimulationStore.getState();
+    const { results } = useSimulationStore.getState();
     const { showLabels, showPipeArrows } = useUIStore.getState();
 
     // 2. Resolve Base Style (Uniform)
@@ -39,10 +40,8 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
     let opacity = customStyle?.opacity ?? 1;
     const isAutoScale = customStyle?.autoScale ?? false;
 
-    // 3. Determine Dynamic Values (Gradient)
-    const activeResults = (history && history.snapshots[currentTimeIndex])
-        ? history.snapshots[currentTimeIndex]
-        : results;
+    // 3. SAFE DATA EXTRACTION (Fixes the crash)
+    let activeSnapshot = results;
 
     let value: number | null = null;
     let range = { min: 0, max: 100 };
@@ -63,11 +62,11 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
         } else if (colorMode === 'roughness') {
             value = feature.get('roughness');
             range = minMax.roughness || { min: 80, max: 150 };
-        } else if (colorMode === 'velocity' && activeResults?.links[featureId]) {
-            value = activeResults.links[featureId].velocity;
+        } else if (colorMode === 'velocity' && activeSnapshot?.links[featureId]) {
+            value = activeSnapshot.links[featureId].velocity;
             range = minMax.velocity;
-        } else if (colorMode === 'flow' && activeResults?.links[featureId]) {
-            value = Math.abs(activeResults.links[featureId].flow);
+        } else if (colorMode === 'flow' && activeSnapshot?.links[featureId]) {
+            value = Math.abs(activeSnapshot.links[featureId].flow);
             range = minMax.flow;
         }
     }
@@ -77,11 +76,11 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
         if (colorMode === 'elevation') {
             value = feature.get('elevation');
             range = { min: 0, max: 100 };
-        } else if (colorMode === 'pressure' && activeResults?.nodes[featureId]) {
-            value = activeResults.nodes[featureId].pressure;
+        } else if (colorMode === 'pressure' && activeSnapshot?.nodes[featureId]) {
+            value = activeSnapshot.nodes[featureId].pressure;
             range = minMax.pressure;
-        } else if (colorMode === 'head' && activeResults?.nodes[featureId]) {
-            value = activeResults.nodes[featureId].head;
+        } else if (colorMode === 'head' && activeSnapshot?.nodes[featureId]) {
+            value = activeSnapshot.nodes[featureId].head;
             range = minMax.head;
         }
     }

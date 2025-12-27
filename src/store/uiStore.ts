@@ -22,6 +22,7 @@ export type ToolType =
 export type WorkbenchModalType =
     | "NONE"
     | "GEOMETRY_IMPORT"
+    | "SIMULATION_GRAPHS"
     | "SIMULATION_CONFIG"
     | "STYLE_SETTINGS"
     | "JUNCTION_PROP"

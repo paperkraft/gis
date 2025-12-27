@@ -51,12 +51,6 @@ export const WORKBENCH_MENU: MenuItem[] = [
                     { id: "itm_pump", type: "ITEM", label: "Pump", icon: Triangle, layerKey: "pump" },
                 ]
             },
-            { id: "itm_headworks", type: "ITEM", label: "Headworks", icon: Box },
-            { id: "itm_wtp", type: "ITEM", label: "WTP", icon: Droplets },
-            { id: "itm_terrain", type: "ITEM", label: "Terrain (Layer)", icon: Map },
-            { id: "itm_zone", type: "ITEM", label: "Zone", icon: MousePointer2 },
-            { id: "itm_support", type: "ITEM", label: "Supporting Layers", icon: Layers },
-            { id: "itm_select_sets", type: "ITEM", label: "Selection sets", icon: MousePointer2 },
             {
                 id: "grp_net_settings",
                 type: "GROUP",
@@ -70,6 +64,12 @@ export const WORKBENCH_MENU: MenuItem[] = [
                     { id: "set_data", type: "ITEM", label: "Data Tables (Pipe / Valve)" },
                 ]
             },
+            { id: "itm_headworks", type: "ITEM", label: "Headworks", icon: Box },
+            { id: "itm_wtp", type: "ITEM", label: "WTP", icon: Droplets },
+            { id: "itm_terrain", type: "ITEM", label: "Terrain (Layer)", icon: Map },
+            { id: "itm_zone", type: "ITEM", label: "Zone", icon: MousePointer2 },
+            { id: "itm_support", type: "ITEM", label: "Supporting Layers", icon: Layers },
+            { id: "itm_select_sets", type: "ITEM", label: "Selection sets", icon: MousePointer2 },
             { id: "itm_net_reports", type: "ITEM", label: "Reports", icon: FileText },
         ]
     },
@@ -169,6 +169,13 @@ export const WORKBENCH_MENU: MenuItem[] = [
         label: "Simulations",
         status: "empty",
         children: [
+            {
+                id: "sim_config",
+                type: "ITEM",
+                label: "Configuration",
+                icon: Settings,
+                modalType: "SIMULATION_CONFIG"
+            },
             {
                 id: "grp_sim_sets",
                 type: "GROUP",
