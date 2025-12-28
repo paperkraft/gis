@@ -1,31 +1,35 @@
 "use client";
-import { MousePointer, Move, Search, X, ZoomIn } from "lucide-react";
-import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { MousePointer, Move, Search, X, ZoomIn } from 'lucide-react';
+import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Header } from "@/components/layout/Header";
-import { MenuItem, WORKBENCH_MENU } from "@/data/workbenchMenu";
-import { useNetworkStore } from "@/store/networkStore";
-import { useUIStore, WorkbenchModalType } from "@/store/uiStore";
+import { Header } from '@/components/layout/Header';
+import { MenuItem, WORKBENCH_MENU } from '@/data/workbenchMenu';
+import { useNetworkStore } from '@/store/networkStore';
+import { useUIStore, WorkbenchModalType } from '@/store/uiStore';
 
-import { ContextMenu } from "./ContextMenu";
-import ToolButton from "./ToolButton";
-import TreeGroup from "./TreeGroup";
-import TreeItem from "./TreeItem";
-import TreeSection from "./TreeSection";
-import { WorkbenchModal } from "./WorkbenchModal";
-import { SimulationPanel } from "../simulation/SimulationPanel";
+import { SimulationPanel } from '../simulation/SimulationPanel';
+import { ContextMenu } from './ContextMenu';
+import ToolButton from './ToolButton';
+import TreeGroup from './TreeGroup';
+import TreeItem from './TreeItem';
+import TreeSection from './TreeSection';
+import { WorkbenchModal } from './WorkbenchModal';
 
 export default function WorkbenchLayout({ children }: { children: ReactNode }) {
-  const [sidebarWidth, setSidebarWidth] = useState(260);
+
+  //!SECTION
+  const [searchTerm, setSearchTerm] = useState("");
   const [isResizing, setIsResizing] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [sidebarWidth, setSidebarWidth] = useState(260);
 
   const {
     activeModal,
+    activePanel,
     layerVisibility,
     activeStyleLayer,
     setActiveModal,
+    setActivePanel,
     setContextMenu,
     toggleLayerVisibility,
   } = useUIStore();
@@ -214,6 +218,8 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
             onClick={
               !node.layerKey && node.modalType
                 ? () => setActiveModal(node.modalType as WorkbenchModalType)
+                : node.modalPanel 
+                ? () => setActivePanel(node.modalPanel as string)
                 : undefined
             }
             // VISIBILITY TOGGLE
@@ -246,7 +252,7 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
     });
   };
 
-  const isSimulationMode = activeModal === "SIMULATION_CONFIG";
+  const isSimulationMode = (activePanel === "SIMULATION_CONFIG" || activeModal === "SIMULATION_GRAPHS");
 
   return (
     <div className="h-screen w-screen bg-slate-50 overflow-hidden flex flex-col font-sans text-slate-700">
@@ -371,7 +377,7 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        {activeModal !== "NONE" && activeModal !== "SIMULATION_CONFIG" && (
+        {activeModal !== "NONE" && (
           <WorkbenchModal
             key={activeModal}
             type={activeModal}

@@ -166,13 +166,13 @@ function GridCard({ data, onClick, isSelected, openProject }: any) {
             <Button
               variant={"ghost"}
               size={"icon-sm"}
-              className=" hover:text-primary"
+              className="group text-muted-foreground/80 hover:text-primary"
               onClick={(e) => {
                 e.stopPropagation();
                 openProject();
               }}
             >
-              <ExternalLink className="size-4 text-muted-foreground" />
+              <ExternalLink className="size-4" />
             </Button>
           )}
         </div>

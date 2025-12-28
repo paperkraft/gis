@@ -67,7 +67,9 @@ interface UIState {
     componentSelectionModalOpen: boolean;
     queryBuilderModalOpen: boolean;
 
+    // Panel and Modal
     activeModal: WorkbenchModalType;
+    activePanel: string;
 
 
     // Map control states
@@ -116,6 +118,7 @@ interface UIState {
     setQueryBuilderModalOpen: (open: boolean) => void;
 
     setActiveModal: (modal: WorkbenchModalType) => void;
+    setActivePanel: (panel: string) => void;
 
     // Actions - Map Controls
     setActiveTool: (tool: ToolType | null) => void;
@@ -166,6 +169,7 @@ const DEFAULT_STATE = {
     deleteModalOpen: false,
     queryBuilderModalOpen: false,
 
+    activePanel: 'NONE',
     activeModal: "NONE" as WorkbenchModalType,
 
     importModalOpen: false,
@@ -226,7 +230,10 @@ export const useUIStore = create<UIState>((set, get) => ({
     setControlManagerModalOpen: (open) => set({ controlManagerModalOpen: open }),
     setDataManagerModalOpen: (open) => set({ dataManagerModalOpen: open }),
     setQueryBuilderModalOpen: (open) => set({ queryBuilderModalOpen: open }),
+
+    // Modal and Panel
     setActiveModal: (modal) => set({ activeModal: modal }),
+    setActivePanel: (panel) => set({ activePanel: panel }),
 
     setIsFlowAnimating: (animate) => set({ isFlowAnimating: animate }),
     setShowLocationSearch: (open) => set({ showLocationSearch: open }),

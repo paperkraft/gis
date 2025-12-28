@@ -3,6 +3,7 @@ import { Feature } from "ol";
 import { FeatureType, NetworkControl, NetworkFeatureProperties, ProjectSettings, PumpCurve, TimePattern } from "@/types/network";
 import { ParsedProjectData } from "@/lib/import/inpParser";
 import { COMPONENT_TYPES } from "@/constants/networkComponents";
+import GeoJSON from "ol/format/GeoJSON";
 
 interface NetworkState {
     features: Map<string, Feature>;
@@ -75,6 +76,9 @@ interface NetworkState {
     snapshot: () => void;
     undo: () => Feature[] | null;
     redo: () => Feature[] | null;
+
+    // Restore sim network
+    setNetworkState: (featuresList: Feature[]) => void;
 }
 
 const DEFAULT_PATTERNS: TimePattern[] = [
@@ -473,6 +477,39 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
         return { modifiedIds: newModified, hasUnsavedChanges: true, deletedIds: newDeleted };
     }),
+
+    setNetworkState: (geoJSON) => {
+        // 1. CONVERT Plain GeoJSON -> Real OpenLayers Features
+        const reader = new GeoJSON();
+        const restoredFeatures = reader.readFeatures(geoJSON);
+
+        // 2. Rebuild the Map
+        const newMap = new Map<string, Feature>();
+        const newModified = new Set(get().modifiedIds);
+        const newDeleted = new Set(get().deletedIds);
+
+        restoredFeatures.forEach((f) => {
+            const id = f.getId() as string;
+            if (id) {
+                newMap.set(id.toString(), f);
+                newModified.add(id);
+                newDeleted.delete(id);
+            }
+        });
+
+        // 3. Update State
+        set({
+            features: newMap,
+            hasUnsavedChanges: true,
+            modifiedIds: newModified,
+            deletedIds: newDeleted,
+            selectedFeatureId: null,
+            selectedFeature: null,
+            selectedFeatureIds: []
+        });
+
+        console.log(`Restored ${newMap.size} features from GeoJSON.`);
+    },
 
     // ---------------- History ---------------- //
 

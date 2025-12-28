@@ -16,22 +16,9 @@ import { useUIStore } from '@/store/uiStore';
 
 import { FormSelect } from '../form-controls/FormSelect';
 
-// Helper for Collapsible Sections
-function SimSection({ title, icon: Icon, isOpen, onToggle, children }: any) { 
-    return (
-        <div className="border border-slate-200 rounded-md bg-white overflow-hidden">
-            <button onClick={onToggle} className={`w-full flex items-center gap-2 px-3 py-2.5 text-left ${isOpen ? 'bg-slate-50' : 'hover:bg-slate-50'}`}>
-                <div className="p-1 rounded bg-blue-100 text-blue-600"><Icon size={12}/></div>
-                <span className="text-xs font-bold text-slate-700 flex-1">{title}</span>
-            </button>
-            {isOpen && <div className="border-t border-slate-100 p-3">{children}</div>}
-        </div>
-    );
-}
-
 export function SetupView() {
     const params = useParams();
-    const { setActiveModal } = useUIStore();
+    const { setActiveModal, setActivePanel } = useUIStore();
     const { runSimulation, isSimulating } = useSimulationStore();
     const { exportNetwork } = useNetworkExport();
     const { setColorMode } = useStyleStore();
@@ -54,9 +41,6 @@ export function SetupView() {
                 setStatusMsg("Error: Network empty."); setStatusColor("red"); return;
             }
 
-            console.log('networkData',networkData);
-            console.log('config',config);
-            
             setStatusMsg("Running Solver...");
             const success = await runSimulation({ ...networkData, projectId:params.id, options: config });
             if (success) {
@@ -69,10 +53,15 @@ export function SetupView() {
 
     const toggleSection = (id: string) => setActiveSection(activeSection === id ? "" : id);
 
+    const handleBack = () => {
+        setActiveModal("NONE");
+        setActivePanel("NONE");
+    }
+
     return (
         <div className="flex flex-col h-full bg-white text-slate-700 animate-in slide-in-from-left-4">
              <div className="flex items-center gap-2 p-3 border-b border-slate-100 bg-slate-50">
-                <button onClick={() => setActiveModal("NONE")} className="p-1.5 hover:bg-white rounded text-slate-400 hover:text-slate-700 transition-all"><ArrowLeft size={14} /></button>
+                <button onClick={handleBack} className="p-1.5 hover:bg-white rounded text-slate-400 hover:text-slate-700 transition-all"><ArrowLeft size={14} /></button>
                 <div><h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">Simulation Setup</h2><p className="text-[10px] text-slate-500">Analysis Configuration</p></div>
             </div>
 
@@ -119,6 +108,19 @@ export function SetupView() {
                    {isSimulating ? <><Activity size={14} className="animate-spin" /> Solving...</> : <><Play size={14} fill="currentColor" /> Run Simulation</>}
                 </button>
             </div>
+        </div>
+    );
+}
+
+// Helper for Collapsible Sections
+function SimSection({ title, icon: Icon, isOpen, onToggle, children }: any) { 
+    return (
+        <div className="border border-slate-200 rounded-md bg-white overflow-hidden">
+            <button onClick={onToggle} className={`w-full flex items-center gap-2 px-3 py-2.5 text-left ${isOpen ? 'bg-slate-50' : 'hover:bg-slate-50'}`}>
+                <div className="p-1 rounded bg-blue-100 text-blue-600"><Icon size={12}/></div>
+                <span className="text-xs font-bold text-slate-700 flex-1">{title}</span>
+            </button>
+            {isOpen && <div className="border-t border-slate-100 p-3">{children}</div>}
         </div>
     );
 }

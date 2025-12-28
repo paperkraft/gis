@@ -14,17 +14,18 @@ import {
 // 1. Schema Definition
 export type MenuItem = {
     id: string;
-    type: "SECTION" | "GROUP" | "ITEM";
     label: string;
+    type: "SECTION" | "GROUP" | "ITEM";
 
     // Visuals
     icon?: any;
-    status?: "ready" | "warning" | "empty"; // For Sections
-    defaultOpen?: boolean;
     count?: number; // For Groups
+    status?: "ready" | "warning" | "empty"; // For Sections
     layerKey?: "pipe" | "junction" | "reservoir" | "tank" | "valve" | "pump";
-    modalType?: WorkbenchModalType;
+    defaultOpen?: boolean;
     children?: MenuItem[];
+    modalType?: WorkbenchModalType;
+    modalPanel?: WorkbenchModalType | string;
 };
 
 // 2. The Real Data
@@ -174,7 +175,7 @@ export const WORKBENCH_MENU: MenuItem[] = [
                 type: "ITEM",
                 label: "Configuration",
                 icon: Settings,
-                modalType: "SIMULATION_CONFIG"
+                modalPanel: "SIMULATION_CONFIG"
             },
             {
                 id: "grp_sim_sets",

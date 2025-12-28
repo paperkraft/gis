@@ -14,6 +14,7 @@ import { useNetworkExport } from "@/hooks/useNetworkExport";
 import { useHistoryManager } from "@/hooks/useHistoryManager";
 import { useMeasurement } from "@/hooks/useMeasurement";
 import { useSnapping } from "@/hooks/useSnapping";
+import { useMapFeatureSync } from "@/hooks/useMapFeatureSync";
 
 // Stores & Types
 import { useMapStore } from "@/store/mapStore";
@@ -23,15 +24,13 @@ import { useUIStore, WorkbenchModalType } from "@/store/uiStore";
 import { handleZoomToExtent } from "@/lib/interactions/map-controls";
 
 // Components
-import { MapControls } from "./MapControls";
-import { AttributeTable } from "./AttributeTable";
-// import { PropertyPanel } from "./PropertyPanel";
-import { DrawingToolbar } from "./DrawingToolbar";
-import { StatusBar } from "./StatusBar";
-import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 import { Legend } from "./Legend";
+import { StatusBar } from "./StatusBar";
+import { MapControls } from "./MapControls";
+import { DrawingToolbar } from "./DrawingToolbar";
+import { AttributeTable } from "./AttributeTable";
 import { AssetSearch } from "./controls/AssetSearch";
-import { PropertyPanel } from "./PropertyPanel";
+import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -41,22 +40,23 @@ export function MapContainer() {
   const map = useMapStore((state) => state.map);
   const vectorSource = useMapStore((state) => state.vectorSource);
 
+  // Initialize Map
   const { vectorLayer } = useMapInitialization(mapRef);
+
+  // Network store
+  const { selectedFeature, setSelectedFeature, features } = useNetworkStore();
+
   const {
     activeTool,
     deleteModalOpen,
     showAttributeTable,
-    validationModalOpen,
     activeModal,
     setActiveModal,
     setDeleteModalOpen,
     setShowAttributeTable,
   } = useUIStore();
 
-  // Get setSelectedFeature to update global state when selection changes
-  const { selectedFeature, setSelectedFeature, features } = useNetworkStore();
-
-  // --- SYNC FIX: Ensure map has features from store ---
+  // --- Ensure map has features from store ---
   useEffect(() => {
     if (
       vectorSource &&
@@ -75,10 +75,7 @@ export function MapContainer() {
   }, [vectorSource, features, map]);
 
   // Setup Interactions
-  useMapInteractions({
-    map,
-    vectorSource,
-  });
+  useMapInteractions({ map, vectorSource });
 
   // Handle Feature Selection
   useFeatureSelection({
@@ -150,12 +147,7 @@ export function MapContainer() {
   useKeyboardShortcuts();
 
   // Delete Handling
-  const {
-    handleDeleteRequestFromPanel,
-    handleDeleteConfirm,
-    cascadeInfo,
-    deleteCount,
-  } = useDeleteHandler();
+  const { cascadeInfo, deleteCount, handleDeleteConfirm } = useDeleteHandler();
 
   // Export Handling
   useNetworkExport();
@@ -168,6 +160,9 @@ export function MapContainer() {
 
   // Snapping
   useSnapping();
+
+  // Activate Synchronization
+  useMapFeatureSync();
 
   return (
     <div className="relative w-full h-full bg-gray-100 dark:bg-gray-900 flex flex-col">
@@ -187,13 +182,6 @@ export function MapContainer() {
           vectorSource={vectorSource || undefined}
         />
 
-        {/* {selectedFeature && activeTool === "select" && !validationModalOpen && (
-          <PropertyPanel
-            properties={selectedFeature.getProperties() as any}
-            onDeleteRequest={handleDeleteRequestFromPanel}
-          />
-        )} */}
-
         <DeleteConfirmationModal
           isOpen={deleteModalOpen}
           onClose={() => setDeleteModalOpen(false)}
@@ -205,6 +193,7 @@ export function MapContainer() {
           cascadeInfo={cascadeInfo}
         />
       </div>
+
       {/* Status bar */}
       <StatusBar />
     </div>

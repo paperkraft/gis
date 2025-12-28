@@ -1,5 +1,5 @@
 interface FormSelectProps {
-  label: string;
+  label?: string;
   value: any;
   onChange?: (e: any) => void;
   disabled?: boolean;
@@ -16,9 +16,11 @@ export const FormSelect = ({
   options,
 }: FormSelectProps) => (
   <div className={className}>
-    <label className="block text-[10px] font-medium text-muted-foreground mb-1">
-      {label}
-    </label>
+    {label && (
+      <label className="block text-[10px] font-medium text-muted-foreground mb-1">
+        {label}
+      </label>
+    )}
     <select
       value={value}
       onChange={(e) => onChange?.(e.target.value)}
