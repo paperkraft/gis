@@ -46,29 +46,66 @@ export function ResultsView() {
   const { setActiveModal } = useUIStore();
 
   // Get current network state to save it
-  const { features, setNetworkState } = useNetworkStore();
+  const {
+    features,
+    nextIdCounter,
+    patterns,
+    curves,
+    controls,
+    settings,
+    setNetworkState,
+    setPatterns,
+    setCurves,
+    setControls,
+    updateSettings,
+  } = useNetworkStore();
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [scenarioName, setScenarioName] = useState("");
 
+  // --- SAVE ACTION ---
   const handleSaveScenario = () => {
     if (!history || !scenarioName.trim()) return;
-    // CONVERT MAP TO ARRAY for storage
+
+    // Convert Map -> Array for the store function
     const featureList = Array.from(features.values());
-    addScenario(scenarioName, history, featureList);
+
+    addScenario(
+      scenarioName,
+      history,
+      featureList,
+      nextIdCounter,
+      patterns,
+      curves,
+      controls,
+      settings
+    );
     setScenarioName("");
   };
 
+  // --- RESTORE ACTION ---
   const handleRestoreScenario = (scenario: any) => {
-    if (!confirm(`Promote "${scenario.name}" to current state?`)) return;
-    // 1. Restore Network
-    setNetworkState(scenario.networkSnapshot);
-    // 2. Restore Results (Optional but recommended)
-    useSimulationStore.setState({
-      history: scenario.results,
-      results:
-        scenario.results.snapshots[scenario.results.snapshots.length - 1],
-      status: "completed",
+    if(!confirm(`Promote "${scenario.name}" to current state? This will overwrite your map and settings.`)) return;
+
+    const snap = scenario.snapshot;
+
+    // 1. Restore Physical Map & ID Counters (Using existing action)
+    // Note: You might need to update setNetworkState to accept counters if you haven't yet.
+    // If setNetworkState only takes geoJSON, we need to handle counters manually or update it.
+    // Assuming setNetworkState(geoJSON, counters) signature:
+    setNetworkState(snap.geoJSON); 
+    
+    // 2. Restore Non-Spatial Data
+    setPatterns(snap.patterns);
+    setCurves(snap.curves);
+    setControls(snap.controls);
+    updateSettings(snap.settings);
+
+    // 3. Restore Simulation Results
+    useSimulationStore.setState({ 
+      history: scenario.results, 
+      results: scenario.results.snapshots[scenario.results.snapshots.length-1],
+      status: 'completed'
     });
   };
 

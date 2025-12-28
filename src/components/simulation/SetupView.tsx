@@ -3,25 +3,24 @@
 import {
     Activity, AlertCircle, ArrowLeft, CheckCircle2, Clock, Play, Settings
 } from 'lucide-react';
-import { useParams } from 'next/navigation';
 import React, { useState } from 'react';
 
 import { FormGroup } from '@/components/form-controls/FormGroup';
 import { FormInput } from '@/components/form-controls/FormInput';
 import { flowUnitOptions, headLossUnitOptions } from '@/constants/project';
-import { useNetworkExport } from '@/hooks/useNetworkExport';
 import { useSimulationStore } from '@/store/simulationStore';
 import { useStyleStore } from '@/store/styleStore';
 import { useUIStore } from '@/store/uiStore';
 
 import { FormSelect } from '../form-controls/FormSelect';
+import { useNetworkStore } from '@/store/networkStore';
 
 export function SetupView() {
-    const params = useParams();
     const { setActiveModal, setActivePanel } = useUIStore();
     const { runSimulation, isSimulating } = useSimulationStore();
-    const { exportNetwork } = useNetworkExport();
     const { setColorMode } = useStyleStore();
+
+    const { updateSettings, features } = useNetworkStore();
 
     const [activeSection, setActiveSection] = useState("control");
     const [statusMsg, setStatusMsg] = useState("Ready to solve.");
@@ -35,18 +34,27 @@ export function SetupView() {
     const handleRun = async () => {
         setStatusMsg("Building model...");
         setStatusColor("blue");
-        setTimeout(async () => {
-            const networkData = exportNetwork(); 
-            if (!networkData || Object.keys(networkData.nodes).length === 0) {
-                setStatusMsg("Error: Network empty."); setStatusColor("red"); return;
-            }
 
+        updateSettings(config);
+
+        setTimeout(async () => {
+            if (features.size === 0) {
+                setStatusMsg("Error: Network empty."); 
+                setStatusColor("red"); 
+                return;
+            }
+            
             setStatusMsg("Running Solver...");
-            const success = await runSimulation({ ...networkData, projectId:params.id, options: config });
+            
+            const success = await runSimulation();
+
             if (success) {
-                setStatusMsg("Converged."); setStatusColor("green"); setColorMode('pressure');
+                setStatusMsg("Converged."); 
+                setStatusColor("green"); 
+                setColorMode('pressure');
             } else {
-                setStatusMsg("Solver Failed."); setStatusColor("red");
+                setStatusMsg("Solver Failed."); 
+                setStatusColor("red");
             }
         }, 50);
     };

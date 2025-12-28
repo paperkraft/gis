@@ -78,7 +78,7 @@ interface NetworkState {
     redo: () => Feature[] | null;
 
     // Restore sim network
-    setNetworkState: (featuresList: Feature[]) => void;
+    setNetworkState: (geoJSON: any, counters?: Record<FeatureType, number>) => void;
 }
 
 const DEFAULT_PATTERNS: TimePattern[] = [
@@ -136,7 +136,17 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     loadProject: (data, isUnsavedImport = false) => {
         const featureMap = new Map<string, Feature>();
 
-        const newCounters = { ...get().nextIdCounter };
+        const newCounters = {
+            junction: 1, tank: 1, reservoir: 1,
+            pipe: 1, pump: 1, valve: 1
+        };
+
+        const extractNumber = (id: string) => {
+            const match = id.match(/(\d+)/);
+            return match ? parseInt(match[0], 10) : 0;
+        };
+
+        // const newCounters = { ...get().nextIdCounter };
 
         // 1. Load Features & Update Counters
         data.features.forEach(f => {
@@ -151,18 +161,27 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
                 featureMap.set(id, f);
 
-                // Only update counters for known component types
+                // ROBUST ID TRACKING
+                // If we find "J-500", ensure next counter is at least 501
                 if (type && newCounters[type] !== undefined) {
-                    const match = id.match(/^[a-zA-Z]+-(\d+)$/);
-                    if (match) {
-                        const num = parseInt(match[1], 10);
-                        if (!isNaN(num)) {
-                            if (num >= newCounters[type]) {
-                                newCounters[type] = num + 1;
-                            }
-                        }
+                    const num = extractNumber(id);
+                    if (num >= newCounters[type]) {
+                        newCounters[type] = num + 1;
                     }
                 }
+
+                // Only update counters for known component types
+                // if (type && newCounters[type] !== undefined) {
+                //     const match = id.match(/^[a-zA-Z]+-(\d+)$/);
+                //     if (match) {
+                //         const num = parseInt(match[1], 10);
+                //         if (!isNaN(num)) {
+                //             if (num >= newCounters[type]) {
+                //                 newCounters[type] = num + 1;
+                //             }
+                //         }
+                //     }
+                // }
             }
         });
 
@@ -478,13 +497,13 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         return { modifiedIds: newModified, hasUnsavedChanges: true, deletedIds: newDeleted };
     }),
 
-    setNetworkState: (geoJSON) => {
+    setNetworkState: (geoJSON, counters) => {
         // 1. CONVERT Plain GeoJSON -> Real OpenLayers Features
         const reader = new GeoJSON();
         const restoredFeatures = reader.readFeatures(geoJSON);
+        const newMap = new Map<string, Feature>();
 
         // 2. Rebuild the Map
-        const newMap = new Map<string, Feature>();
         const newModified = new Set(get().modifiedIds);
         const newDeleted = new Set(get().deletedIds);
 
@@ -500,6 +519,12 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         // 3. Update State
         set({
             features: newMap,
+            nextIdCounter: counters ?? get().nextIdCounter,
+            patterns: get().patterns,
+            curves: get().curves,
+            controls: get().controls,
+            settings: get().settings,
+
             hasUnsavedChanges: true,
             modifiedIds: newModified,
             deletedIds: newDeleted,
@@ -507,8 +532,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
             selectedFeature: null,
             selectedFeatureIds: []
         });
-
-        console.log(`Restored ${newMap.size} features from GeoJSON.`);
     },
 
     // ---------------- History ---------------- //

@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { useNetworkStore } from './networkStore';
+import { buildINP } from '@/lib/epanet/inpBuilder';
 
 // --- Types ---
 export type SimulationStatus = 'idle' | 'running' | 'completed' | 'error';
@@ -24,11 +26,11 @@ interface SimulationState {
     isPlaying: boolean;
     isSimulating: boolean;
 
-    runSimulation: (networkData: any) => Promise<boolean>; // Changed to return boolean for UI feedback
+    runSimulation: () => Promise<boolean>;
     setTimeIndex: (index: number) => void;
     togglePlayback: () => void;
-    resetSimulation: () => void;
     nextStep: () => void;
+    resetSimulation: () => void;
 }
 
 export const useSimulationStore = create<SimulationState>((set, get) => ({
@@ -40,41 +42,64 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     isPlaying: false,
     isSimulating: false,
 
-    runSimulation: async (networkData) => {
-        set({ status: 'running', isSimulating: true, error: null, history: null, results: null });
+    runSimulation: async () => {
+        set({ status: 'running', isSimulating: true, error: null });
 
         try {
-            // Using the new API route that accepts JSON body
-            const response = await fetch('/api/simulation/run', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(networkData),
+            // 1. Get Current Project State from Network Store
+            const { features, patterns, curves, controls, settings } = useNetworkStore.getState();
+
+            // 2. Build INP from LIVE data
+            const inpData = buildINP(
+                Array.from(features.values()), 
+                patterns, 
+                curves, 
+                controls, 
+                settings
+            );
+
+            // 3. Initialize Worker
+            // const worker = new Worker(new URL('@/lib/workers/simulation.worker.ts', import.meta.url));
+            const worker = new Worker(new URL('../lib/workers/simulation.worker.ts', import.meta.url));
+
+            // 4. Promisify the Worker interaction
+            const result: any = await new Promise((resolve, reject) => {
+                worker.onmessage = (e) => {
+                    resolve(e.data);
+                    worker.terminate();
+                };
+                worker.onerror = (e) => {
+                    reject(new Error(e.message));
+                    worker.terminate();
+                };
+
+                // Start Work
+                worker.postMessage({ inpData });
             });
 
-            const json = await response.json();
-
-            if (!response.ok || !json.success) {
-                throw new Error(json.error || "Simulation failed");
+            if (!result.success) {
+                throw new Error(result.error);
             }
 
-            const data: SimulationHistory = json.data;
+            // 5. Success
+            const data = result.data;
             const lastIndex = data.snapshots.length - 1;
 
             set({
                 status: 'completed',
                 isSimulating: false,
                 history: data,
-                results: data.snapshots[lastIndex], // Default to last step
+                results: data.snapshots[lastIndex],
                 currentTimeIndex: lastIndex,
             });
             return true;
 
         } catch (err: any) {
-            console.error(err);
+            console.error("Simulation Error:", err);
             set({
                 status: 'error',
                 isSimulating: false,
-                error: err.message || "Simulation error"
+                error: err.message || "Simulation failed"
             });
             return false;
         }

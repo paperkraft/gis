@@ -2,21 +2,41 @@ import { create } from 'zustand';
 import { SimulationHistory } from './simulationStore';
 import { Feature } from 'ol';
 import GeoJSON from 'ol/format/GeoJSON';
+import { FeatureType, NetworkControl, ProjectSettings, PumpCurve, TimePattern } from '@/types/network';
 
 export interface Scenario {
     id: string;
     name: string;
     timestamp: number;
     results: SimulationHistory;
-    networkSnapshot: GeoJSON
+
+    snapshot: {
+        geoJSON: GeoJSON | any;
+        counters: Record<FeatureType, number>;
+        patterns: TimePattern[];
+        curves: PumpCurve[];
+        controls: NetworkControl[];
+        settings: ProjectSettings;
+    };
+
     isVisible: boolean;
     color: string;
 }
 
 interface ScenarioState {
     scenarios: Scenario[];
-    // addScenario: (name: string, data: SimulationHistory) => void;
-    addScenario: (name: string, results: SimulationHistory, features: Feature[]) => void;
+
+    addScenario: (
+        name: string,
+        results: SimulationHistory,
+        features: Feature[],
+        counters: Record<FeatureType, number>,
+        patterns: TimePattern[],
+        curves: PumpCurve[],
+        controls: NetworkControl[],
+        settings: ProjectSettings
+    ) => void;
+
     removeScenario: (id: string) => void;
     toggleVisibility: (id: string) => void;
     clearScenarios: () => void;
@@ -27,18 +47,28 @@ const COLORS = ["#ef4444", "#8b5cf6", "#f59e0b", "#10b981"]; // Red, Purple, Amb
 export const useScenarioStore = create<ScenarioState>((set) => ({
     scenarios: [],
 
-    addScenario: (name, results, features) => set((state) => {
+    addScenario: (name, results, features, counters, patterns, curves, controls, settings) => set((state) => {
         const id = Date.now().toString();
         const color = COLORS[state.scenarios.length % COLORS.length];
 
-        // Deep copy network data to prevent reference issues
+        // 1. Serialize Features
         const writer = new GeoJSON();
         const geoJSON = writer.writeFeaturesObject(features);
+
+        // 2. Deep Copy Logic (Critical to prevent reference mutation)
+        const snapshot = {
+            geoJSON,
+            counters: JSON.parse(JSON.stringify(counters)),
+            patterns: JSON.parse(JSON.stringify(patterns)),
+            curves: JSON.parse(JSON.stringify(curves)),
+            controls: JSON.parse(JSON.stringify(controls)),
+            settings: JSON.parse(JSON.stringify(settings))
+        };
 
         return {
             scenarios: [
                 ...state.scenarios,
-                { id, name, timestamp: Date.now(), results, networkSnapshot: geoJSON, isVisible: true, color }
+                { id, name, timestamp: Date.now(), results, snapshot, isVisible: true, color }
             ]
         };
     }),
