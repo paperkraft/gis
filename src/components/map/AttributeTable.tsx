@@ -103,7 +103,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
           if (res) {
             row.flow = res.flow?.toFixed(2);
             row.velocity = res.velocity?.toFixed(2);
-            row.headLoss = res.headloss?.toFixed(2);
+            row.headloss = res.headloss?.toFixed(2);
           }
         }
       }
@@ -180,7 +180,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
         { key: "roughness", label: "Roughness", width: "w-24" },
         { key: "flow", label: "Flow (GPM)", width: "w-24", isResult: true },
         { key: "velocity", label: "Vel (m/s)", width: "w-24", isResult: true },
-        { key: "headLoss", label: "Loss", width: "w-24", isResult: true },
+        { key: "headloss", label: "Loss", width: "w-24", isResult: true },
       ];
 
     return [
@@ -299,7 +299,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
     <div
       className={cn(
         "absolute left-4 right-4 z-30 flex flex-col animate-in slide-in-from-bottom-10 fade-in duration-300 transition-all ease-in-out",
-        isFullScreen ? "top-20 bottom-8 h-auto" : "bottom-8 h-[350px]"
+        isFullScreen ? "top-20 bottom-8 h-auto" : "bottom-8 h-87.5"
       )}
     >
       {/* HEADER */}

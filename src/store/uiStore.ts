@@ -10,7 +10,7 @@ export type ToolType =
     | 'modify'
     | 'pan'
     | 'zoom-box'
-    // Add specific drawing tools
+    // Drawing tools
     | 'draw'
     | 'draw-pipe'
     | 'add-junction'
@@ -19,18 +19,25 @@ export type ToolType =
     | 'add-pump'
     | 'add-valve';
 
+export type WorkbenchPanelType =
+    | 'NONE'
+    | 'PROJECT_DETAILS'
+    | 'SIMULATION_SETUP'
+
 export type WorkbenchModalType =
     | "NONE"
     | "GEOMETRY_IMPORT"
-    | "SIMULATION_GRAPHS"
-    | "SIMULATION_CONFIG"
     | "STYLE_SETTINGS"
+    | "SIMULATION_GRAPHS"
+    | "CONTROLS"
+    // Network
     | "JUNCTION_PROP"
     | "RESERVOIR_PROP"
     | "TANK_PROP"
     | "PIPE_PROP"
     | "PUMP_PROP"
-    | "VALVE_PROP";
+    | "VALVE_PROP"
+
 
 export interface ContextMenuState {
     x: number;

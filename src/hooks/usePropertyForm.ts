@@ -37,7 +37,6 @@ export const usePropertyForm = () => {
     // Sync local state with store selection
     useEffect(() => {
         if (selectedFeature) {
-            // setFormData(selectedFeature.getProperties());
             setFormData(sanitizeProperties(selectedFeature.getProperties()));
             setHasChanges(false);
         } else {
@@ -53,7 +52,7 @@ export const usePropertyForm = () => {
     const handleSave = () => {
         if (selectedFeatureId) {
             updateFeature(selectedFeatureId, formData);
-            // setHasChanges(false);
+            setHasChanges(false);
         }
     };
 

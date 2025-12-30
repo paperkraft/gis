@@ -2,7 +2,7 @@ import { Feature, Map } from 'ol';
 import { click } from 'ol/events/condition';
 import { Modify, Select } from 'ol/interaction';
 import VectorSource from 'ol/source/Vector';
-import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style';
+import { Style } from 'ol/style';
 import { LineString, Point } from 'ol/geom';
 import { VertexStyles, getVertexStyle } from '@/lib/styles/vertexStyles';
 import { LinkModifyManager } from './linkModifyManager';

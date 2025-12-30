@@ -75,10 +75,10 @@ export function ResultsView() {
       history,
       featureList,
       nextIdCounter,
-      patterns,
-      curves,
-      controls,
-      settings
+      // patterns,
+      // curves,
+      // controls,
+      // settings
     );
     setScenarioName("");
   };
@@ -94,6 +94,7 @@ export function ResultsView() {
     // If setNetworkState only takes geoJSON, we need to handle counters manually or update it.
     // Assuming setNetworkState(geoJSON, counters) signature:
     setNetworkState(snap.geoJSON); 
+    // If setNetworkState doesn't support counters yet, consider adding a specialized 'restoreProject' action to networkStore.
     
     // 2. Restore Non-Spatial Data
     setPatterns(snap.patterns);

@@ -14,6 +14,7 @@ import { useUIStore } from '@/store/uiStore';
 
 import { FormSelect } from '../form-controls/FormSelect';
 import { useNetworkStore } from '@/store/networkStore';
+import { HeadlossFormula } from '@/types/network';
 
 export function SetupView() {
     const { setActiveModal, setActivePanel } = useUIStore();
@@ -28,7 +29,7 @@ export function SetupView() {
 
     const [config, setConfig] = useState({
         duration: 24, timeStep: "1:00", startClock: "12:00 AM",
-        flowUnits: "LPS", headLoss: "H-W", accuracy: 0.001, trials: 40
+        flowUnits: "LPS", headloss: "H-W" as HeadlossFormula , accuracy: 0.001, trials: 40
     });
 
     const handleRun = async () => {
@@ -89,7 +90,7 @@ export function SetupView() {
                     <div className="space-y-3 px-1">
                         <FormGroup label="System Properties">
                         <FormSelect label="Flow Units" value={config.flowUnits} onChange={(v:any) => setConfig({...config, flowUnits: v})} options={flowUnitOptions}/>
-                        <FormSelect label="Head Loss Model" value={config.headLoss} onChange={(v:any) => setConfig({...config, headLoss: v})} options={headLossUnitOptions}/>
+                        <FormSelect label="Head Loss Model" value={config.headloss} onChange={(v:any) => setConfig({...config, headloss: v})} options={headLossUnitOptions}/>
                         </FormGroup>
                     </div>
                 </SimSection>

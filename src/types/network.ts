@@ -42,7 +42,7 @@ export interface ComponentConfig {
     description: string;
     defaultProperties: Record<string, any>;
     createsJunction?: boolean;
-    prefix: string; // <--- Add this line
+    prefix: string;
 }
 export interface NetworkValidation {
     isValid: boolean;
@@ -70,6 +70,7 @@ export interface ProjectSettings {
     accuracy: number;
     demandMultiplier: number;
     projection: string;
+
     patterns?: TimePattern[];
     curves?: PumpCurve[];
     controls?: NetworkControl[];

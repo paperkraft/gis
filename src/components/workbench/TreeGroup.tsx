@@ -25,7 +25,7 @@ export default function TreeGroup({
   }, [forceOpen]);
 
   return (
-    <div className="ml-2">
+    <div className="ml-1">
       <div
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center px-2 py-1 cursor-pointer rounded-sm hover:bg-slate-100 text-slate-600"
@@ -44,7 +44,7 @@ export default function TreeGroup({
         )}
       </div>
       {isOpen && (
-        <div className="ml-4 border-l border-slate-200 pl-1">{children}</div>
+        <div className="ml-3 border-l border-slate-200 pl-1">{children}</div>
       )}
     </div>
   );

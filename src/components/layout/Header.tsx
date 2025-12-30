@@ -1,6 +1,10 @@
-import { ChevronDown } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { ChevronDown, Loader2, Save } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
 import React from "react";
+
+import { useProjectSave } from "@/hooks/useProjectSave";
+import { useNetworkStore } from "@/store/networkStore";
+import { Button } from "../ui/button";
 
 interface HeaderProps {
   isWorkbench: boolean;
@@ -13,7 +17,13 @@ export const Header = ({
   projectName,
   description,
 }: HeaderProps) => {
+  const params = useParams();
+  const projectId = params.id as string;
+
   const route = useRouter();
+
+  const { saveProject, isSaving } = useProjectSave(projectId);
+  const hasUnsavedChanges = useNetworkStore((s) => s.hasUnsavedChanges);
 
   const handleBack = () => {
     route.replace("/");
@@ -65,6 +75,20 @@ export const Header = ({
         </div>
 
         <div className="flex items-center gap-4">
+          {(hasUnsavedChanges || isSaving) && (
+            <Button 
+              size="sm" 
+              variant={hasUnsavedChanges ? "default" : "outline"}
+              onClick={saveProject}
+              disabled={isSaving || !hasUnsavedChanges}
+              className="gap-2 text-xs"
+            >
+              {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              {isSaving ? "Saving..." : "Save Project"}
+            </Button>
+          )}
+          
+          <div className="h-4 w-px bg-slate-200" />
           <div className="flex items-center gap-3 cursor-pointer hover:bg-muted py-1 px-2 rounded">
             <div className="w-8 h-8 rounded-full bg-primary-foreground text-primary flex items-center justify-center font-bold text-xs border border-primary/20">
               SV

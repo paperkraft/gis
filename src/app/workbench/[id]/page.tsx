@@ -1,13 +1,16 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
-import dynamic from "next/dynamic";
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Loader2 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
-import { ProjectService } from "@/lib/services/ProjectService";
-import { useNetworkStore } from "@/store/networkStore";
-import WorkbenchLayout from "@/components/workbench/WorkbenchLayout";
+import WorkbenchLayout from '@/components/workbench/WorkbenchLayout';
+import { ProjectService } from '@/lib/services/ProjectService';
+import { useNetworkStore } from '@/store/networkStore';
+import { useScenarioStore } from '@/store/scenarioStore';
+import { useSimulationStore } from '@/store/simulationStore';
+import { useUIStore } from '@/store/uiStore';
 
 const MapContainer = dynamic(
   () => import("@/components/map/MapContainer").then((mod) => mod.MapContainer),
@@ -23,8 +26,12 @@ export default function WorkbenchEditor() {
   useEffect(() => {
     const initProject = async () => {
       if (params.id) {
-        // Clear previous project data immediately
+        // Clear previous project data, graphs, results, old snapshots and modal
         useNetworkStore.getState().clearFeatures();
+        useScenarioStore.getState().clearScenarios();
+        useSimulationStore.getState().resetSimulation();
+        useUIStore.getState().setActivePanel("NONE");
+        useUIStore.getState().setActiveModal("NONE");
 
         try {
           const success = await ProjectService.loadProject(params.id as string);

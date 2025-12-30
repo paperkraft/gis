@@ -53,7 +53,7 @@ export default function TreeSection({
       </button>
 
       {isOpen && (
-        <div className="ml-1 pl-2 border-l border-slate-100 space-y-0.5 mb-2">
+        <div className="ml-3 pl-1 border-l border-slate-100 space-y-0.5 mb-2">
           {children}
         </div>
       )}

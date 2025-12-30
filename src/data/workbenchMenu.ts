@@ -1,4 +1,4 @@
-import { WorkbenchModalType } from "@/store/uiStore";
+import { WorkbenchModalType, WorkbenchPanelType } from "@/store/uiStore";
 import {
     Layers, Box, Circle,
     Settings, FileText, PenTool, Edit3, Calculator,
@@ -8,7 +8,8 @@ import {
     Pentagon,
     Hexagon,
     Square,
-    Triangle
+    Triangle,
+    Play
 } from "lucide-react";
 
 // 1. Schema Definition
@@ -25,7 +26,7 @@ export type MenuItem = {
     defaultOpen?: boolean;
     children?: MenuItem[];
     modalType?: WorkbenchModalType;
-    modalPanel?: WorkbenchModalType | string;
+    modalPanel?: WorkbenchPanelType | string;
 };
 
 // 2. The Real Data
@@ -173,9 +174,9 @@ export const WORKBENCH_MENU: MenuItem[] = [
             {
                 id: "sim_config",
                 type: "ITEM",
-                label: "Configuration",
-                icon: Settings,
-                modalPanel: "SIMULATION_CONFIG"
+                label: "Simulate",
+                icon: Play,
+                modalPanel: "SIMULATION_SETUP"
             },
             {
                 id: "grp_sim_sets",

@@ -1,6 +1,8 @@
 'use client';
 
+import { Feature } from 'ol';
 import { defaults as defaultControls, ScaleLine } from 'ol/control';
+import { Geometry } from 'ol/geom';
 import { defaults as defaultInteractions } from 'ol/interaction/defaults.js';
 import DragRotateAndZoom from 'ol/interaction/DragRotateAndZoom.js';
 import VectorLayer from 'ol/layer/Vector';
@@ -29,7 +31,7 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
 
         const vecLayer = new VectorLayer({
             source: vectorSource,
-            style: (feature) => getFeatureStyle(feature as any),
+            style: (feature) => getFeatureStyle(feature as Feature<Geometry>),
             properties: { name: 'network' },
             updateWhileAnimating: true,
             updateWhileInteracting: true,
