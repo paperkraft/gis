@@ -21,23 +21,10 @@ export interface ProjectSlice {
     markSaved: () => void;
     markUnSaved: () => void;
 
-    // Patterns
+    // Parameters: Patterns, Curves, COntrols 
     setPatterns: (patterns: TimePattern[]) => void;
-    addPattern: (pattern: TimePattern) => void;
-    updatePattern: (id: string, pattern: TimePattern) => void;
-    deletePattern: (id: string) => void;
-
-    // Curves
     setCurves: (curves: PumpCurve[]) => void;
-    addCurve: (curve: PumpCurve) => void;
-    updateCurve: (id: string, curve: PumpCurve) => void;
-    deleteCurve: (id: string) => void;
-
-    // Controls
     setControls: (controls: NetworkControl[]) => void;
-    addControl: (control: NetworkControl) => void;
-    updateControl: (id: string, control: NetworkControl) => void;
-    deleteControl: (id: string) => void;
 }
 
 const DEFAULT_SETTINGS: ProjectSettings = {
@@ -80,50 +67,10 @@ export const createProjectSlice: StateCreator<NetworkState, [], [], ProjectSlice
     markSaved: () => set({ hasUnsavedChanges: false, modifiedIds: new Set(), deletedIds: new Set() }),
     markUnSaved: () => set({ hasUnsavedChanges: true }),
 
-    // ---------------- Patterns ---------------- //
+    // ---------------- Patterns, Curves, COntrols ---------------- //
 
     setPatterns: (patterns) => set({ patterns, hasUnsavedChanges: true }),
-    addPattern: (pattern) => set((state) => ({ patterns: [...state.patterns, pattern], hasUnsavedChanges: true })),
-
-    updatePattern: (id, updated) => set((state) => ({
-        patterns: state.patterns.map(p => p.id === id ? updated : p),
-        hasUnsavedChanges: true
-    })),
-
-    deletePattern: (id) => set((state) => ({
-        patterns: state.patterns.filter(p => p.id !== id),
-        hasUnsavedChanges: true
-    })),
-
-    // ---------------- Curves ---------------- //
-
     setCurves: (curves) => set({ curves, hasUnsavedChanges: true }),
-    addCurve: (curve) => set((state) => ({ curves: [...state.curves, curve], hasUnsavedChanges: true })),
-
-    updateCurve: (id, updated) => set((state) => ({
-        curves: state.curves.map(c => c.id === id ? updated : c),
-        hasUnsavedChanges: true
-    })),
-
-    deleteCurve: (id) => set((state) => ({
-        curves: state.curves.filter(c => c.id !== id),
-        hasUnsavedChanges: true
-    })),
-
-    // ---------------- Controls ---------------- //
-
     setControls: (controls) => set({ controls, hasUnsavedChanges: true }),
-    addControl: (control) => set((state) => ({ controls: [...state.controls, control], hasUnsavedChanges: true })),
-
-    updateControl: (id, updated) => set((state) => ({
-        controls: state.controls.map(c => c.id === id ? updated : c),
-        hasUnsavedChanges: true
-    })),
-
-    deleteControl: (id) => set((state) => ({
-        controls: state.controls.filter(c => c.id !== id),
-        hasUnsavedChanges: true
-    })),
-
 
 });

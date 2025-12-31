@@ -1,13 +1,13 @@
 "use client";
-import { Search, X } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { Search, X } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 
-import TreeGroup from '@/components/workbench/TreeGroup';
-import TreeItem from '@/components/workbench/TreeItem';
-import TreeSection from '@/components/workbench/TreeSection';
-import { MenuItem, WORKBENCH_MENU } from '@/data/workbenchMenu';
-import { useNetworkStore } from '@/store/networkStore';
-import { useUIStore, WorkbenchModalType } from '@/store/uiStore';
+import TreeGroup from "@/components/workbench/TreeGroup";
+import TreeItem from "@/components/workbench/TreeItem";
+import TreeSection from "@/components/workbench/TreeSection";
+import { MenuItem, WORKBENCH_MENU } from "@/data/workbenchMenu";
+import { useNetworkStore } from "@/store/networkStore";
+import { useUIStore } from "@/store/uiStore";
 
 export function ProjectTreePanel() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -105,9 +105,10 @@ export function ProjectTreePanel() {
             count={count}
             isVisible={isVisible}
             onClick={() => {
-              if (node.modalType)
-                setActiveModal(node.modalType as WorkbenchModalType);
-              if (node.modalPanel) setActivePanel(node.modalPanel as any);
+              if (node.modalType) setActiveModal(node.modalType);
+              if (node.panelType) setActivePanel(node.panelType);
+              if (!node.modalType) setActiveModal("NONE");
+              if (!node.panelType) setActivePanel("NONE");
             }}
             onToggleVisibility={
               node.layerKey

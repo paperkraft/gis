@@ -46,10 +46,10 @@ export const Header = ({
 
             {isWorkbench && (
               <div className="flex flex-col">
-                <span className="text-xs font-bold text-slate-900 leading-tight">
+                <span className="text-xs font-bold text-slate-900 leading-tight truncate max-w-48">
                   {projectName}
                 </span>
-                <span className="text-[10px] text-slate-400 font-medium">
+                <span className="text-[10px] text-slate-400 font-medium truncate max-w-48">
                   {description}
                 </span>
               </div>
@@ -84,7 +84,7 @@ export const Header = ({
               className="gap-2 text-xs"
             >
               {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-              {isSaving ? "Saving..." : "Save Project"}
+              {isSaving ? "Saving..." : "Save Changes"}
             </Button>
           )}
           

@@ -1,26 +1,21 @@
 "use client";
-import { MousePointer, Move, ZoomIn } from "lucide-react";
 import { ReactNode, useCallback, useEffect, useState } from "react";
 
 import { Header } from "@/components/layout/Header";
 import { useNetworkStore } from "@/store/networkStore";
 import { useUIStore, WorkbenchPanelType } from "@/store/uiStore";
 
-import { Button } from "../ui/button";
 import { ContextMenu } from "./ContextMenu";
 import { PANEL_REGISTRY } from "./panel_registry";
 import { ProjectTreePanel } from "./ProjectTreePanel";
-import ToolButton from "./ToolButton";
 import { WorkbenchModal } from "./WorkbenchModal";
 
 export default function WorkbenchLayout({ children }: { children: ReactNode }) {
-  //!SECTION
   const [isResizing, setIsResizing] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(260);
 
-  const { activeModal, activePanel, setActiveModal, setActivePanel } =
-    useUIStore();
+  const { activeModal, activePanel, setActiveModal } = useUIStore();
 
   const settings = useNetworkStore((state) => state.settings);
 

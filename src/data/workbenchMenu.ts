@@ -1,4 +1,5 @@
-import { WorkbenchModalType, WorkbenchPanelType } from "@/store/uiStore";
+import { WorkbenchModalType } from "@/components/workbench/modal_registry";
+import { WorkbenchPanelType } from "@/store/uiStore";
 import {
     Layers, Box, Circle,
     Settings, FileText, PenTool, Edit3, Calculator,
@@ -26,7 +27,7 @@ export type MenuItem = {
     defaultOpen?: boolean;
     children?: MenuItem[];
     modalType?: WorkbenchModalType;
-    modalPanel?: WorkbenchPanelType | string;
+    panelType?: WorkbenchPanelType;
 };
 
 // 2. The Real Data
@@ -59,9 +60,9 @@ export const WORKBENCH_MENU: MenuItem[] = [
                 label: "Settings",
                 icon: Settings,
                 children: [
-                    { id: "set_proj", type: "ITEM", label: "Project Settings" },
+                    { id: "set_proj", type: "ITEM", label: "Project Settings", modalType: "PROJECT_SETTINGS" },
                     { id: "set_attr", type: "ITEM", label: "Default Attribute" },
-                    { id: "set_time", type: "ITEM", label: "Time Pattern" },
+                    { id: "set_time", type: "ITEM", label: "Time Pattern", modalType: "DATA_MANAGER" },
                     { id: "set_demand", type: "ITEM", label: "Demand Pattern" },
                     { id: "set_data", type: "ITEM", label: "Data Tables (Pipe / Valve)" },
                 ]
@@ -176,7 +177,7 @@ export const WORKBENCH_MENU: MenuItem[] = [
                 type: "ITEM",
                 label: "Simulate",
                 icon: Play,
-                modalPanel: "SIMULATION_SETUP"
+                panelType: "SIMULATION_SETUP",
             },
             {
                 id: "grp_sim_sets",
