@@ -31,7 +31,7 @@ export default function TreeGroup({
         className="flex items-center px-2 py-1 cursor-pointer rounded-sm hover:bg-slate-100 text-slate-600"
       >
         <ChevronRight
-          size={10}
+          size={12}
           className={`mr-1.5 text-slate-400 transition-transform ${
             isOpen ? "rotate-90" : ""
           }`}

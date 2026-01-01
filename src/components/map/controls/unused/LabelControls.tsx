@@ -4,7 +4,7 @@ import { CircleDot, Mountain, Tag, Type } from "lucide-react";
 import { useStyleStore } from "@/store/styleStore";
 import { useUIStore } from "@/store/uiStore";
 
-import { ControlGroup, Divider, ToolBtn } from "./Shared";
+import { ControlGroup, Divider, ToolBtn } from "../Shared";
 
 interface LabelControlsProps {
   activeGroup: string | null;

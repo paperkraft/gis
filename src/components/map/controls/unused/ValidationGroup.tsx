@@ -1,7 +1,7 @@
 "use client";
 import { CheckCircle, Mountain, Activity as ActivityIcon } from "lucide-react";
 import { useTopologyValidation } from "@/hooks/useTopologyValidation";
-import { ControlGroup, ToolBtn } from "./Shared";
+import { ControlGroup, ToolBtn } from "../Shared";
 
 interface ValidationGroupProps {
   activeGroup: string | null;
@@ -28,11 +28,14 @@ export function ValidationGroup({
         onClick={onOpenAutoElevation}
         icon={Mountain}
         title="Auto Elevation"
+        label="Elv"
       />
+
       <ToolBtn
         onClick={validate}
         icon={ActivityIcon}
         title="Validate Network"
+        label="Check"
       />
     </ControlGroup>
   );

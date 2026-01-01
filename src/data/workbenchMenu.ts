@@ -10,7 +10,9 @@ import {
     Hexagon,
     Square,
     Triangle,
-    Play
+    Play,
+    Mountain,
+    ActivityIcon
 } from "lucide-react";
 
 // 1. Schema Definition
@@ -67,9 +69,20 @@ export const WORKBENCH_MENU: MenuItem[] = [
                     { id: "set_data", type: "ITEM", label: "Data Tables (Pipe / Valve)" },
                 ]
             },
+            {
+                id: "grp_terrain",
+                type: "GROUP",
+                label: "Terrain",
+                icon: Map,
+                children: [
+                    { id: "terr_layer", type: "ITEM", label: "Layers", icon: Map },
+
+                    { id: "terr_elvn", type: "ITEM", label: "Elevation", icon: Mountain, modalType: "AUTO_ELEVATION" },
+                ]
+            },
+            { id: "itm_valid", type: "ITEM", label: "Validate", icon: ActivityIcon, modalType: "VALIDATION" },
             { id: "itm_headworks", type: "ITEM", label: "Headworks", icon: Box },
             { id: "itm_wtp", type: "ITEM", label: "WTP", icon: Droplets },
-            { id: "itm_terrain", type: "ITEM", label: "Terrain (Layer)", icon: Map },
             { id: "itm_zone", type: "ITEM", label: "Zone", icon: MousePointer2 },
             { id: "itm_support", type: "ITEM", label: "Supporting Layers", icon: Layers },
             { id: "itm_select_sets", type: "ITEM", label: "Selection sets", icon: MousePointer2 },
@@ -85,6 +98,7 @@ export const WORKBENCH_MENU: MenuItem[] = [
         status: "warning",
         defaultOpen: false,
         children: [
+
             {
                 id: "grp_net_edit",
                 type: "GROUP",

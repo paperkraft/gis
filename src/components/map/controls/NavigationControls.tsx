@@ -20,10 +20,10 @@ import {
   handleZoomOut,
   handleZoomToExtent,
 } from "@/lib/interactions/map-controls";
-import { switchBaseLayer } from "../../../lib/map/baseLayers";
 import { useMapStore } from "@/store/mapStore";
 import { useUIStore } from "@/store/uiStore";
 
+import { switchBaseLayer } from "@/lib/map/baseLayers";
 import { ControlGroup, Divider, ToolBtn } from "./Shared";
 
 interface NavigationControlsProps {
@@ -62,36 +62,39 @@ export function NavigationControls({
         onToggle={onToggle}
       >
         <ToolBtn
+          onClick={() => handleZoomToExtent(map)}
+          icon={Home}
+          title="Zoom Extent"
+        />
+
+        <ToolBtn
           onClick={() => setShowLocationSearch(!showLocationSearch)}
           isActive={showLocationSearch}
           icon={Search}
           title="Search"
         />
-        <Divider />
-
-        {/* NEW: Zoom Box Tool */}
-        <ToolBtn
-          onClick={() => setActiveTool("zoom-box")}
-          isActive={activeTool === "zoom-box"}
-          icon={SquareMousePointer}
-          title="Zoom to Box"
-        />
 
         <Divider />
+
         <ToolBtn
           onClick={() => handleZoomIn(map)}
           icon={ZoomIn}
           title="Zoom In"
         />
+
         <ToolBtn
           onClick={() => handleZoomOut(map)}
           icon={ZoomOut}
           title="Zoom Out"
         />
+
+        <Divider />
+
         <ToolBtn
-          onClick={() => handleZoomToExtent(map)}
-          icon={Home}
-          title="Zoom Extent"
+          onClick={() => setActiveTool("zoom-box")}
+          isActive={activeTool === "zoom-box"}
+          icon={SquareMousePointer}
+          title="Zoom to Box"
         />
       </ControlGroup>
 

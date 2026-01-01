@@ -1,5 +1,5 @@
 import {
-    BarChart3Icon, Circle, Cpu, Hexagon, LucideIcon, Minus, Palette, Pentagon, Settings, Square,
+    BarChart3Icon, CheckCircle2, Circle, Cpu, Hexagon, LucideIcon, Minus, Mountain, Palette, Pentagon, Settings, Square,
     Table2, Triangle,
 } from 'lucide-react';
 
@@ -14,6 +14,8 @@ import { ReservoirProperties } from '../properties/ReservoirProperties';
 import { TankProperties } from '../properties/TankProperties';
 import { ValveProperties } from '../properties/ValveProperties';
 import { SimulationGraphs } from '../simulation/SimulationGraphs';
+import { AutoElevationPanel } from '../panels/AutoElevationPanel';
+import { NetworkValidationPanel } from '../panels/NetworkValidationPanel';
 
 interface ModalConfig {
   title: string;
@@ -24,19 +26,22 @@ interface ModalConfig {
 
 export type WorkbenchModalType =
     | "NONE"
-    | "GEOMETRY_IMPORT"
-    | "STYLE_SETTINGS"
-    | "SIMULATION_GRAPHS"
-    | "PROJECT_SETTINGS"
-    | "DATA_MANAGER"
-    | "CONTROLS"
-    // Network
+     // Network
     | "JUNCTION_PROP"
     | "RESERVOIR_PROP"
     | "TANK_PROP"
     | "PIPE_PROP"
     | "PUMP_PROP"
     | "VALVE_PROP"
+    // Rest
+    | "PROJECT_SETTINGS"
+    | "STYLE_SETTINGS"
+    | "SIMULATION_GRAPHS"
+    | "DATA_MANAGER"
+    | "AUTO_ELEVATION"
+    | "CONTROLS"
+    | "VALIDATION"
+   
     
 export const MODAL_REGISTRY: Partial<Record<WorkbenchModalType, ModalConfig>> = {
   // Network Properties
@@ -49,7 +54,9 @@ export const MODAL_REGISTRY: Partial<Record<WorkbenchModalType, ModalConfig>> = 
   //  
   PROJECT_SETTINGS:   { title: "Project Settings",      icon: Settings,         component: ProjectSettingsPanel },
   STYLE_SETTINGS:     { title: "Edit Symbology",        icon: Palette,          component: StyleSettingsPanel },
-  CONTROLS:           { title: "Network Controls",      icon: Cpu,              component: ControlManagerPanel },
   SIMULATION_GRAPHS:  { title: "Simulation Results",    icon: BarChart3Icon,    component: SimulationGraphs,    defaultMaximized: true },
   DATA_MANAGER:       { title: "Data Browser",          icon: Table2,           component: DataManagerPanel,    defaultMaximized: true },
+  AUTO_ELEVATION:     { title: "Auto Elevation",        icon: Mountain,         component: AutoElevationPanel },
+  CONTROLS:           { title: "Network Controls",      icon: Cpu,              component: ControlManagerPanel },
+  VALIDATION:         { title: "Network Validation",    icon: CheckCircle2,     component: NetworkValidationPanel },
 };

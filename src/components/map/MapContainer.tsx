@@ -19,7 +19,7 @@ import { useMapFeatureSync } from "@/hooks/useMapFeatureSync";
 // Stores & Types
 import { useMapStore } from "@/store/mapStore";
 import { useNetworkStore } from "@/store/networkStore";
-import { useUIStore, WorkbenchModalType } from "@/store/uiStore";
+import { useUIStore } from "@/store/uiStore";
 
 import { handleZoomToExtent } from "@/lib/interactions/map-controls";
 
@@ -31,6 +31,7 @@ import { DrawingToolbar } from "./DrawingToolbar";
 import { AttributeTable } from "./AttributeTable";
 import { AssetSearch } from "./controls/AssetSearch";
 import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
+import { WorkbenchModalType } from "../workbench/modal_registry";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -89,6 +90,13 @@ export function MapContainer() {
     const currentId = selectedFeature
       ? selectedFeature.getId()?.toString() || null
       : null;
+
+    const protectedModals = ["VALIDATION", "AUTO_ELEVATION", "DATA_MANAGER"];
+    if (protectedModals.includes(activeModal)) {
+      // Just update the ref so we track the selection, but DO NOT change the modal.
+      lastSelectedIdRef.current = currentId;
+      return;
+    }
 
     if (
       currentId &&

@@ -1,64 +1,47 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { Printer, Save } from "lucide-react";
+import { useParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+
+import { handlePrint } from "@/lib/interactions/map-controls";
+import { ProjectService } from "@/lib/services/ProjectService";
+import { cn } from "@/lib/utils";
+import { useMapStore } from "@/store/mapStore";
+import { useNetworkStore } from "@/store/networkStore";
 import { useUIStore } from "@/store/uiStore";
 
-// Import Controls
-import { ProjectSettingsGroup } from "./controls/ProjectSettingsGroup";
-import { NavigationControls } from "./controls/NavigationControls";
-import { VisualizationGroup } from "./controls/VisualizationGroup";
-import { MeasurementGroup } from "./controls/MeasurementGroup";
-import { EditingControls } from "./controls/EditingControls";
-import { ValidationGroup } from "./controls/ValidationGroup";
-import { AnimationGroup } from "./controls/AnimationGroup";
-import { LabelControls } from "./controls/LabelControls";
-import { DataControls } from "./controls/DataControls";
-
 // Import Modals
-import { SimulationReportModal } from "../modals/SimulationReportModal";
-import { ProjectSettingsModal } from "../modals/ProjectSettingsModal";
-import { ControlManagerModal } from "../modals/ControlManagerModal";
-import { AutoElevationModal } from "../modals/AutoElevationModal";
-import { StyleSettingsModal } from "../modals/StyleSettingsModal";
-import { DataManagerModal } from "../modals/DataManagerModal";
-import { ValidationModal } from "../modals/ValidationModal";
-import { ImportModal } from "../modals/ImportModal";
 import { ExportModal } from "../modals/ExportModal";
-import { LocationSearch } from "./LocationSearch";
-
-import { cn } from "@/lib/utils";
-import { SimulationControls } from "./controls/SimulationControls";
-import { useSimulationStore } from "@/store/simulationStore";
+import { ImportModal } from "../modals/ImportModal";
 import { QueryBuilderModal } from "../modals/QueryBuilderModal";
 
+// Import Controls
+import { AnimationGroup } from "./controls/AnimationGroup";
+import { DataControls } from "./controls/DataControls";
+import { EditingControls } from "./controls/EditingControls";
+import { MeasurementGroup } from "./controls/MeasurementGroup";
+import { NavigationControls } from "./controls/NavigationControls";
+import { StandaloneControl } from "./controls/Shared";
+import { LocationSearch } from "./LocationSearch";
+
 export function MapControls() {
+  const params = useParams();
+  const map = useMapStore((state) => state.map);
+
+  const { hasUnsavedChanges } = useNetworkStore();
+
   const {
     importModalOpen,
     exportModalOpen,
-    showAutoElevation,
-    validationModalOpen,
-    dataManagerModalOpen,
-    controlManagerModalOpen,
-    projectSettingsModalOpen,
-    simulationReportModalOpen,
-
     setImportModalOpen,
     setExportModalOpen,
-    setShowAutoElevation,
-    setValidationModalOpen,
-    setDataManagerModalOpen,
-    setSimulationReportModalOpen,
-    setProjectSettingsModalOpen,
-    setControlManagerModalOpen,
     setShowLocationSearch,
   } = useUIStore();
 
-  const { results } = useSimulationStore();
-
-  const [activeGroup, setActiveGroup] = useState<string | null>(null);
-
-  // Ref to track the controls container
   const controlsRef = useRef<HTMLDivElement>(null);
+  const [activeGroup, setActiveGroup] = useState<string | null>(null);
 
   // Handle clicks outside the controls
   useEffect(() => {
@@ -85,13 +68,20 @@ export function MapControls() {
     setActiveGroup(activeGroup === group ? null : group);
   };
 
+  const handleSave = async () => {
+    if (params.id) {
+      await ProjectService.saveCurrentProject(params.id as string);
+      toast.success("Project Saved");
+    }
+  };
+
   return (
     <>
       <div
         ref={controlsRef}
         className={cn(
           "absolute top-4 right-4 z-10 flex flex-col items-center",
-          "p-1.5 gap-2 rounded-2xl shadow-2xl",
+          "rounded shadow-xl p-0.5 gap-0.5",
           "border border-white/20 dark:border-gray-700/50",
           "bg-white/80 dark:bg-gray-900/80 backdrop-blur-md",
           "transition-all hover:bg-white/95 dark:hover:bg-gray-900/95"
@@ -101,27 +91,25 @@ export function MapControls() {
         <EditingControls activeGroup={activeGroup} onToggle={toggleGroup} />
 
         <MeasurementGroup activeGroup={activeGroup} onToggle={toggleGroup} />
-        <VisualizationGroup activeGroup={activeGroup} onToggle={toggleGroup} />
-        <LabelControls activeGroup={activeGroup} onToggle={toggleGroup} />
         <AnimationGroup activeGroup={activeGroup} onToggle={toggleGroup} />
+        <DataControls activeGroup={activeGroup} onToggle={toggleGroup} />
 
-        {results && (
-          <SimulationControls
-            activeGroup={activeGroup}
-            onToggle={toggleGroup}
-          />
-        )}
-
-        <ValidationGroup
-          activeGroup={activeGroup}
-          onToggle={toggleGroup}
-          onOpenAutoElevation={() => setShowAutoElevation(true)}
+        <StandaloneControl
+          onClick={() => handlePrint(map)}
+          icon={Printer}
+          title="Print Map"
         />
 
-        <DataControls activeGroup={activeGroup} onToggle={toggleGroup} />
-        <ProjectSettingsGroup
-          activeGroup={activeGroup}
-          onToggle={toggleGroup}
+        <StandaloneControl
+          onClick={handleSave}
+          isActive={false}
+          icon={Save}
+          title="Save Network"
+          colorClass={
+            hasUnsavedChanges
+              ? "text-amber-600 dark:text-amber-500 animate-pulse"
+              : ""
+          }
         />
       </div>
 
@@ -137,38 +125,6 @@ export function MapControls() {
         isOpen={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
       />
-
-      <AutoElevationModal
-        isOpen={showAutoElevation}
-        onClose={() => setShowAutoElevation(false)}
-      />
-
-      <ValidationModal
-        isOpen={validationModalOpen}
-        onClose={() => setValidationModalOpen(false)}
-      />
-
-      <SimulationReportModal
-        isOpen={simulationReportModalOpen}
-        onClose={() => setSimulationReportModalOpen(false)}
-      />
-
-      <ProjectSettingsModal
-        isOpen={projectSettingsModalOpen}
-        onClose={() => setProjectSettingsModalOpen(false)}
-      />
-
-      <DataManagerModal
-        isOpen={dataManagerModalOpen}
-        onClose={() => setDataManagerModalOpen(false)}
-      />
-
-      <ControlManagerModal
-        isOpen={controlManagerModalOpen}
-        onClose={() => setControlManagerModalOpen(false)}
-      />
-
-      <StyleSettingsModal />
 
       <QueryBuilderModal />
     </>

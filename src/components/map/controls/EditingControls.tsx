@@ -39,9 +39,20 @@ export function EditingControls({
       activeGroup={activeGroup}
       onToggle={onToggle}
     >
-      <ToolBtn onClick={handleUndo} icon={RotateCcw} title="Undo" />
-      <ToolBtn onClick={handleRedo} icon={RotateCw} title="Redo" />
+      <ToolBtn
+        onClick={() => setActiveTool("select-box")}
+        isActive={activeTool === "select-box"}
+        icon={BoxSelect}
+        title="Box Select"
+      />
 
+      <ToolBtn
+        onClick={() => setActiveTool("select-polygon")}
+        isActive={activeTool === "select-polygon"}
+        icon={Pentagon}
+        title="Polygon Select"
+      />
+      
       <Divider />
 
       <ToolBtn
@@ -54,18 +65,10 @@ export function EditingControls({
 
       <Divider />
 
-      <ToolBtn
-        onClick={() => setActiveTool("select-box")}
-        isActive={activeTool === "select-box"}
-        icon={BoxSelect}
-        title="Box Select"
-      />
-      <ToolBtn
-        onClick={() => setActiveTool("select-polygon")}
-        isActive={activeTool === "select-polygon"}
-        icon={Pentagon}
-        title="Polygon Select"
-      />
+      <ToolBtn onClick={handleUndo} icon={RotateCcw} title="Undo" />
+      <ToolBtn onClick={handleRedo} icon={RotateCw} title="Redo" />
+
+      
     </ControlGroup>
   );
 }

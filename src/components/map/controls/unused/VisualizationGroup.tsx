@@ -4,7 +4,7 @@ import { CircleDotDashed, Diameter, Palette, Settings2 } from "lucide-react";
 import { useStyleStore } from "@/store/styleStore";
 import { useUIStore } from "@/store/uiStore";
 
-import { ControlGroup, Divider, ToolBtn } from "./Shared";
+import { ControlGroup, Divider, ToolBtn } from "../Shared";
 
 interface VisualizationGroupProps {
   activeGroup: string | null;

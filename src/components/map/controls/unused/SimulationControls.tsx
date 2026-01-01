@@ -4,7 +4,7 @@ import { Activity, Droplets, Gauge, Type, Waves, Zap } from "lucide-react";
 import { useStyleStore } from "@/store/styleStore";
 import { useUIStore } from "@/store/uiStore";
 import { useSimulationStore } from "@/store/simulationStore";
-import { ControlGroup, Divider, ToolBtn } from "./Shared";
+import { ControlGroup, Divider, ToolBtn } from "../Shared";
 
 interface SimulationControlsProps {
   activeGroup: string | null;
