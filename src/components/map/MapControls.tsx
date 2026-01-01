@@ -89,7 +89,6 @@ export function MapControls() {
       >
         <NavigationControls activeGroup={activeGroup} onToggle={toggleGroup} />
         <EditingControls activeGroup={activeGroup} onToggle={toggleGroup} />
-
         <MeasurementGroup activeGroup={activeGroup} onToggle={toggleGroup} />
         <AnimationGroup activeGroup={activeGroup} onToggle={toggleGroup} />
         <DataControls activeGroup={activeGroup} onToggle={toggleGroup} />

@@ -8,6 +8,7 @@ import { useUIStore } from "@/store/uiStore";
 
 import { LabelTab } from "./style-tabs/LabelTab";
 import { StyleTab } from "./style-tabs/StyleTab";
+import { capitalizeFirstLetter } from "@/lib/utils";
 
 export function StyleSettingsPanel() {
   const { activeStyleLayer } = useUIStore();
@@ -56,6 +57,7 @@ export function StyleSettingsPanel() {
 
         {/* Layer Indicator & Reset */}
         <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+          <span className="text-xs">{capitalizeFirstLetter(activeStyleLayer)}</span>
           <div
             className="size-3 rounded-full ring-1 ring-accent"
             style={{ backgroundColor: headerColor }}

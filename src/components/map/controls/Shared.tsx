@@ -79,6 +79,8 @@ export const ToolBtn = ({
   label,
   className,
   disabled = false,
+  colorClass,
+  colorStyle,
 }: {
   onClick: () => void;
   isActive?: boolean;
@@ -87,6 +89,7 @@ export const ToolBtn = ({
   label?: string;
   colorClass?: string;
   className?: string;
+  colorStyle?: string;
   disabled?: boolean;
 }) => (
   <button
@@ -105,7 +108,7 @@ export const ToolBtn = ({
       title === "Location Search" || title === "Search" ? "true" : undefined
     }
   >
-    <Icon className="size-4" />
+    <Icon className={cn("size-4", colorClass)} style={{ color: colorStyle }} />
     {label && (
       <span
         className={cn(
@@ -131,13 +134,15 @@ export const StandaloneControl = ({
   isActive = false,
   icon: Icon,
   title,
-  colorClass = "text-gray-500 dark:text-gray-400",
+  colorClass,
+  colorStyle,
 }: {
   onClick: () => void;
   isActive?: boolean;
   icon: any;
   title: string;
   colorClass?: string;
+  colorStyle?: string;
 }) => (
   <button
     onClick={onClick}
@@ -148,7 +153,7 @@ export const StandaloneControl = ({
         : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-blue-400"
     )}
   >
-    <Icon className={cn("size-4")} />
+    <Icon className={cn("size-4", colorClass)} style={{ color: colorStyle }} />
     <LeftTooltip text={title} />
   </button>
 );

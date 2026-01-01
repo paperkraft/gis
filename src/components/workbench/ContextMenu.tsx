@@ -1,12 +1,12 @@
 "use client";
 
-import { Eye, EyeOff, Maximize, Palette } from 'lucide-react';
-import { createEmpty, extend, isEmpty } from 'ol/extent';
-import { useEffect, useRef } from 'react';
+import { Eye, EyeOff, Maximize, Palette } from "lucide-react";
+import { createEmpty, extend, isEmpty } from "ol/extent";
+import { useEffect, useRef } from "react";
 
-import { useMapStore } from '@/store/mapStore';
-import { useNetworkStore } from '@/store/networkStore';
-import { useUIStore } from '@/store/uiStore';
+import { useMapStore } from "@/store/mapStore";
+import { useNetworkStore } from "@/store/networkStore";
+import { useUIStore } from "@/store/uiStore";
 
 export function ContextMenu() {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -16,6 +16,8 @@ export function ContextMenu() {
     setContextMenu,
     toggleLayerVisibility,
     layerVisibility,
+    showPipeArrows,
+    setShowPipeArrows,
     setActiveStyleLayer,
     setActiveModal,
   } = useUIStore();
@@ -49,6 +51,11 @@ export function ContextMenu() {
 
   const handleToggleVisibility = () => {
     toggleLayerVisibility(id);
+    setContextMenu(null);
+  };
+
+  const handleArrowVisibility = () => {
+    setShowPipeArrows(!showPipeArrows);
     setContextMenu(null);
   };
 
@@ -106,11 +113,19 @@ export function ContextMenu() {
         onClick={handleEditStyle}
       />
 
-      <MenuItem
+      {/* <MenuItem
         icon={isVisible ? EyeOff : Eye}
-        label={isVisible ? "Hide Layer" : "Show Layer"}
+        label={isVisible ? `Hide ${id}s` : `Show ${id}s`}
         onClick={handleToggleVisibility}
-      />
+      /> */}
+
+      {id === "pipe" && (
+        <MenuItem
+          icon={showPipeArrows ? EyeOff : Eye}
+          label={showPipeArrows ? "Hide Arrows" : "Show Arrows"}
+          onClick={handleArrowVisibility}
+        />
+      )}
 
       <MenuItem
         icon={Maximize}

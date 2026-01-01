@@ -32,6 +32,7 @@ import { AttributeTable } from "./AttributeTable";
 import { AssetSearch } from "./controls/AssetSearch";
 import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 import { WorkbenchModalType } from "../workbench/modal_registry";
+import { MapToolbar } from "./MapToolbar";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -178,7 +179,8 @@ export function MapContainer() {
         {/* Map Target */}
         <div ref={mapRef} className="w-full h-full" />
 
-        <DrawingToolbar />
+        {/* <DrawingToolbar /> */}
+        <MapToolbar />
         <MapControls />
         <Legend />
         <AssetSearch />
