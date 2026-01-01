@@ -27,12 +27,12 @@ export default function TreeItem({
       onContextMenu={onContextMenu}
       className={`ml-1 flex items-center px-2 py-1 cursor-pointer rounded-sm text-xs transition-all relative ${
         active
-          ? "bg-blue-50 text-blue-700 font-medium"
+          ? "bg-blue-50 text-primary font-medium"
           : "text-slate-600 hover:bg-slate-100"
       }`}
     >
       {active && (
-        <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-blue-600 rounded-r" />
+        <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-primary rounded-r" />
       )}
       {Icon ? (
         <Icon size={12} className="mr-1.5 opacity-70" />
