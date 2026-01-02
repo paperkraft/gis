@@ -64,9 +64,11 @@ export const WORKBENCH_MENU: MenuItem[] = [
                 children: [
                     { id: "set_proj", type: "ITEM", label: "Project Settings", modalType: "PROJECT_SETTINGS" },
                     { id: "set_attr", type: "ITEM", label: "Default Attribute" },
-                    { id: "set_time", type: "ITEM", label: "Time Pattern", modalType: "DATA_MANAGER" },
+                    { id: "set_time", type: "ITEM", label: "Time Pattern" },
                     { id: "set_demand", type: "ITEM", label: "Demand Pattern" },
                     { id: "set_data", type: "ITEM", label: "Data Tables (Pipe / Valve)" },
+                    { id: "set_pattern", type: "ITEM", label: "Pattern Curves", modalType: "CURVES_PATTERNS" },
+                    { id: "set_ctrl", type: "ITEM", label: "Control", modalType: "CONTROLS" },
                 ]
             },
             {

@@ -124,7 +124,8 @@
 /* OpenLayers styles */
 @import "ol/ol.css";
 
-.ol-zoom {
+.ol-zoom,
+.ol-rotate-reset {
   display: none !important;
 }
 
@@ -136,6 +137,7 @@
 
 .ol-scale-line {
   bottom: 2.15rem !important;
+  /* right: 0 !important; */
 }
 
 /* Added: Style for DragBox selection */

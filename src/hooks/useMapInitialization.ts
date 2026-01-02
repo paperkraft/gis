@@ -4,7 +4,9 @@ import { Feature } from 'ol';
 import { defaults as defaultControls, ScaleLine } from 'ol/control';
 import { Geometry } from 'ol/geom';
 import { defaults as defaultInteractions } from 'ol/interaction/defaults.js';
+import DragPan from 'ol/interaction/DragPan';
 import DragRotateAndZoom from 'ol/interaction/DragRotateAndZoom.js';
+import Kinetic from 'ol/Kinetic';
 import VectorLayer from 'ol/layer/Vector';
 import Map from 'ol/Map';
 import { fromLonLat } from 'ol/proj';
@@ -52,7 +54,16 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
             controls: defaultControls({ zoom: false, attribution: true }).extend([
                 new ScaleLine({ units: 'metric' }),
             ]),
-            // interactions: defaultInteractions().extend([new DragRotateAndZoom()]),
+            interactions: defaultInteractions({ dragPan: false, }).extend([
+                new DragRotateAndZoom(),
+                new DragPan({
+                    kinetic: new Kinetic(
+                        0.005,   // decay: Friction (lower = slides longer)
+                        1 / 10,  // minVelocity: Must flick faster than 0.1 px/ms to trigger
+                        100      // delay: Time window to calculate flick speed
+                    ),
+                }),
+            ]),
         });
 
         // 4. Update Stores & State

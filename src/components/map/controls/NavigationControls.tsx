@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  Bookmark,
+  Compass,
   Globe,
   Home,
   Layers,
@@ -16,6 +18,7 @@ import {
 
 import { layerType } from "@/constants/map";
 import {
+  handleResetNorth,
   handleZoomIn,
   handleZoomOut,
   handleZoomToExtent,
@@ -25,6 +28,8 @@ import { useUIStore } from "@/store/uiStore";
 
 import { switchBaseLayer } from "@/lib/map/baseLayers";
 import { ControlGroup, Divider, ToolBtn } from "./Shared";
+import { useEffect, useState } from "react";
+import { useBookmarkStore } from "@/store/bookmarkStore";
 
 interface NavigationControlsProps {
   activeGroup: string | null;
@@ -44,6 +49,24 @@ export function NavigationControls({
     setBaseLayer,
     setShowLocationSearch,
   } = useUIStore();
+
+  const { isPanelOpen, togglePanel } = useBookmarkStore();
+
+  const [rotation, setRotation] = useState(0);
+
+  // This makes the compass icon rotate matching the map
+  useEffect(() => {
+    if (!map) return;
+
+    const view = map.getView();
+    const listener = () => {
+      setRotation(view.getRotation());
+    };
+
+    // OpenLayers event for view property changes
+    view.on("change:rotation", listener);
+    return () => view.un("change:rotation", listener);
+  }, [map]);
 
   const handleBaseLayerChange = (layerType: layerType) => {
     if (!map) return;
@@ -72,6 +95,22 @@ export function NavigationControls({
           isActive={showLocationSearch}
           icon={Search}
           title="Search"
+        />
+
+        <ToolBtn
+          onClick={togglePanel}
+          isActive={showLocationSearch}
+          icon={Bookmark}
+          title="Bookmarks"
+        />
+
+        <ToolBtn
+          onClick={() => handleResetNorth(map)}
+          isActive={rotation !== 0}
+          disabled={rotation == 0}
+          colorClass={rotation == 0 ? "text-slate-400" : ""}
+          icon={Compass}
+          title="Reset Rotation"
         />
 
         <Divider />

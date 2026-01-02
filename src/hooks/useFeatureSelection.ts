@@ -23,7 +23,7 @@ export function useFeatureSelection({
     vectorLayer,
     onFeatureSelect,
     onFeatureHover,
-    enableHover = true,
+    enableHover,
 }: UseFeatureSelectionOptions) {
 
     // Subscribe to the store's selected IDs
@@ -91,14 +91,24 @@ export function useFeatureSelection({
 
         if (!isSelectionMode) {
             selectInteractionRef.current = null;
-            return;
+            // return;
         }
 
         // --- Standard Click Selection ---
         const selectInteraction = new Select({
             layers: [vectorLayer],
             // Disable click selection while drawing polygon to prevent conflicts
-            condition: activeTool === 'select-polygon' ? never : (e) => click(e) || (click(e) && (shiftKeyOnly(e) || platformModifierKeyOnly(e))),
+            // condition: activeTool === 'select-polygon' ? never : (e) => click(e) || (click(e) && (shiftKeyOnly(e) || platformModifierKeyOnly(e))),
+
+            // If tool is PAN, condition returns false -> Interaction ignores clicks -> Pan works!
+            // If tool is SELECT, condition returns true -> Interaction handles clicks.
+            condition: (e) => {
+                const isSelectTool = ['select', 'select-box', 'select-polygon'].includes(activeTool || '');
+                if (!isSelectTool) return false; // Block selection events if Panning/Drawing
+                
+                // Standard click handling
+                return click(e) || (click(e) && (shiftKeyOnly(e) || platformModifierKeyOnly(e)));
+            },
 
             // Use the new Multi-Style function
             style: (feature) => getSelectedStyle(feature as Feature),

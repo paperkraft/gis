@@ -69,22 +69,22 @@ export function useKeyboardShortcuts() {
 
                     // Drawing Tools (1-6)
                     case "1":
-                        setActiveTool("add-junction");
+                        setActiveTool("draw-junction");
                         return;
                     case "2":
-                        setActiveTool("add-tank");
+                        setActiveTool("draw-tank");
                         return;
                     case "3":
-                        setActiveTool("add-reservoir");
+                        setActiveTool("draw-reservoir");
                         return;
                     case "4":
                         setActiveTool("draw-pipe");
                         return;
                     case "5":
-                        setActiveTool("add-pump");
+                        setActiveTool("draw-pump");
                         return;
                     case "6":
-                        setActiveTool("add-valve");
+                        setActiveTool("draw-valve");
                         return;
                 }
             }

@@ -25,6 +25,7 @@ import { MeasurementGroup } from "./controls/MeasurementGroup";
 import { NavigationControls } from "./controls/NavigationControls";
 import { StandaloneControl } from "./controls/Shared";
 import { LocationSearch } from "./LocationSearch";
+import { BookmarkPanel } from "./BookmarkPanel";
 
 export function MapControls() {
   const params = useParams();
@@ -114,6 +115,7 @@ export function MapControls() {
 
       {/* Modals */}
       <LocationSearch />
+      <BookmarkPanel />
 
       <ImportModal
         isOpen={importModalOpen}

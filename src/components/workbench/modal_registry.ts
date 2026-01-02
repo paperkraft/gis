@@ -37,7 +37,7 @@ export type WorkbenchModalType =
     | "PROJECT_SETTINGS"
     | "STYLE_SETTINGS"
     | "SIMULATION_GRAPHS"
-    | "DATA_MANAGER"
+    | "CURVES_PATTERNS"
     | "AUTO_ELEVATION"
     | "CONTROLS"
     | "VALIDATION"
@@ -55,7 +55,7 @@ export const MODAL_REGISTRY: Partial<Record<WorkbenchModalType, ModalConfig>> = 
   PROJECT_SETTINGS:   { title: "Project Settings",      icon: Settings,         component: ProjectSettingsPanel },
   STYLE_SETTINGS:     { title: "Edit Symbology",        icon: Palette,          component: StyleSettingsPanel },
   SIMULATION_GRAPHS:  { title: "Simulation Results",    icon: BarChart3Icon,    component: SimulationGraphs,    defaultMaximized: true },
-  DATA_MANAGER:       { title: "Data Browser",          icon: Table2,           component: DataManagerPanel,    defaultMaximized: true },
+  CURVES_PATTERNS:    { title: "Pattern Curves",        icon: Table2,           component: DataManagerPanel,    defaultMaximized: true },
   AUTO_ELEVATION:     { title: "Auto Elevation",        icon: Mountain,         component: AutoElevationPanel },
   CONTROLS:           { title: "Network Controls",      icon: Cpu,              component: ControlManagerPanel },
   VALIDATION:         { title: "Network Validation",    icon: CheckCircle2,     component: NetworkValidationPanel },

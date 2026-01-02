@@ -12,13 +12,12 @@ export type ToolType =
     | 'pan'
     | 'zoom-box'
     // Drawing tools
-    | 'draw'
     | 'draw-pipe'
-    | 'add-junction'
-    | 'add-reservoir'
-    | 'add-tank'
-    | 'add-pump'
-    | 'add-valve';
+    | 'draw-junction'
+    | 'draw-reservoir'
+    | 'draw-tank'
+    | 'draw-pump'
+    | 'draw-valve';
 
 export type WorkbenchPanelType =
     | 'NONE'

@@ -154,3 +154,8 @@ export const handlePrint = (map: Map | null) => {
 
     map.renderSync();
 };
+
+export const handleResetNorth = (map: Map | null) => {
+    if (!map) return;
+    map.getView().animate({ rotation: 0, duration: 500 });
+};

@@ -108,8 +108,8 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
     // Click handler for simple components (Nodes)
     const handlePlacementClick = useCallback((event: any) => {
         const { activeTool } = useUIStore.getState();
-        if (!activeTool || !activeTool.startsWith('add-')) return;
-        const componentType = activeTool.replace('add-', '') as FeatureType;
+        if (!activeTool || !activeTool.startsWith('draw-')) return;
+        const componentType = activeTool.replace('draw-', '') as FeatureType;
 
         // Skip links, they are handled by PipeDrawingManager
         if (componentType === 'pump' || componentType === 'valve') return;
@@ -160,42 +160,55 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
                 zoomBoxRef.current = dragBox;
                 break;
 
-            case 'draw':
+            // --- DRAWING TOOLS ---
+            // 1. Links (Pipes, Pumps, Valves drawn as lines)
             case 'draw-pipe':
                 pipeDrawingManagerRef.current.startDrawing('pipe');
                 break;
 
-            case 'add-junction':
-            case 'add-reservoir':
-            case 'add-tank':
-            case 'add-pump':
-            case 'add-valve':
-                // Pumps/Valves can be placed two ways: 
-                // 1. On Pipe (Click handler above catches this)
-                // 2. Between Nodes (PipeDrawingManager handles this)
+            // NOTE: Pumps/Valves can technically be drawn as lines connecting two nodes 
+            // OR placed as points on an existing pipe.
+            // If the user wants to draw a "Pump Link" from Node A to Node B:
+            case 'draw-pump':
+            case 'draw-valve':
+                // If you want "Draw Line" behavior for these:
+                pipeDrawingManagerRef.current.startDrawing(activeTool.replace('draw-', '') as any);
 
-                if (activeTool === 'add-pump' || activeTool === 'add-valve') {
-                    const type = activeTool === 'add-pump' ? 'pump' : 'valve';
-                    pipeDrawingManagerRef.current.startDrawing(type);
+            // BUT commonly pumps/valves are placed as points. 
+            // If you treat them as points, fall through to the Node logic below.
+            // For now, let's assume they are Points placed on pipes or canvas.
+            // Fallthrough...
+            case 'draw-junction':
+            case 'draw-tank':
+            case 'draw-reservoir':
+                // Extract type: 'draw-junction' -> 'junction'
+                const typeStr = activeTool.replace('draw-', '') as FeatureType;
 
-                } else {
-                    // Nodes: Standard single click
-                    const componentType = activeTool.replace('add-', '') as FeatureType;
-                    const draw = new Draw({ type: 'Point', source: undefined, stopClick: true });
-                    draw.on('drawend', (e) => {
-                        const geom = e.feature.getGeometry() as Point;
-                        placeComponent(componentType, geom.getCoordinates());
-                    });
-                    map.addInteraction(draw);
-                    drawInteractionRef.current = draw;
-                    map.getViewport().style.cursor = 'crosshair';
-                }
+                // Use OL Draw Interaction for "Point" placement
+                // This gives us the crosshair and prevents map panning while drawing
+                const draw = new Draw({
+                    type: 'Point',
+                    source: undefined, // We handle adding manually in placeComponent
+                    stopClick: true    // Stop click bubbling to map
+                });
+
+                draw.on('drawend', (e) => {
+                    const geom = e.feature.getGeometry() as Point;
+                    // We use timeout to ensure the click doesn't trigger selection immediately after
+                    setTimeout(() => {
+                        placeComponent(typeStr, geom.getCoordinates());
+                    }, 0);
+                });
+
+                map.addInteraction(draw);
+                drawInteractionRef.current = draw;
+                map.getViewport().style.cursor = 'crosshair';
                 break;
         }
     }, [activeTool, map, placeComponent, setActiveTool]);
 
     return {
         pipeDrawingManager: pipeDrawingManagerRef.current,
-        startComponentPlacement: placeComponent,
+        // startComponentPlacement: placeComponent,
     };
 }

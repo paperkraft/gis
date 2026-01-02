@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, MapPin, Search, X } from "lucide-react";
+import { Crosshair, Loader2, Search, X } from "lucide-react";
 import { fromLonLat } from "ol/proj";
 import { useEffect, useRef, useState } from "react";
 
@@ -13,12 +13,11 @@ interface SearchResult {
   lat: string;
   lon: string;
   type: string;
-  importance: number;
+  importance?: number;
   boundingbox?: string[];
 }
 
 export function LocationSearch() {
-
   const map = useMapStore((state) => state.map);
   const { showLocationSearch, setShowLocationSearch } = useUIStore();
 
@@ -30,6 +29,7 @@ export function LocationSearch() {
   const searchTimeoutRef = useRef<NodeJS.Timeout>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // --- Reset when hidden ---
   useEffect(() => {
     if (!showLocationSearch) {
       setSearchQuery("");
@@ -38,17 +38,19 @@ export function LocationSearch() {
     }
   }, [showLocationSearch]);
 
+  // --- Click Outside to Close ---
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      // If clicking inside the search box, ignore
       if (inputRef.current && inputRef.current.contains(event.target as Node)) {
         return;
       }
-
+      // If clicking the toggle button (handled by parent usually), ignore
       const target = event.target as HTMLElement;
       if (target.closest('[data-search-toggle="true"]')) {
         return;
       }
-
+      // Close search
       if (showLocationSearch) {
         setShowLocationSearch(false);
       }
@@ -57,13 +59,12 @@ export function LocationSearch() {
     if (showLocationSearch) {
       document.addEventListener("mousedown", handleClickOutside);
     }
-
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showLocationSearch, setShowLocationSearch]);
 
-  // Debounced search
+  // --- Debounced Search ---
   useEffect(() => {
     if (searchQuery.length < 3) {
       setSearchResults([]);
@@ -80,28 +81,57 @@ export function LocationSearch() {
     }, 500);
 
     return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     };
   }, [searchQuery]);
+
+  const tryParseCoordinates = (query: string): SearchResult | null => {
+    // Regex allows: "12.34, 56.78" or "12.34 56.78" or "-12.34, -56.78"
+    // Capture Group 1: Lat, Capture Group 4: Lon
+    const coordRegex = /^(-?\d+(\.\d+)?)[,\s]+(-?\d+(\.\d+)?)$/;
+    const match = query.trim().match(coordRegex);
+
+    if (match) {
+      const lat = parseFloat(match[1]);
+      const lon = parseFloat(match[3]); // Group 3 is the second number
+
+      // Validate Earth Ranges
+      if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+        return {
+          place_id: -1,
+          display_name: `${lat}, ${lon}`,
+          lat: lat.toString(),
+          lon: lon.toString(),
+          type: "coordinate",
+        };
+      }
+    }
+    return null;
+  };
 
   const performSearch = async (query: string) => {
     if (!query || query.length < 3) return;
 
     setIsSearching(true);
 
+    // 1. CHECK FOR COORDINATES FIRST
+    const coordResult = tryParseCoordinates(query);
+
+    if (coordResult) {
+      setSearchResults([coordResult]);
+      setShowResults(true);
+      setIsSearching(false);
+      return; // Skip API call
+    }
+
+    // 2. NOMINATIM API FALLBACK
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?` +
           `format=json&q=${encodeURIComponent(query)}&` +
-          `limit=5&` +
-          `addressdetails=1&` +
-          `extratags=1`,
+          `limit=5&addressdetails=1&extratags=1`,
         {
-          headers: {
-            "User-Agent": "WaterNetworkGIS/1.0",
-          },
+          headers: { "User-Agent": "SigmaToolBox/1.0" },
         }
       );
 
@@ -124,6 +154,7 @@ export function LocationSearch() {
     const lat = parseFloat(result.lat);
     const coordinate = fromLonLat([lon, lat]);
 
+    // Handle Bounding Box (Only exists for real places, not coordinates)
     if (result.boundingbox) {
       const [minLat, maxLat, minLon, maxLon] =
         result.boundingbox.map(parseFloat);
@@ -132,19 +163,28 @@ export function LocationSearch() {
         ...fromLonLat([maxLon, maxLat]),
       ];
       map.getView().fit(extent, {
-        padding: [50, 50, 50, 50],
+        padding: [100, 100, 100, 100],
         duration: 1000,
-        maxZoom: 16,
+        maxZoom: 18,
       });
     } else {
+      // Direct Fly-to for Coordinates or Points
       map.getView().animate({
         center: coordinate,
-        zoom: 15,
+        zoom: 16,
         duration: 1000,
       });
     }
 
-    addLocationMarker(coordinate, result.display_name);
+    // Label logic: If it's a coordinate type, show "Go to Coordinate"
+    const label =
+      result.type === "coordinate"
+        ? `Coord: ${result.display_name}`
+        : result.display_name;
+
+    addLocationMarker(coordinate, label);
+
+    // Cleanup
     setSearchQuery("");
     setSearchResults([]);
     setShowResults(false);
@@ -153,119 +193,115 @@ export function LocationSearch() {
 
   const addLocationMarker = (coordinate: number[], label: string) => {
     if (!map) return;
-
     const existingMarker = map.getOverlayById("location-marker");
     if (existingMarker) map.removeOverlay(existingMarker);
 
     const markerElement = document.createElement("div");
-    markerElement.style.cssText = `position: relative; width: 30px; height: 30px;`;
-
     markerElement.innerHTML = `
-      <div style="position: absolute; top: 0; left: 0; width: 30px; height: 30px; background: #EF4444; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
-        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(45deg); width: 8px; height: 8px; background: white; border-radius: 50%;"></div>
+      <div class="relative flex flex-col items-center pointer-events-none transform -translate-y-full">
+         <div class="bg-slate-800 text-white text-[10px] px-2 py-1 rounded shadow-md whitespace-nowrap mb-1">
+            ${label.split(",")[0]}
+         </div>
+         <div class="w-3 h-3 bg-primary rounded-full border-2 border-white shadow-sm"></div>
+         <div class="w-0.5 h-4 bg-primary"></div>
       </div>
-      <div style="position: absolute; top: 35px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; pointer-events: none; max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${label}</div>
     `;
 
     import("ol/Overlay").then(({ default: Overlay }) => {
       const marker = new Overlay({
         id: "location-marker",
         element: markerElement,
-        positioning: "center-center",
+        positioning: "bottom-center",
         stopEvent: false,
-        offset: [0, 0],
       });
       marker.setPosition(coordinate);
       map.addOverlay(marker);
+      // Auto remove after 10s
       setTimeout(() => map.removeOverlay(marker), 10000);
     });
   };
 
-  const handleClear = () => {
-    setSearchQuery("");
-    setSearchResults([]);
-    setShowResults(false);
-  };
-
-  // Conditional Render based on Store
   if (!showLocationSearch) return null;
 
   return (
-    // Added animate-in classes for smooth toggle appearance
     <div
-      className="absolute top-4 right-16 z-20 w-80 animate-in fade-in slide-in-from-right-2 duration-200"
       ref={inputRef}
+      className="absolute top-4 right-16 z-50 w-80 flex flex-col animate-in fade-in slide-in-from-top-2 duration-200"
     >
-      <div className="relative">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4" />
+      <div className="relative shadow-lg ring-1 ring-slate-900/5 rounded-sm">
+        {/* Input Container */}
+        <div className="relative flex items-center bg-white rounded-sm overflow-hidden">
+          <div className="pl-3 text-slate-400">
+            <Search size={16} />
+          </div>
 
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search location..."
-            className="w-full pl-8 pr-8 py-2.5 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm transition-all"
+            placeholder="Search place or coordinates..."
+            className="w-full p-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none bg-transparent font-medium"
             autoFocus
           />
 
-          {isSearching && (
-            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-blue-500 animate-spin" />
-          )}
-
-          {/* Clear Button */}
-          {searchQuery && !isSearching && (
-            <button
-              onClick={handleClear}
-              className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 hover:text-gray-600"
-            >
-              <X className="size-4" />
-            </button>
-          )}
+          <div className="pr-2 flex items-center gap-1">
+            {isSearching ? (
+              <Loader2 size={14} className="animate-spin text-primary" />
+            ) : searchQuery ? (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"
+              >
+                <X size={14} />
+              </button>
+            ) : null}
+          </div>
         </div>
 
-        {/* Results Dropdown */}
+        {/* Results Dropdown - Attached seamlessly below */}
         {showResults && searchResults.length > 0 && (
-          <div className="absolute top-full mt-2 w-full bg-white rounded-lg shadow-xl border border-gray-100 overflow-hidden max-h-80 overflow-y-auto">
-            {searchResults.map((result) => (
-              <button
-                key={result.place_id}
-                onClick={() => handleResultSelect(result)}
-                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-b-0"
-              >
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-900 truncate">
+          <div className="absolute top-full left-0 right-0 mt-px bg-white shadow-xl ring-1 ring-slate-900/5 max-h-75 overflow-y-auto rounded-b-sm">
+            <div className="py-1">
+              {searchResults.map((result) => (
+                <button
+                  key={result.place_id}
+                  onClick={() => handleResultSelect(result)}
+                  className="w-full text-left px-4 py-2 hover:bg-slate-50 border-l-2 border-transparent hover:border-primary transition-all group"
+                >
+                  <div className="flex items-center gap-2">
+                    {result.type === "coordinate" && (
+                      <Crosshair size={12} className="text-slate-400" />
+                    )}
+                    <div className="text-xs font-bold text-slate-700 group-hover:text-primary truncate">
                       {result.display_name.split(",")[0]}
                     </div>
-                    <div className="text-xs text-gray-500 truncate">
-                      {result.display_name}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-gray-400 capitalize">
-                        {result.type}
-                      </span>
-                      <span className="text-xs text-gray-300">•</span>
-                      <span className="text-xs text-gray-400">
-                        {parseFloat(result.lat).toFixed(4)},{" "}
-                        {parseFloat(result.lon).toFixed(4)}
-                      </span>
-                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
+                  <div className="text-[10px] text-slate-500 truncate mt-0.5 opacity-80">
+                    {result.type === "coordinate"
+                      ? "Jump to coordinate"
+                      : result.display_name}
+                  </div>
+                </button>
+              ))}
+            </div>
+            {/* Footer attribution */}
+            <div className="px-2 py-1 bg-slate-50 border-t border-slate-100 text-[9px] text-slate-400 text-right">
+              {/* Results via OpenStreetMap */}
+              Results via
+              {searchResults[0]?.type === "coordinate"
+                ? " Input"
+                : " OpenStreetMap"}
+            </div>
           </div>
         )}
 
-        {/* No Results */}
+        {/* No Results State */}
         {showResults &&
           searchResults.length === 0 &&
-          !isSearching &&
-          searchQuery.length >= 3 && (
-            <div className="absolute top-full mt-2 w-full bg-white rounded-lg shadow-xl border border-gray-100 px-4 py-4 text-center">
-              <p className="text-sm text-gray-500">No locations found</p>
+          searchQuery.length >= 3 &&
+          !isSearching && (
+            <div className="absolute top-full left-0 right-0 mt-px bg-white shadow-xl p-4 text-center">
+              <p className="text-xs text-slate-500">No locations found.</p>
             </div>
           )}
       </div>
