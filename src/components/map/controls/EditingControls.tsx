@@ -1,13 +1,5 @@
 "use client";
-import {
-  Edit3,
-  RotateCcw,
-  RotateCw,
-  MousePointer2,
-  BoxSelect,
-  Pentagon,
-  Magnet,
-} from "lucide-react";
+import { BoxSelect, Pentagon, Magnet, Undo2, Redo2 } from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
 import { ControlGroup, ToolBtn, Divider } from "./Shared";
 
@@ -52,7 +44,7 @@ export function EditingControls({
         icon={Pentagon}
         title="Polygon Select"
       />
-      
+
       <Divider />
 
       <ToolBtn
@@ -60,15 +52,12 @@ export function EditingControls({
         isActive={isSnappingEnabled}
         icon={Magnet}
         title={isSnappingEnabled ? "Snapping On" : "Snapping Off"}
-        colorClass="text-purple-600"
       />
 
       <Divider />
 
-      <ToolBtn onClick={handleUndo} icon={RotateCcw} title="Undo" />
-      <ToolBtn onClick={handleRedo} icon={RotateCw} title="Redo" />
-
-      
+      <ToolBtn onClick={handleUndo} icon={Undo2} title="Undo" />
+      <ToolBtn onClick={handleRedo} icon={Redo2} title="Redo" />
     </ControlGroup>
   );
 }

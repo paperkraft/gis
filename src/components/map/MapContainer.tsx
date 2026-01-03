@@ -20,19 +20,18 @@ import { useMapFeatureSync } from "@/hooks/useMapFeatureSync";
 import { useMapStore } from "@/store/mapStore";
 import { useNetworkStore } from "@/store/networkStore";
 import { useUIStore } from "@/store/uiStore";
+import { WorkbenchModalType } from "../workbench/modal_registry";
 
 import { handleZoomToExtent } from "@/lib/interactions/map-controls";
 
 // Components
 import { Legend } from "./Legend";
 import { StatusBar } from "./StatusBar";
-import { MapControls } from "./MapControls";
-import { DrawingToolbar } from "./DrawingToolbar";
-import { AttributeTable } from "./AttributeTable";
-import { AssetSearch } from "./controls/AssetSearch";
-import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
-import { WorkbenchModalType } from "../workbench/modal_registry";
 import { MapToolbar } from "./MapToolbar";
+import { MapControls } from "./MapControls";
+import { AttributeTable } from "./AttributeTable";
+import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
+import { MapLayers } from "./MapLayers";
 
 export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -179,11 +178,11 @@ export function MapContainer() {
         {/* Map Target */}
         <div ref={mapRef} className="w-full h-full" />
 
-        {/* <DrawingToolbar /> */}
         <MapToolbar />
         <MapControls />
         <Legend />
-        <AssetSearch />
+
+        <MapLayers />
 
         {/* Panels */}
         <AttributeTable

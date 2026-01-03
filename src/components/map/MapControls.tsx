@@ -18,12 +18,14 @@ import { ImportModal } from "../modals/ImportModal";
 import { QueryBuilderModal } from "../modals/QueryBuilderModal";
 
 // Import Controls
-import { AnimationGroup } from "./controls/AnimationGroup";
 import { DataControls } from "./controls/DataControls";
+import { AnimationGroup } from "./controls/AnimationGroup";
 import { EditingControls } from "./controls/EditingControls";
 import { MeasurementGroup } from "./controls/MeasurementGroup";
+import { LayerControls } from "./controls/LayerControls";
 import { NavigationControls } from "./controls/NavigationControls";
 import { StandaloneControl } from "./controls/Shared";
+import { AssetSearch } from "./controls/AssetSearch";
 import { LocationSearch } from "./LocationSearch";
 import { BookmarkPanel } from "./BookmarkPanel";
 
@@ -89,6 +91,7 @@ export function MapControls() {
         )}
       >
         <NavigationControls activeGroup={activeGroup} onToggle={toggleGroup} />
+        <LayerControls activeGroup={activeGroup} onToggle={toggleGroup} />
         <EditingControls activeGroup={activeGroup} onToggle={toggleGroup} />
         <MeasurementGroup activeGroup={activeGroup} onToggle={toggleGroup} />
         <AnimationGroup activeGroup={activeGroup} onToggle={toggleGroup} />
@@ -102,7 +105,6 @@ export function MapControls() {
 
         <StandaloneControl
           onClick={handleSave}
-          isActive={false}
           icon={Save}
           title="Save Network"
           colorClass={
@@ -113,9 +115,12 @@ export function MapControls() {
         />
       </div>
 
-      {/* Modals */}
-      <LocationSearch />
+      {/* Modals and Panel */}
+
+      <AssetSearch />
       <BookmarkPanel />
+      <LocationSearch />
+      <QueryBuilderModal />
 
       <ImportModal
         isOpen={importModalOpen}
@@ -126,8 +131,6 @@ export function MapControls() {
         isOpen={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
       />
-
-      <QueryBuilderModal />
     </>
   );
 }

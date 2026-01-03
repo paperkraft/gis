@@ -1,36 +1,14 @@
 import TileLayer from 'ol/layer/Tile';
-import { TileWMS, XYZ } from 'ol/source';
+import { XYZ } from 'ol/source';
 import OSM from 'ol/source/OSM';
 import Map from 'ol/Map';
 import { mapbox_token, layerType } from '@/constants/map';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import GeoJSON from 'ol/format/GeoJSON';
-import { Fill, Stroke, Style } from 'ol/style';
+import { Stroke, Style } from 'ol/style';
 
 export const createBaseLayers = (): TileLayer[] => {
-
-    // Bhuvan Boundaries
-    const bhuvanLayer = new TileLayer({
-        source: new TileWMS({
-            url: "https://bhuvan-vec2.nrsc.gov.in/bhuvan/wms",
-            params: {
-                'LAYERS': "admin:world_final",
-                'TILED': true,
-                'TRANSPARENT': true,
-                'FORMAT': 'image/png'
-            },
-            serverType: "geoserver",
-            transition: 0,
-        }),
-        minZoom: 1,
-        maxZoom: 12,
-        zIndex: 1,
-        visible: true,
-        className: 'bhuvan-layer-filter',
-        properties: { name: 'bhuvan', title: 'Bhuvan Boundaries', type: 'overlay' },
-
-    });
 
     // 1. OSM (OpenStreetMap)
     const osmLayer = new TileLayer({
@@ -96,9 +74,8 @@ export const switchBaseLayer = (map: Map, activeLayerId: layerType) => {
 
 
 // India Boundary Layer (Vector GeoJSON)
-export const indiaBoundaryLayer = new VectorLayer({
+export const BoundaryLayer = new VectorLayer({
     source: new VectorSource({
-        // url: 'https://raw.githubusercontent.com/paperkraft/maps/main/india-osm.geojson',
         url: '/india-osm.geojson',
         format: new GeoJSON(),
     }),
@@ -109,6 +86,7 @@ export const indiaBoundaryLayer = new VectorLayer({
             width: 1.5,
         }),
     }),
-    zIndex: 1, // Above base map, below network
+    zIndex: 5, // Above base map, below network
+    visible: true,
     properties: { name: 'india-boundary', title: 'India Boundary', type: 'overlay' },
 });

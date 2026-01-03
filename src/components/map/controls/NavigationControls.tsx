@@ -2,34 +2,28 @@
 
 import {
   Bookmark,
-  Compass,
-  Globe,
-  Home,
-  Layers,
-  Map as MapIcon,
-  MapPin,
-  MapPinnedIcon,
-  Mountain,
+  ExpandIcon,
+  Focus,
+  MapIcon,
+  Maximize,
   Search,
+  ShrinkIcon,
   SquareMousePointer,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
 
-import { layerType } from "@/constants/map";
 import {
-  handleResetNorth,
   handleZoomIn,
   handleZoomOut,
   handleZoomToExtent,
 } from "@/lib/interactions/map-controls";
+import { useBookmarkStore } from "@/store/bookmarkStore";
 import { useMapStore } from "@/store/mapStore";
 import { useUIStore } from "@/store/uiStore";
 
-import { switchBaseLayer } from "@/lib/map/baseLayers";
 import { ControlGroup, Divider, ToolBtn } from "./Shared";
 import { useEffect, useState } from "react";
-import { useBookmarkStore } from "@/store/bookmarkStore";
 
 interface NavigationControlsProps {
   activeGroup: string | null;
@@ -43,35 +37,32 @@ export function NavigationControls({
   const map = useMapStore((state) => state.map);
   const {
     activeTool,
-    baseLayer,
     showLocationSearch,
     setActiveTool,
-    setBaseLayer,
     setShowLocationSearch,
   } = useUIStore();
 
   const { isPanelOpen, togglePanel } = useBookmarkStore();
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const [rotation, setRotation] = useState(0);
-
-  // This makes the compass icon rotate matching the map
   useEffect(() => {
-    if (!map) return;
+    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handleFsChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFsChange);
+  }, []);
 
-    const view = map.getView();
-    const listener = () => {
-      setRotation(view.getRotation());
-    };
+  const isActiveGroup =
+    isPanelOpen || activeTool === "zoom-box" || isFullscreen;
 
-    // OpenLayers event for view property changes
-    view.on("change:rotation", listener);
-    return () => view.un("change:rotation", listener);
-  }, [map]);
-
-  const handleBaseLayerChange = (layerType: layerType) => {
-    if (!map) return;
-    switchBaseLayer(map, layerType);
-    setBaseLayer(layerType);
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
   };
 
   return (
@@ -83,13 +74,8 @@ export function NavigationControls({
         label="Navigation"
         activeGroup={activeGroup}
         onToggle={onToggle}
+        isActiveGroup={isActiveGroup}
       >
-        <ToolBtn
-          onClick={() => handleZoomToExtent(map)}
-          icon={Home}
-          title="Zoom Extent"
-        />
-
         <ToolBtn
           onClick={() => setShowLocationSearch(!showLocationSearch)}
           isActive={showLocationSearch}
@@ -97,82 +83,47 @@ export function NavigationControls({
           title="Search"
         />
 
-        <ToolBtn
-          onClick={togglePanel}
-          isActive={showLocationSearch}
-          icon={Bookmark}
-          title="Bookmarks"
-        />
-
-        <ToolBtn
-          onClick={() => handleResetNorth(map)}
-          isActive={rotation !== 0}
-          disabled={rotation == 0}
-          colorClass={rotation == 0 ? "text-slate-400" : ""}
-          icon={Compass}
-          title="Reset Rotation"
-        />
-
         <Divider />
 
         <ToolBtn
           onClick={() => handleZoomIn(map)}
           icon={ZoomIn}
-          title="Zoom In"
+          title="Zoom In +"
         />
 
         <ToolBtn
           onClick={() => handleZoomOut(map)}
           icon={ZoomOut}
-          title="Zoom Out"
+          title="Zoom Out -"
         />
 
-        <Divider />
+        <ToolBtn
+          onClick={() => handleZoomToExtent(map)}
+          icon={Maximize}
+          title="Zoom Extent F"
+        />
 
         <ToolBtn
           onClick={() => setActiveTool("zoom-box")}
           isActive={activeTool === "zoom-box"}
           icon={SquareMousePointer}
-          title="Zoom to Box"
-        />
-      </ControlGroup>
-
-      {/* Base Layer Sub-Group */}
-      <ControlGroup
-        id="layers"
-        icon={Layers}
-        label="Base Layers"
-        activeGroup={activeGroup}
-        onToggle={onToggle}
-      >
-        <ToolBtn
-          onClick={() => handleBaseLayerChange("osm")}
-          isActive={baseLayer === "osm"}
-          icon={MapPin}
-          title="OpenStreetMap"
-          label="OSM"
+          title="Zoom to Box Z"
         />
 
         <ToolBtn
-          onClick={() => handleBaseLayerChange("mapbox")}
-          isActive={baseLayer === "mapbox"}
-          icon={MapPinnedIcon}
-          title="Mapbox"
-          label="Box"
+          onClick={toggleFullscreen}
+          isActive={isFullscreen}
+          icon={isFullscreen ? ShrinkIcon : ExpandIcon}
+          title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
         />
+
+        <Divider />
+
         <ToolBtn
-          onClick={() => handleBaseLayerChange("satellite")}
-          isActive={baseLayer === "satellite"}
-          icon={Globe}
-          title="Satellite"
-          label="Sat"
-        />
-        <ToolBtn
-          onClick={() => handleBaseLayerChange("terrain")}
-          isActive={baseLayer === "terrain"}
-          icon={Mountain}
-          title="Terrain"
-          label="Topo"
+          onClick={togglePanel}
+          isActive={showLocationSearch}
+          icon={Bookmark}
+          title="Bookmarks"
         />
       </ControlGroup>
     </>

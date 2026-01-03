@@ -59,7 +59,7 @@ export const ControlGroup = ({
       {/* Expanded Horizontal Bar */}
       <div
         className={cn(
-          "absolute right-10 flex items-center rounded gap-1 p-1 shadow-xl border border-white/20 dark:border-gray-700/50 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md transition-all duration-200 origin-right z-20",
+          "absolute right-11.5 flex items-center rounded gap-1 p-1 shadow-xl border border-white/20 dark:border-gray-700/50 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md transition-all duration-200 origin-right z-20",
           isOpen
             ? "opacity-100 scale-100 translate-x-0"
             : "opacity-0 scale-95 translate-x-4 pointer-events-none"
@@ -136,6 +136,7 @@ export const StandaloneControl = ({
   title,
   colorClass,
   colorStyle,
+  className,
 }: {
   onClick: () => void;
   isActive?: boolean;
@@ -143,6 +144,7 @@ export const StandaloneControl = ({
   title: string;
   colorClass?: string;
   colorStyle?: string;
+  className?: string;
 }) => (
   <button
     onClick={onClick}
@@ -150,7 +152,8 @@ export const StandaloneControl = ({
       "relative group size-8 flex items-center justify-center rounded transition-all duration-200 active:scale-95",
       isActive
         ? "bg-blue-100 dark:bg-blue-900/40 text-primary dark:text-blue-400"
-        : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-blue-400"
+        : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-blue-400",
+      className
     )}
   >
     <Icon className={cn("size-4", colorClass)} style={{ color: colorStyle }} />

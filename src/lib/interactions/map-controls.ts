@@ -159,3 +159,15 @@ export const handleResetNorth = (map: Map | null) => {
     if (!map) return;
     map.getView().animate({ rotation: 0, duration: 500 });
 };
+
+export const handleRotateLeft = (map: Map | null) => {
+    if (!map) return;
+    const current = map.getView().getRotation();
+    map.getView().animate({ rotation: current - Math.PI / 4, duration: 250 });
+};
+
+export const handleRotateRight = (map: Map | null) => {
+    if (!map) return;
+    const current = map.getView().getRotation();
+    map.getView().animate({ rotation: current + Math.PI / 4, duration: 250 });
+};
