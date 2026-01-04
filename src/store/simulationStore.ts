@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { useNetworkStore } from './networkStore';
 import { buildINP } from '@/lib/epanet/inpBuilder';
+import { toast } from 'sonner';
 
 // --- Types ---
 export type SimulationStatus = 'idle' | 'running' | 'completed' | 'error';
@@ -19,10 +20,14 @@ export interface SimulationHistory {
 
 interface SimulationState {
     status: SimulationStatus;
-    history: SimulationHistory | null;    // Holds ALL time steps
-    results: SimulationSnapshot | null;   // Holds CURRENT time step data
+    history: SimulationHistory | null;
+    results: SimulationSnapshot | null;
     currentTimeIndex: number;
+
     error: string | null;
+    warnings: string[];
+    report: string | null;
+
     isPlaying: boolean;
     isSimulating: boolean;
 
@@ -38,7 +43,11 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     history: null,
     results: null,
     currentTimeIndex: 0,
+
     error: null,
+    warnings: [],
+    report: null,
+
     isPlaying: false,
     isSimulating: false,
 
@@ -49,17 +58,20 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
             // 1. Get Current Project State from Network Store
             const { features, patterns, curves, controls, settings } = useNetworkStore.getState();
 
+            console.log("curves", curves);
+            console.log("patterns", patterns);
+            console.log("controls", controls);
+
             // 2. Build INP from LIVE data
             const inpData = buildINP(
-                Array.from(features.values()), 
-                patterns, 
-                curves, 
-                controls, 
+                Array.from(features.values()),
+                patterns,
+                curves,
+                controls,
                 settings
             );
 
             // 3. Initialize Worker
-            // const worker = new Worker(new URL('@/lib/workers/simulation.worker.ts', import.meta.url));
             const worker = new Worker(new URL('../lib/workers/simulation.worker.ts', import.meta.url));
 
             // 4. Promisify the Worker interaction
@@ -78,7 +90,14 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
             });
 
             if (!result.success) {
-                throw new Error(result.error);
+                toast.error(result.error);
+                set({
+                    status: 'error',
+                    isSimulating: false,
+                    error: result.error || "Simulation failed"
+                });
+                return false
+                // throw new Error(result.error);
             }
 
             // 5. Success
@@ -91,6 +110,9 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
                 history: data,
                 results: data.snapshots[lastIndex],
                 currentTimeIndex: lastIndex,
+
+                warnings: result.warnings || [],
+                report: result.report || null
             });
             return true;
 
@@ -122,6 +144,14 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     },
 
     resetSimulation: () => {
-        set({ status: 'idle', history: null, results: null, error: null, isPlaying: false });
+        set({
+            status: 'idle',
+            history: null,
+            results: null,
+            error: null,
+            warnings: [],
+            report: null,
+            isPlaying: false
+        });
     }
 }));

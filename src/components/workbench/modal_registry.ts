@@ -16,6 +16,7 @@ import { ValveProperties } from '../properties/ValveProperties';
 import { SimulationGraphs } from '../simulation/SimulationGraphs';
 import { AutoElevationPanel } from '../panels/AutoElevationPanel';
 import { NetworkValidationPanel } from '../panels/NetworkValidationPanel';
+import { ScenarioManagerPanel } from '../simulation/ScenarioManagerPanel';
 
 interface ModalConfig {
   title: string;
@@ -37,6 +38,7 @@ export type WorkbenchModalType =
     | "PROJECT_SETTINGS"
     | "STYLE_SETTINGS"
     | "SIMULATION_GRAPHS"
+    | "SCENARIO_MANAGER"
     | "CURVES_PATTERNS"
     | "AUTO_ELEVATION"
     | "CONTROLS"
@@ -55,6 +57,7 @@ export const MODAL_REGISTRY: Partial<Record<WorkbenchModalType, ModalConfig>> = 
   PROJECT_SETTINGS:   { title: "Project Settings",      icon: Settings,         component: ProjectSettingsPanel },
   STYLE_SETTINGS:     { title: "Edit Symbology",        icon: Palette,          component: StyleSettingsPanel },
   SIMULATION_GRAPHS:  { title: "Simulation Results",    icon: BarChart3Icon,    component: SimulationGraphs,    defaultMaximized: true },
+  SCENARIO_MANAGER:   { title: "Simulation Scenario",   icon: BarChart3Icon,    component: ScenarioManagerPanel },
   CURVES_PATTERNS:    { title: "Pattern Curves",        icon: Table2,           component: DataManagerPanel,    defaultMaximized: true },
   AUTO_ELEVATION:     { title: "Auto Elevation",        icon: Mountain,         component: AutoElevationPanel },
   CONTROLS:           { title: "Network Controls",      icon: Cpu,              component: ControlManagerPanel },

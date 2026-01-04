@@ -1,113 +1,74 @@
 "use client";
 
 import {
+  AlertTriangle,
   ArrowLeft,
   BarChart3,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Droplets,
-  Eye,
-  EyeOff,
+  Download,
   FileText,
+  Layers,
   Pause,
   Play,
   RefreshCcw,
-  Save,
+  Terminal,
   Timer,
-  Trash2,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 
+import { cn } from "@/lib/utils";
 import { useSimulationStore } from "@/store/simulationStore";
 import { useStyleStore } from "@/store/styleStore";
 import { useUIStore } from "@/store/uiStore";
-import { Button } from "../ui/button";
-import { cn } from "@/lib/utils";
-import { useScenarioStore } from "@/store/scenarioStore";
-import { useNetworkStore } from "@/store/networkStore";
-import { FormInput } from "../form-controls/FormInput";
+
 import { FormGroup } from "../form-controls/FormGroup";
 import { FormSelect } from "../form-controls/FormSelect";
+import { Button } from "../ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 
 export function ResultsView() {
   const {
+    isPlaying,
     history,
     results,
     currentTimeIndex,
     setTimeIndex,
     resetSimulation,
     nextStep,
+    togglePlayback,
+    warnings,
+    report,
   } = useSimulationStore();
-  const { scenarios, addScenario, removeScenario, toggleVisibility } =
-    useScenarioStore();
 
   const { colorMode, setColorMode } = useStyleStore();
   const { setActiveModal } = useUIStore();
 
-  // Get current network state to save it
-  const {
-    features,
-    nextIdCounter,
-    patterns,
-    curves,
-    controls,
-    settings,
-    setNetworkState,
-    setPatterns,
-    setCurves,
-    setControls,
-    updateSettings,
-  } = useNetworkStore();
+  const [showLog, setShowLog] = useState(false);
+  const hasWarnings = warnings && warnings.length > 0;
 
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [scenarioName, setScenarioName] = useState("");
+  const handleDownloadLog = () => {
+    if (!report) return;
 
-  // --- SAVE ACTION ---
-  const handleSaveScenario = () => {
-    if (!history || !scenarioName.trim()) return;
+    // Combine warnings and report into one file content
+    let content = "EPANET SIMULATION LOG\n=====================\n\n";
 
-    // Convert Map -> Array for the store function
-    const featureList = Array.from(features.values());
+    if (warnings && warnings.length > 0) {
+      content += "WARNINGS DETECTED:\n";
+      warnings.forEach((w) => (content += `[!] ${w}\n`));
+      content += "\n---------------------\n\n";
+    }
 
-    addScenario(
-      scenarioName,
-      history,
-      featureList,
-      nextIdCounter,
-      // patterns,
-      // curves,
-      // controls,
-      // settings
-    );
-    setScenarioName("");
-  };
+    content += "FULL OUTPUT REPORT:\n";
+    content += report;
 
-  // --- RESTORE ACTION ---
-  const handleRestoreScenario = (scenario: any) => {
-    if(!confirm(`Promote "${scenario.name}" to current state? This will overwrite your map and settings.`)) return;
-
-    const snap = scenario.snapshot;
-
-    // 1. Restore Physical Map & ID Counters (Using existing action)
-    // Note: You might need to update setNetworkState to accept counters if you haven't yet.
-    // If setNetworkState only takes geoJSON, we need to handle counters manually or update it.
-    // Assuming setNetworkState(geoJSON, counters) signature:
-    setNetworkState(snap.geoJSON); 
-    // If setNetworkState doesn't support counters yet, consider adding a specialized 'restoreProject' action to networkStore.
-    
-    // 2. Restore Non-Spatial Data
-    setPatterns(snap.patterns);
-    setCurves(snap.curves);
-    setControls(snap.controls);
-    updateSettings(snap.settings);
-
-    // 3. Restore Simulation Results
-    useSimulationStore.setState({ 
-      history: scenario.results, 
-      results: scenario.results.snapshots[scenario.results.snapshots.length-1],
-      status: 'completed'
-    });
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `simulation_log_${Date.now()}.txt`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   // --- Animation Loop ---
@@ -115,7 +76,7 @@ export function ResultsView() {
     let interval: NodeJS.Timeout;
     if (isPlaying && history) {
       interval = setInterval(() => {
-        nextStep(); // Use store action
+        nextStep();
       }, 1000);
     }
     return () => clearInterval(interval);
@@ -136,18 +97,17 @@ export function ResultsView() {
       maxV = -Infinity;
 
     Object.values(results.nodes).forEach((n: any) => {
-      const p = Number(n.pressure); // Ensure number
+      const p = Number(n.pressure);
       if (p < minP) minP = p;
       if (p > maxP) maxP = p;
     });
 
     Object.values(results.links).forEach((l: any) => {
-      const v = Number(l.velocity); // Ensure number
+      const v = Number(l.velocity);
       if (v < minV) minV = v;
       if (v > maxV) maxV = v;
     });
 
-    // Handle completely empty network case
     if (minP === Infinity) {
       minP = 0;
       maxP = 0;
@@ -160,23 +120,18 @@ export function ResultsView() {
       maxP: maxP.toFixed(2),
       minV: minV.toFixed(2),
       maxV: maxV.toFixed(2),
-      time: Number(rawTime) || 0, // Final safety check
+      time: Number(rawTime) || 0,
     };
   }, [results, history, currentTimeIndex]);
 
   // CSV Export Handler
   const handleDownloadReport = () => {
     if (!history) return;
-
     let csv =
       "Time(hr),NodeID,Pressure(m),Head(m),LinkID,Flow(LPS),Velocity(m/s)\n";
-
     history.snapshots.forEach((snap, index) => {
-      let tVal = snap.time;
-      if (tVal === undefined) tVal = history.timestamps[index] || 0;
-
+      let tVal = snap.time ?? (history.timestamps[index] || 0);
       const tStr = (Number(tVal) / 3600).toFixed(2);
-
       const nodeKeys = Object.keys(snap.nodes);
       const linkKeys = Object.keys(snap.links);
       const maxRows = Math.max(nodeKeys.length, linkKeys.length);
@@ -184,14 +139,11 @@ export function ResultsView() {
       for (let i = 0; i < maxRows; i++) {
         const nId = nodeKeys[i] || "";
         const lId = linkKeys[i] || "";
-
         const n = snap.nodes[nId] || { pressure: "", head: "" };
         const l = snap.links[lId] || { flow: "", velocity: "" };
-
         csv += `${tStr},${nId},${n.pressure},${n.head},${lId},${l.flow},${l.velocity}\n`;
       }
     });
-
     const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -205,25 +157,66 @@ export function ResultsView() {
   const totalSteps = history.snapshots.length;
   const isEPS = totalSteps > 1;
 
+  const visulationOptions = [
+    { label: "Pressure", value: "pressure" },
+    { label: "Velocity", value: "velocity" },
+    { label: "Total Head", value: "head" },
+    { label: "Flow Rate", value: "flow" },
+  ];
+
   return (
-    <div className="flex flex-col h-full bg-white text-slate-700 animate-in slide-in-from-left-4">
-      {/* Results Header */}
-      <div className="flex items-center gap-2 p-3 border-b border-slate-100 bg-green-50/50">
+    <div className="flex flex-col h-full bg-white text-slate-700 animate-in slide-in-from-left-4 relative">
+      {/* --- HEADER --- */}
+      <div
+        className={cn(
+          "flex items-center gap-2 p-3 border-b transition-colors",
+          hasWarnings
+            ? "bg-amber-50 border-amber-100"
+            : "bg-green-50/50 border-slate-100"
+        )}
+      >
         <button
           onClick={resetSimulation}
-          className="p-1.5 hover:bg-white rounded text-slate-500 hover:text-green-800 transition-all"
+          className="p-1.5 hover:bg-white/50 rounded text-slate-500 hover:text-slate-800 transition-all"
         >
           <ArrowLeft size={14} />
         </button>
-        <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-green-800">
-            Analysis Complete
+
+        {/* Dynamic Status Text */}
+        <div className="flex-1">
+          <h2
+            className={cn(
+              "text-xs font-bold uppercase tracking-wider",
+              hasWarnings ? "text-amber-700" : "text-green-800"
+            )}
+          >
+            {hasWarnings ? "Completed with Warnings" : "Analysis Complete"}
           </h2>
-          <p className="text-[10px] text-green-600">Converged Successfully</p>
+          <p
+            className={cn(
+              "text-[10px]",
+              hasWarnings ? "text-amber-600" : "text-green-600"
+            )}
+          >
+            {hasWarnings
+              ? `${warnings.length} issues detected`
+              : "Converged Successfully"}
+          </p>
         </div>
+
+        {/* Header Action: View Log */}
+        {hasWarnings && (
+          <button
+            onClick={() => setShowLog(true)}
+            className="flex items-center gap-1 bg-amber-100 hover:bg-amber-200 text-amber-800 px-2 py-1 rounded text-[10px] font-bold transition-colors"
+          >
+            <AlertTriangle size={12} /> Log
+          </button>
+        )}
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-5">
+      {/* --- SCROLLABLE CONTENT --- */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
         {/* Time Slider (EPS Only) */}
         {isEPS && (
           <div className="bg-primary-foreground p-3 rounded border border-slate-200">
@@ -242,26 +235,23 @@ export function ResultsView() {
               max={totalSteps - 1}
               value={currentTimeIndex}
               onChange={(e) => {
-                setIsPlaying(false);
                 setTimeIndex(parseInt(e.target.value));
               }}
               className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 mb-3"
             />
-
-            {/* Control Buttons */}
+            {/* Playback Controls */}
             <div className="flex gap-2 justify-center">
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon-sm"
                 onClick={() => setTimeIndex(Math.max(0, currentTimeIndex - 1))}
                 disabled={currentTimeIndex <= 0}
                 className="h-8 w-8 p-0 rounded-full"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="size-4" />
               </Button>
-
               <Button
-                onClick={() => setIsPlaying(!isPlaying)}
+                onClick={() => togglePlayback()}
                 size="icon-sm"
                 className={cn(
                   "rounded-full transition-all active:scale-95",
@@ -275,7 +265,6 @@ export function ResultsView() {
                 ) : (
                   <Play size={12} fill="currentColor" />
                 )}
-                {/* {isPlaying ? "Pause" : "Play Loop"} */}
               </Button>
               <Button
                 variant="ghost"
@@ -291,17 +280,14 @@ export function ResultsView() {
                 disabled={currentTimeIndex >= history.timestamps.length - 1}
                 className="h-8 w-8 p-0 rounded-full"
               >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="size-4" />
               </Button>
             </div>
           </div>
         )}
 
         {/* Quick Stats */}
-        <div>
-          <h4 className="text-[10px] font-bold uppercase text-slate-400 mb-2">
-            Snapshot Summary
-          </h4>
+        <FormGroup label="Snapshot Summary">
           <div className="grid grid-cols-2 gap-3">
             <ResultCard
               label="Min Pressure"
@@ -328,98 +314,17 @@ export function ResultsView() {
               color="text-purple-600"
             />
           </div>
-        </div>
+        </FormGroup>
 
         {/* Map Visualization */}
         <FormGroup label="Visualization">
           <FormSelect
-            label="Type"
+            label=""
             value={colorMode || ""}
             onChange={(v) => setColorMode(v)}
-            options={[
-              { label: "Pressure", value: "pressure" },
-              { label: "Velocity", value: "velocity" },
-              { label: "Total Head", value: "head" },
-              { label: "Flow Rate", value: "flow" },
-            ]}
+            options={visulationOptions}
           />
         </FormGroup>
-
-        {/* --- SCENARIO MANAGER --- */}
-        <div className="bg-primary-foreground p-3 rounded border border-slate-200">
-          <h4 className="text-[10px] font-bold uppercase text-slate-500 mb-2">
-            Scenario Manager
-          </h4>
-
-          {/* Save Input */}
-          <div className="flex gap-2 items-end mb-2">
-            <FormInput
-              label="Scenario Name"
-              type="text"
-              placeholder="Name"
-              value={scenarioName || ""}
-              onChange={(v) => setScenarioName(v)}
-            />
-            <Button
-              size={"icon-sm"}
-              onClick={handleSaveScenario}
-              disabled={!scenarioName.trim()}
-              title="Save current results as scenario"
-            >
-              <Save size={14} />
-            </Button>
-          </div>
-
-          {/* Saved Scenarios List */}
-          <div className="space-y-1.5">
-            {scenarios.map((s) => (
-              <div
-                key={s.id}
-                className="flex items-center justify-between bg-white border border-slate-200 p-2 rounded text-xs"
-              >
-                <div className="flex items-center gap-2 overflow-hidden">
-                  <div
-                    className="w-2 h-2 rounded-full shrink-0"
-                    style={{ backgroundColor: s.color }}
-                  />
-                  <span className="truncate font-medium text-slate-700">
-                    {s.name}
-                  </span>
-                </div>
-                <div className="flex gap-1">
-                  {/* RESTORE BUTTON */}
-                  <button
-                    onClick={() => handleRestoreScenario(s)}
-                    className="p-1 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded"
-                    title="Promote to Current (Restore Map)"
-                  >
-                    <CheckCircle2 size={14} />
-                  </button>
-
-                  <div className="w-px h-4 bg-slate-200 mx-1"></div>
-
-                  <button
-                    onClick={() => toggleVisibility(s.id)}
-                    className="p-1 text-slate-400 hover:text-slate-700"
-                  >
-                    {s.isVisible ? <Eye size={12} /> : <EyeOff size={12} />}
-                  </button>
-                  <button
-                    onClick={() => removeScenario(s.id)}
-                    className="p-1 text-slate-400 hover:text-red-500"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              </div>
-            ))}
-            {scenarios.length === 0 && (
-              <div className="text-[10px] text-slate-400 text-center italic py-1">
-                No saved scenarios
-              </div>
-            )}
-          </div>
-        </div>
 
         {/* Actions */}
         <div className="space-y-2 pt-2 border-t border-slate-100">
@@ -431,6 +336,20 @@ export function ResultsView() {
             onClick={() => setActiveModal("SIMULATION_GRAPHS")}
           />
           <ActionButton
+            icon={Layers}
+            title="Scenarios"
+            desc="Save/Compare Results"
+            color="purple"
+            onClick={() => setActiveModal("SCENARIO_MANAGER")}
+          />
+          <ActionButton
+            icon={Terminal}
+            title="View Simulation Log"
+            desc="System warnings & details"
+            color="amber"
+            onClick={() => setShowLog(true)}
+          />
+          <ActionButton
             icon={FileText}
             title="Export Report"
             desc="Download CSV"
@@ -440,25 +359,77 @@ export function ResultsView() {
         </div>
       </div>
 
-      <div className="p-3 border-t border-slate-100 bg-slate-50">
-        <button
-          onClick={resetSimulation}
-          className="w-full py-2 rounded text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
-        >
-          <RefreshCcw size={12} /> New Simulation
-        </button>
+      <div className="p-2 border-t border-slate-100 bg-slate-50">
+        <Button variant={"ghost"} size={'sm'} className="w-full text-xs"  onClick={resetSimulation}>
+          <RefreshCcw /> New Simulation
+        </Button>
       </div>
+
+      {/* --- REPORT DIALOG --- */}
+      <Dialog open={showLog} onOpenChange={setShowLog}>
+        <DialogContent className="max-w-xl max-h-[80vh] flex flex-col p-0 gap-0 overflow-hidden">
+          <DialogHeader className="p-4 border-b bg-slate-50">
+            <DialogTitle className="flex items-center gap-2 text-sm font-bold text-slate-700">
+              <Terminal size={16} className="text-slate-500" /> Simulation
+              Output Log
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto bg-slate-900 p-4 font-mono text-[11px] text-slate-300 leading-relaxed custom-scrollbar">
+            {/* Warnings Section (Highlighted) */}
+            {warnings && warnings.length > 0 && (
+              <div className="mb-6 p-3 bg-amber-900/30 border border-amber-700/50 rounded text-amber-200">
+                <div className="font-bold mb-2 flex items-center gap-2 text-amber-400 border-b border-amber-700/50 pb-1">
+                  <AlertTriangle size={14} />
+                  <span>Detected Warnings ({warnings.length})</span>
+                </div>
+                <ul className="list-disc pl-4 space-y-1">
+                  {warnings.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Full Report Text */}
+            <div className="whitespace-pre-wrap">
+              {report || (
+                <span className="italic opacity-50 text-slate-500">
+                  No report generated.
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="p-3 bg-slate-50 border-t flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadLog}
+              disabled={!report}
+              className="h-8 text-xs gap-2"
+            >
+              <Download size={14} /> Download .txt
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowLog(false)}
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 // --- Sub Components ---
 const ResultCard = ({ label, value, unit, color }: any) => (
-  <div className="p-2 bg-slate-50 border border-slate-100 rounded text-center">
-    <div className="text-[9px] text-slate-400 uppercase font-bold tracking-wide">
-      {label}
-    </div>
-    <div className={`text-lg font-bold ${color}`}>
+  <div className="p-1 bg-slate-50 border border-slate-100 rounded text-center">
+    <div className="text-[8px] text-slate-400 uppercase">{label}</div>
+    <div className={`text-[10] font-bold ${color}`}>
       {value}{" "}
       <span className="text-[9px] text-slate-400 font-normal">{unit}</span>
     </div>
@@ -466,14 +437,26 @@ const ResultCard = ({ label, value, unit, color }: any) => (
 );
 
 const ActionButton = ({ icon: Icon, title, desc, color, onClick }: any) => {
-  const bgClass =
-    color === "blue"
-      ? "bg-blue-100 text-blue-600 group-hover:bg-white"
-      : "bg-green-100 text-green-600 group-hover:bg-white";
-  const borderHover =
-    color === "blue"
-      ? "hover:border-blue-300 hover:bg-blue-50"
-      : "hover:border-green-300 hover:bg-green-50";
+  let bgClass = "bg-slate-100 text-slate-600";
+  let borderHover = "hover:border-slate-300 hover:bg-slate-50";
+
+  if (color === "blue") {
+    bgClass = "bg-blue-100 text-blue-600 group-hover:bg-white";
+    borderHover = "hover:border-blue-300 hover:bg-blue-50";
+  }
+  if (color === "green") {
+    bgClass = "bg-green-100 text-green-600 group-hover:bg-white";
+    borderHover = "hover:border-green-300 hover:bg-green-50";
+  }
+  if (color === "amber") {
+    bgClass = "bg-amber-100 text-amber-600 group-hover:bg-white";
+    borderHover = "hover:border-amber-300 hover:bg-amber-50";
+  }
+  if (color === "purple") {
+    bgClass = "bg-purple-100 text-purple-600 group-hover:bg-white";
+    borderHover = "hover:border-purple-300 hover:bg-purple-50";
+  }
+
   return (
     <button
       onClick={onClick}
@@ -491,12 +474,3 @@ const ActionButton = ({ icon: Icon, title, desc, color, onClick }: any) => {
     </button>
   );
 };
-
-const VizButton = ({ label, onClick }: any) => (
-  <button
-    onClick={onClick}
-    className="px-3 py-2 text-xs border rounded text-left hover:bg-slate-50 transition-colors"
-  >
-    {label}
-  </button>
-);

@@ -1,6 +1,5 @@
 import { Project, Workspace } from "epanet-js";
 
-// Define the expected input/output types for type safety
 export interface WorkerInput {
     inpData: string;
 }
@@ -9,6 +8,8 @@ export interface WorkerOutput {
     success: boolean;
     data?: any; // SimulationHistory
     error?: string;
+    warnings?: string[];
+    report?: string;
 }
 
 self.onmessage = async (event: MessageEvent<WorkerInput>) => {
@@ -28,10 +29,10 @@ self.onmessage = async (event: MessageEvent<WorkerInput>) => {
 
         ws.writeFile(inputFileName, inpData);
 
-        // 3. Open Simulation
+        // 3. Open Project
         model.open(inputFileName, reportFileName, outputFileName);
 
-        // 4. Get Network Counts & IDs (Metadata)
+        // 4. Metadata Extraction
         const nodeCount = model.getCount(1); // 1 = Nodes
         const linkCount = model.getCount(2); // 2 = Links
 
@@ -57,7 +58,7 @@ self.onmessage = async (event: MessageEvent<WorkerInput>) => {
 
         while (tStep > 0) {
             // A. Run single time step
-            currentTime = model.runH(); // Returns current simulation time in seconds
+            currentTime = model.runH();
             timestamps.push(currentTime);
 
             // B. Extract Node Results
@@ -100,17 +101,39 @@ self.onmessage = async (event: MessageEvent<WorkerInput>) => {
         model.closeH();
         model.close();
 
-        // 7. Send Success
+        // --- 7. CAPTURE WARNINGS & ERRORS ---
+        // Read the report file from virtual memory
+        const reportContent = ws.readFile(reportFileName);
+
+        // Parse the report for specific keywords
+        const warnings: string[] = [];
+        const lines = reportContent.split('\n');
+
+        lines.forEach(line => {
+            // EPANET typical warning phrases
+            if (line.includes("WARNING:") ||
+                line.includes("System unbalanced") ||
+                line.includes("Negative pressure")) {
+                warnings.push(line.trim());
+            }
+        });
+
+        // 8. Send Success
         const history = {
             timestamps,
             snapshots,
             summary: { nodeCount, linkCount, duration: currentTime }
         };
 
-        self.postMessage({ success: true, data: history });
+        self.postMessage({
+            success: true,
+            data: history,
+            warnings: warnings.length > 0 ? warnings : undefined,
+            report: reportContent
+        });
 
     } catch (err: any) {
         console.error("Worker Error:", err);
-        self.postMessage({ success: false, error: err.message || "Simulation Failed in Worker" });
+        self.postMessage({ success: false, error: err.message || "Simulation Failed" });
     }
 };

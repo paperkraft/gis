@@ -106,12 +106,14 @@ export class ProjectService {
                 features.push(feature);
             });
 
+            console.log('load', data);
+
             useNetworkStore.getState().loadProject({
                 features,
                 settings: { ...data.settings, description: project?.description },
-                patterns: data.patterns,
-                curves: data.curves,
-                controls: data.controls
+                patterns: data.settings.patterns,
+                curves: data.settings.curves,
+                controls: data.settings.controls
             });
 
             return true;

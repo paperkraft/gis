@@ -1,25 +1,35 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Cpu, Plus, Trash2, Save, X } from "lucide-react";
-import { useNetworkStore } from "@/store/networkStore";
-import { useUIStore } from "@/store/uiStore";
+import { Plus, Search, Settings2 } from "lucide-react";
+import { useEffect, useState } from "react";
+
 import { Button } from "@/components/ui/button";
+import { useNetworkStore } from "@/store/networkStore";
 import { NetworkControl } from "@/types/network";
 
-export function ControlManagerPanel() {
-  const { setActivePanel } = useUIStore();
+import { ControlEditor } from "./controls/ControlEditor";
+import { ControlListItem } from "./controls/ControlListItem";
+import { cn } from "@/lib/utils";
+import { Input } from "../ui/input";
+
+interface PanelProps {
+  isMaximized?: boolean;
+}
+
+export function ControlManagerPanel({ isMaximized = false }: PanelProps) {
   const { controls: storeControls, setControls, features } = useNetworkStore();
 
   const [localControls, setLocalControls] = useState<NetworkControl[]>([]);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [tempRule, setTempRule] = useState<NetworkControl | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Sync with store on mount
   useEffect(() => {
     setLocalControls(JSON.parse(JSON.stringify(storeControls)));
-    setHasChanges(false);
   }, [storeControls]);
 
+  // --- DATA PREP ---
   const links = Array.from(features.values()).filter((f) =>
     ["pipe", "pump", "valve"].includes(f.get("type"))
   );
@@ -27,180 +37,173 @@ export function ControlManagerPanel() {
     ["junction", "tank", "reservoir"].includes(f.get("type"))
   );
 
-  // --- ACTIONS ---
-  const handleSave = () => {
-    setControls(localControls);
-    setHasChanges(false);
-    // Optional: Auto-close or stay open? SimScale usually keeps it open.
-    // setActivePanel("PROJECT_DETAILS");
+  const generateNextId = () => {
+    let index = 1;
+    let newId = `C-${index}`;
+    while (localControls.some((c) => c.id === newId)) {
+      index++;
+      newId = `C-${index}`;
+    }
+    return newId;
   };
 
-  const markChanged = () => setHasChanges(true);
+  // --- ACTIONS ---
 
-  const handleAdd = () => {
+  const handleCreate = () => {
     if (links.length === 0) {
-      alert("No links available to control.");
+      alert("No links available to control. Add pumps or valves first.");
       return;
     }
+
     const newControl: NetworkControl = {
-      id: crypto.randomUUID(),
+      id: generateNextId(),
       linkId: links[0].getId() as string,
       status: "CLOSED",
       type: "HI LEVEL",
       nodeId: nodes.length > 0 ? (nodes[0].getId() as string) : undefined,
-      value: 10,
+      value: 0,
     };
-    setLocalControls([...localControls, newControl]);
-    markChanged();
+
+    setTempRule(newControl);
+    setEditingId("NEW");
+  };
+
+  const handleEdit = (rule: NetworkControl) => {
+    setTempRule({ ...rule });
+    setEditingId(rule.id);
+  };
+
+  const handleSave = () => {
+    if (!tempRule) return;
+
+    let updatedList = [...localControls];
+
+    if (editingId === "NEW") {
+      updatedList.push(tempRule);
+    } else {
+      updatedList = updatedList.map((c) => (c.id === editingId ? tempRule : c));
+    }
+
+    setLocalControls(updatedList);
+    setControls(updatedList); // Commit to store
+
+    setEditingId(null);
+    setTempRule(null);
   };
 
   const handleDelete = (id: string) => {
-    setLocalControls(localControls.filter((c) => c.id !== id));
-    markChanged();
+    const updated = localControls.filter((c) => c.id !== id);
+    setLocalControls(updated);
+    setControls(updated);
+
+    if (editingId === id) {
+      setEditingId(null);
+      setTempRule(null);
+    }
   };
 
-  const updateLocalControl = (id: string, updated: Partial<NetworkControl>) => {
-    setLocalControls(
-      localControls.map((c) => (c.id === id ? { ...c, ...updated } : c))
-    );
-    markChanged();
-  };
+  // Filter for display
+  const filteredControls = localControls.filter(
+    (c) =>
+      c.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.linkId.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      {/* Header */}
-      <div className="h-12 px-4 border-b border-slate-200 flex items-center justify-between shrink-0 bg-slate-50">
-        <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-          <Cpu className="w-4 h-4 text-indigo-600" />
-          Network Controls
-        </h2>
-        <button
-          onClick={() => setActivePanel("PROJECT_DETAILS")}
-          className="p-1.5 hover:bg-slate-200 rounded text-slate-500"
+    <div className="flex flex-col h-full bg-slate-50">
+      {/* 1. INTERNAL TOOLBAR (Since Header is in Modal) */}
+      <div className="flex items-center gap-2 p-2 border-b border-slate-200 bg-white shrink-0">
+        {/* Search Bar */}
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-1.5 h-3.5 w-3.5 text-slate-400" />
+          <Input
+            placeholder="Search rules..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="h-7 pl-8 text-xs bg-slate-50 border-slate-200"
+          />
+        </div>
+
+        {/* Add Button */}
+        <Button
+          onClick={handleCreate}
+          disabled={!!editingId}
+          size="sm"
+          className="h-7 px-3 text-xs bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
         >
-          <X className="w-4 h-4" />
-        </button>
+          <Plus size={14} className="mr-1.5" />
+          Add Rule
+        </Button>
       </div>
 
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
-        {localControls.length === 0 ? (
-          <div className="text-center py-10 text-slate-400 text-xs">
-            No controls defined.
-            <br />
-            Click Add to create rules.
-          </div>
-        ) : (
-          localControls.map((control) => (
-            <div
-              key={control.id}
-              className="bg-white p-3 rounded border border-slate-200 shadow-sm space-y-2 text-xs"
-            >
-              {/* Row 1: Link & Action */}
-              <div className="flex gap-2">
-                <select
-                  value={control.linkId}
-                  onChange={(e) =>
-                    updateLocalControl(control.id, { linkId: e.target.value })
-                  }
-                  className="flex-1 border rounded px-2 py-1"
-                >
-                  {links.map((l) => (
-                    <option key={l.getId()} value={l.getId()}>
-                      {l.get("label") || l.getId()}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={control.status}
-                  onChange={(e) =>
-                    updateLocalControl(control.id, {
-                      status: e.target.value as any,
-                    })
-                  }
-                  className="w-24 border rounded px-2 py-1 font-semibold text-indigo-600"
-                >
-                  <option value="OPEN">OPEN</option>
-                  <option value="CLOSED">CLOSED</option>
-                  <option value="ACTIVE">ACTIVE</option>
-                </select>
-              </div>
-
-              {/* Row 2: Logic */}
-              <div className="flex gap-2 items-center">
-                <span className="text-slate-400 font-mono">IF</span>
-                <select
-                  value={control.type}
-                  onChange={(e) =>
-                    updateLocalControl(control.id, {
-                      type: e.target.value as any,
-                    })
-                  }
-                  className="flex-1 border rounded px-2 py-1"
-                >
-                  <option value="LOW LEVEL">Node Below</option>
-                  <option value="HI LEVEL">Node Above</option>
-                  <option value="TIMER">Time Is</option>
-                </select>
-              </div>
-
-              {/* Row 3: Node & Value */}
-              <div className="flex gap-2">
-                {["LOW LEVEL", "HI LEVEL"].includes(control.type) && (
-                  <select
-                    value={control.nodeId}
-                    onChange={(e) =>
-                      updateLocalControl(control.id, { nodeId: e.target.value })
-                    }
-                    className="flex-1 border rounded px-2 py-1"
-                  >
-                    {nodes.map((n) => (
-                      <option key={n.getId()} value={n.getId()}>
-                        {n.get("label") || n.getId()}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                <input
-                  type="number"
-                  value={control.value}
-                  onChange={(e) =>
-                    updateLocalControl(control.id, {
-                      value: parseFloat(e.target.value),
-                    })
-                  }
-                  className="w-20 border rounded px-2 py-1 text-center"
-                />
-                <button
-                  onClick={() => handleDelete(control.id)}
-                  className="ml-auto text-slate-400 hover:text-red-500"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))
+      {/* 2. SCROLLABLE LIST */}
+      <div
+        className={cn(
+          "flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar",
+          // If maximized, we can use a grid layout for better space usage
+          isMaximized && "grid grid-cols-2 gap-3 space-y-0 content-start"
         )}
+      >
+        {/* EDITOR (Spans full width if maximized) */}
+        {editingId === "NEW" && tempRule && (
+          <div className={cn(isMaximized && "col-span-2")}>
+            <ControlEditor
+              rule={tempRule}
+              links={links}
+              nodes={nodes}
+              onChange={setTempRule}
+              onSave={handleSave}
+              onCancel={() => setEditingId(null)}
+            />
+          </div>
+        )}
+
+        {/* EMPTY STATE */}
+        {localControls.length === 0 && editingId !== "NEW" && (
+          <div
+            className={cn(
+              "flex flex-col items-center justify-center h-40 opacity-40 text-xs italic space-y-2",
+              isMaximized && "col-span-2"
+            )}
+          >
+            <Settings2 size={24} />
+            <p>No controls defined.</p>
+          </div>
+        )}
+
+        {/* LIST ITEMS */}
+        {filteredControls.map((rule) => {
+          // If Editing this item
+          if (editingId === rule.id && tempRule) {
+            return (
+              <div key={rule.id} className={cn(isMaximized && "col-span-2")}>
+                <ControlEditor
+                  rule={tempRule}
+                  links={links}
+                  nodes={nodes}
+                  onChange={setTempRule}
+                  onSave={handleSave}
+                  onCancel={() => setEditingId(null)}
+                />
+              </div>
+            );
+          }
+          // Normal View
+          return (
+            <ControlListItem
+              key={rule.id}
+              rule={rule}
+              onEdit={() => handleEdit(rule)}
+              onDelete={() => handleDelete(rule.id)}
+            />
+          );
+        })}
       </div>
 
-      {/* Footer Actions */}
-      <div className="p-4 border-t border-slate-200 bg-white shrink-0 flex gap-2">
-        <Button
-          onClick={handleAdd}
-          variant="outline"
-          size="sm"
-          className="flex-1"
-        >
-          <Plus className="w-4 h-4 mr-1" /> Add
-        </Button>
-        <Button
-          onClick={handleSave}
-          disabled={!hasChanges}
-          size="sm"
-          className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
-        >
-          <Save className="w-4 h-4 mr-1" /> Save
-        </Button>
+      {/* 3. FOOTER INFO */}
+      <div className="px-3 py-1.5 bg-slate-100 border-t border-slate-200 text-[10px] text-slate-500 flex justify-between shrink-0">
+        <span>Total Controls: {localControls.length}</span>
+        {isMaximized && <span>Detailed View</span>}
       </div>
     </div>
   );

@@ -21,15 +21,20 @@ export function SetupView() {
     const { runSimulation, isSimulating } = useSimulationStore();
     const { setColorMode } = useStyleStore();
 
-    const { updateSettings, features } = useNetworkStore();
+    const { updateSettings, features, settings } = useNetworkStore();
 
     const [activeSection, setActiveSection] = useState("control");
     const [statusMsg, setStatusMsg] = useState("Ready to solve.");
     const [statusColor, setStatusColor] = useState<"blue"|"green"|"red">("blue");
 
     const [config, setConfig] = useState({
-        duration: 24, timeStep: "1:00", startClock: "12:00 AM",
-        flowUnits: "LPS", headloss: "H-W" as HeadlossFormula , accuracy: 0.001, trials: 40
+        duration: 24, 
+        timeStep: "1:00",
+        startClock: "12:00 AM",
+        flowUnits: settings.units, 
+        headloss: settings.headloss as HeadlossFormula , 
+        accuracy: settings.accuracy, 
+        trials: settings.trials
     });
 
     const handleRun = async () => {

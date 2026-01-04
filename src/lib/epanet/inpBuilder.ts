@@ -135,6 +135,38 @@ export function buildINP(features: Feature[],
         lines.push('');
     }
 
+    // --- PATTERNS ---
+    if (safePatterns.length > 0) {
+        lines.push('[PATTERNS]');
+        lines.push(';ID             Multipliers');
+        safePatterns.forEach(p => {
+            const mults = [...p.multipliers];
+            // Pad to ensure 24 values
+            while (mults.length < 24) mults.push(1.0);
+
+            const row1 = mults.slice(0, 12).map(v => v.toFixed(3)).join('   ');
+            const row2 = mults.slice(12, 24).map(v => v.toFixed(3)).join('   ');
+
+            lines.push(`${pad(p.id)} ${row1}`);
+            lines.push(`${pad(p.id)} ${row2}`);
+        });
+        lines.push('');
+    }
+
+    // --- CURVES ---
+    if (curves.length > 0) {
+        lines.push('[CURVES]');
+        lines.push(';ID             X-Value         Y-Value');
+        curves.forEach(c => {
+            lines.push(`; ${c.type}`);
+            c.points.forEach(pt => {
+                lines.push(`${pad(c.id)} ${pad(pt.x)} ${pad(pt.y)}`);
+            });
+            lines.push('');
+        });
+        lines.push('');
+    }
+
     // --- CONTROLS ---
     if (controls.length > 0) {
         const validControls = controls.filter(c => {
@@ -247,37 +279,7 @@ export function buildINP(features: Feature[],
     lines.push('Statistic          None');
     lines.push('');
 
-    // --- PATTERNS ---
-    if (safePatterns.length > 0) {
-        lines.push('[PATTERNS]');
-        lines.push(';ID             Multipliers');
-        safePatterns.forEach(p => {
-            const mults = [...p.multipliers];
-            // Pad to ensure 24 values
-            while (mults.length < 24) mults.push(1.0);
 
-            const row1 = mults.slice(0, 12).map(v => v.toFixed(3)).join('   ');
-            const row2 = mults.slice(12, 24).map(v => v.toFixed(3)).join('   ');
-
-            lines.push(`${pad(p.id)} ${row1}`);
-            lines.push(`${pad(p.id)} ${row2}`);
-        });
-        lines.push('');
-    }
-
-    // --- CURVES ---
-    if (curves.length > 0) {
-        lines.push('[CURVES]');
-        lines.push(';ID             X-Value         Y-Value');
-        curves.forEach(c => {
-            lines.push(`; ${c.type}`);
-            c.points.forEach(pt => {
-                lines.push(`${pad(c.id)} ${pad(pt.x)} ${pad(pt.y)}`);
-            });
-            lines.push('');
-        });
-        lines.push('');
-    }
 
     lines.push('[END]');
     return lines.join('\n');
