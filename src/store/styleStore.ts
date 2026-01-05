@@ -1,7 +1,10 @@
 import { create } from 'zustand';
 
 // --- TYPES ---
-export type ColorMode = 'none' | 'diameter' | 'roughness' | 'pressure' | 'velocity' | 'head' | 'flow' | 'elevation';
+export type NodeColorMode = 'none' | 'elevation' | 'pressure' | 'head' | 'demand';
+export type LinkColorMode = 'none' | 'diameter' | 'roughness' | 'flow' | 'velocity' | 'headloss';
+
+// export type ColorMode = 'none' | 'diameter' | 'roughness' | 'pressure' | 'velocity' | 'head' | 'flow' | 'elevation';
 export type LabelMode = 'id' | 'elevation' | 'diameter' | 'result';
 export type StyleType = 'continuous' | 'discrete';
 
@@ -30,12 +33,26 @@ const DEFAULT_LAYER_STYLES: Record<string, LayerStyle> = {
     pump: { color: '#ef4444', width: 4, opacity: 1, visible: true },
 };
 
+const CLASSIC_EPANET_GRADIENT = [
+    { offset: 0, color: '#0000FF' },   // Blue
+    { offset: 25, color: '#00FFFF' },  // Cyan
+    { offset: 50, color: '#00FF00' },  // Green
+    { offset: 75, color: '#FFFF00' },  // Yellow
+    { offset: 100, color: '#FF0000' }  // Red
+];
+
 interface StyleState {
     // --- Simulation Styles (Existing) ---
-    colorMode: ColorMode;
+    // colorMode: ColorMode;
+    nodeColorMode: NodeColorMode;
+    linkColorMode: LinkColorMode;
+
     labelMode: LabelMode;
     minMax: Record<string, { min: number, max: number }>;
-    gradientStops: GradientStop[];
+
+    nodeGradient: GradientStop[];
+    linkGradient: GradientStop[];
+
     styleType: StyleType;
     classCount: number;
 
@@ -43,10 +60,16 @@ interface StyleState {
     layerStyles: Record<string, LayerStyle>;
 
     // --- Actions ---
-    setColorMode: (mode: ColorMode) => void;
+    // setColorMode: (mode: ColorMode) => void;
+    setNodeColorMode: (mode: NodeColorMode) => void;
+    setLinkColorMode: (mode: LinkColorMode) => void;
+
     setLabelMode: (mode: LabelMode) => void;
     updateMinMax: (metric: string, min: number, max: number) => void;
-    setGradientStops: (stops: GradientStop[]) => void;
+
+    setNodeGradient: (stops: GradientStop[]) => void;
+    setLinkGradient: (stops: GradientStop[]) => void;
+
     setStyleType: (type: StyleType) => void;
     setClassCount: (count: number) => void;
 
@@ -58,7 +81,10 @@ interface StyleState {
 
 export const useStyleStore = create<StyleState>((set, get) => ({
     // Defaults
-    colorMode: 'none',
+    // colorMode: 'none',
+    nodeColorMode: 'none',
+    linkColorMode: 'none',
+
     labelMode: 'id',
     minMax: {
         pressure: { min: 0, max: 80 },
@@ -68,23 +94,27 @@ export const useStyleStore = create<StyleState>((set, get) => ({
         flow: { min: 0, max: 100 },
         head: { min: 0, max: 100 }
     },
-    gradientStops: [
-        { offset: 25, color: '#3b528b' },
-        { offset: 50, color: '#21918c' },
-        { offset: 75, color: '#5ec962' },
-        { offset: 100, color: '#fde725' }
-    ],
-    styleType: 'continuous',
+
+    nodeGradient: CLASSIC_EPANET_GRADIENT,
+    linkGradient: CLASSIC_EPANET_GRADIENT,
+
+    styleType: 'discrete',
     classCount: 5,
 
     // Initialize Base Styles
     layerStyles: JSON.parse(JSON.stringify(DEFAULT_LAYER_STYLES)),
 
     // Actions
-    setColorMode: (mode) => set({ colorMode: mode }),
+    // setColorMode: (mode) => set({ colorMode: mode }),
+    setNodeColorMode: (mode) => set({ nodeColorMode: mode }),
+    setLinkColorMode: (mode) => set({ linkColorMode: mode }),
+
     setLabelMode: (mode) => set({ labelMode: mode }),
     updateMinMax: (metric, min, max) => set((state) => ({ minMax: { ...state.minMax, [metric]: { min, max } } })),
-    setGradientStops: (stops) => set({ gradientStops: stops }),
+
+    setNodeGradient: (stops) => set({ nodeGradient: stops }),
+    setLinkGradient: (stops) => set({ linkGradient: stops }),
+
     setStyleType: (type) => set({ styleType: type }),
     setClassCount: (count) => set({ classCount: Math.max(2, Math.min(8, count)) }),
 

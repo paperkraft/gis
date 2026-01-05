@@ -76,10 +76,10 @@ export function hexToRgba(color: string, alpha: number = 1): string {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export function getColor(value: number, min: number, max: number): string {
+export function getColor(value: number, min: number, max: number, stops: GradientStop[]): string {
     if (value === undefined || value === null || isNaN(value)) return '#999999';
 
-    const { gradientStops, styleType, classCount } = useStyleStore.getState();
+    const { styleType, classCount } = useStyleStore.getState();
 
     let t = ((value - min) / (max - min)) * 100;
     t = Math.max(0, Math.min(100, t));
@@ -88,8 +88,8 @@ export function getColor(value: number, min: number, max: number): string {
         const step = 100 / classCount;
         const binIndex = Math.min(Math.floor(t / step), classCount - 1);
         const binCenter = (binIndex * step) + (step / 2);
-        return interpolateColor(binCenter, gradientStops);
+        return interpolateColor(binCenter, stops);
     }
 
-    return interpolateColor(t, gradientStops);
+    return interpolateColor(t, stops);
 }

@@ -19,7 +19,7 @@ import { HeadlossFormula } from '@/types/network';
 export function SetupView() {
     const { setActiveModal, setActivePanel } = useUIStore();
     const { runSimulation, isSimulating } = useSimulationStore();
-    const { setColorMode } = useStyleStore();
+    const { setNodeColorMode, setLinkColorMode } = useStyleStore();
 
     const { updateSettings, features, settings } = useNetworkStore();
 
@@ -57,7 +57,8 @@ export function SetupView() {
             if (success) {
                 setStatusMsg("Converged."); 
                 setStatusColor("green"); 
-                setColorMode('pressure');
+                setNodeColorMode('pressure');
+                setLinkColorMode('velocity');
             } else {
                 setStatusMsg("Solver Failed."); 
                 setStatusColor("red");

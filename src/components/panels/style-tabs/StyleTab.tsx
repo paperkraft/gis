@@ -6,7 +6,7 @@ import { FormGroup } from '@/components/form-controls/FormGroup';
 import { FormInput } from '@/components/form-controls/FormInput';
 import { FormSelect } from '@/components/form-controls/FormSelect';
 import { PRESETS } from '@/lib/styles/presets';
-import { GradientStop, useStyleStore } from '@/store/styleStore';
+import { GradientStop, useStyleStore, NodeColorMode, LinkColorMode } from '@/store/styleStore';
 
 interface StyleTabProps {
     layerId: string;
@@ -15,10 +15,24 @@ interface StyleTabProps {
 export function StyleTab({ layerId }: StyleTabProps) {
     const { 
         getStyle, updateStyle, layerStyles,
-        colorMode, setColorMode,
-        gradientStops, setGradientStops,
+        // New Split Modes
+        nodeColorMode, setNodeColorMode,
+        linkColorMode, setLinkColorMode,
+        
+        nodeGradient, setNodeGradient,
+        linkGradient, setLinkGradient,
         minMax, updateMinMax
     } = useStyleStore();
+
+    // 1. Determine if this layer is a Node or Link
+    const isLinkLayer = ['pipe', 'pump', 'valve'].includes(layerId);
+    
+    // 2. Resolve Current Mode and Setter based on layer type
+    const currentMode = isLinkLayer ? linkColorMode : nodeColorMode;
+    const currentGradient = isLinkLayer ? linkGradient : nodeGradient;
+
+    const setMode = (val: string) => isLinkLayer ? setLinkColorMode(val as LinkColorMode) : setNodeColorMode(val as NodeColorMode);
+    const setGradient = (stops: GradientStop[]) => isLinkLayer ? setLinkGradient(stops) : setNodeGradient(stops);
 
     // Local State
     const [localStyle, setLocalStyle] = useState<any>(null);
@@ -28,11 +42,13 @@ export function StyleTab({ layerId }: StyleTabProps) {
     // Sync State
     useEffect(() => {
         setLocalStyle(getStyle(layerId));
-        setLocalStops([...gradientStops].sort((a, b) => a.offset - b.offset));
-        if (colorMode !== 'none' && minMax[colorMode]) {
-            setLocalMinMax(minMax[colorMode]);
+        setLocalStops([...currentGradient].sort((a, b) => a.offset - b.offset));
+        
+        // Use currentMode (node/link) to get minMax
+        if (currentMode !== 'none' && minMax[currentMode]) {
+            setLocalMinMax(minMax[currentMode]);
         }
-    }, [layerId, layerStyles, gradientStops, colorMode, minMax, getStyle]);
+    }, [layerId, layerStyles, currentGradient, currentMode, minMax, getStyle]);
 
     // --- HANDLERS ---
 
@@ -45,15 +61,14 @@ export function StyleTab({ layerId }: StyleTabProps) {
     const handleThematicSave = (stops = localStops) => {
         // Ensure strictly sorted before saving
         const sorted = [...stops].sort((a, b) => a.offset - b.offset);
-        setGradientStops(sorted);
-        if (colorMode !== 'none') updateMinMax(colorMode, localMinMax.min, localMinMax.max);
+        setGradient(sorted);
+        if (currentMode !== 'none') updateMinMax(currentMode, localMinMax.min, localMinMax.max);
     };
 
     const handleStopChange = (index: number, field: keyof GradientStop, value: any) => {
         const newStops = [...localStops];
         newStops[index] = { ...newStops[index], [field]: value };
         setLocalStops(newStops);
-        // Auto-save for color, but maybe wait for blur on offset
         if (field === 'color') handleThematicSave(newStops);
     };
 
@@ -70,17 +85,34 @@ export function StyleTab({ layerId }: StyleTabProps) {
         handleThematicSave(reversed);
     };
 
-    const isLine = ['pipe'].includes(layerId);
+    const isLine = ['pipe', 'pump', 'valve'].includes(layerId);
     
-    // Attribute Options based on Layer
+    // Attribute Options based on Layer Type
     const getOptions = () => {
         const base = [{ value: 'none', label: 'Uniform Color' }];
-        if (layerId === 'pipe') return [...base, { value: 'diameter', label: 'Diameter' }, { value: 'roughness', label: 'Roughness' }, { value: 'flow', label: 'Flow' }, { value: 'velocity', label: 'Velocity' }];
-        if (['junction', 'tank', 'reservoir'].includes(layerId)) return [...base, { value: 'elevation', label: 'Elevation' }, { value: 'pressure', label: 'Pressure' }, { value: 'head', label: 'Head' }];
-        return base;
+        
+        if (isLinkLayer) {
+            return [
+                ...base, 
+                { value: 'diameter', label: 'Diameter' }, 
+                { value: 'roughness', label: 'Roughness' }, 
+                { value: 'flow', label: 'Flow' }, 
+                { value: 'velocity', label: 'Velocity' },
+                { value: 'headloss', label: 'Headloss' }
+            ];
+        }
+        
+        // Node Options
+        return [
+            ...base, 
+            { value: 'elevation', label: 'Elevation' }, 
+            { value: 'pressure', label: 'Pressure' }, 
+            { value: 'head', label: 'Head' },
+            { value: 'demand', label: 'Demand' }
+        ];
     };
 
-    const isThematic = colorMode !== 'none';
+    const isThematic = currentMode !== 'none';
 
     return (
         <div className="p-4 space-y-6">
@@ -89,9 +121,9 @@ export function StyleTab({ layerId }: StyleTabProps) {
             <FormGroup label="Coloring Method">
                 <FormSelect 
                     label="Method" 
-                    value={isThematic ? colorMode : 'none'}
+                    value={currentMode}
                     options={getOptions()}
-                    onChange={(v) => setColorMode(v)}
+                    onChange={(v) => setMode(v)}
                 />
             </FormGroup>
 
@@ -146,12 +178,12 @@ export function StyleTab({ layerId }: StyleTabProps) {
                                                     min="0" max="100" 
                                                     value={stop.offset}
                                                     onChange={(e) => handleStopChange(idx, 'offset', parseInt(e.target.value))}
-                                                    onBlur={() => handleThematicSave()} // Commit on blur
+                                                    onBlur={() => handleThematicSave()} 
                                                     className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 outline-none py-0.5 text-slate-700 font-mono"
                                                 />
                                             </div>
 
-                                            {/* Hex Label (Read-onlyish) */}
+                                            {/* Hex Label */}
                                             <span className="font-mono text-[10px] text-slate-400 uppercase select-all">
                                                 {stop.color}
                                             </span>
@@ -174,11 +206,11 @@ export function StyleTab({ layerId }: StyleTabProps) {
                             </div>
                         </div>
 
-                        {/* C. Quick Presets */}
-                        <div>
+                        {/* Presets */}
+                        <div className="mt-2">
                             <label className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2 block">Quick Presets</label>
                             <div className="grid grid-cols-6 gap-1.5">
-                                {PRESETS.slice(0, 6).map((p, i) => (
+                                {PRESETS.map((p, i) => (
                                     <button 
                                         key={i} 
                                         onClick={() => { setLocalStops(p.stops); handleThematicSave(p.stops); }} 
@@ -192,7 +224,7 @@ export function StyleTab({ layerId }: StyleTabProps) {
                     </FormGroup>
                 </div>
             ) : (
-                /* 3. UNIFORM COLOR PICKER */
+                /* 3. UNIFORM COLOR PICKER (For Base Style) */
                 <div className="animate-in fade-in slide-in-from-left-1">
                      <FormGroup label="Base Color">
                         <div className="flex flex-wrap gap-2">

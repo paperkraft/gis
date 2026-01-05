@@ -27,7 +27,7 @@ export function BaseLayerPicker({
 
   return (
     <div className="absolute bottom-0 right-12 z-50 mb-0 animate-in fade-in slide-in-from-right-4 duration-200">
-      <div className="bg-background p-3 rounded-md shadow-xl border border-slate-200 grid grid-cols-3 gap-3 w-60">
+      <div className="bg-background p-3 rounded-md shadow-xl border border-slate-300 grid grid-cols-3 gap-3 w-60">
         {/* 1. OSM */}
         <LayerOption
           label="Standard"
@@ -117,7 +117,7 @@ export function BaseLayerPicker({
       </div>
 
       {/* Arrow */}
-      <div className="absolute -right-1.5 bottom-4 w-3 h-3 bg-background transform rotate-45 border-r border-t border-slate-200" />
+      <div className="absolute -right-1.5 bottom-4 w-3 h-3 bg-background transform rotate-45 border-r border-t border-slate-300" />
     </div>
   );
 }

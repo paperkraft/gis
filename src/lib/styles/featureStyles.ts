@@ -23,7 +23,7 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
     if (!config) return new Style({});
 
     // 1. Get Stores
-    const { colorMode, labelMode, minMax, layerStyles } = useStyleStore.getState();
+    const { nodeColorMode, linkColorMode, labelMode, minMax, layerStyles, nodeGradient, linkGradient } = useStyleStore.getState();
     // const { results, history, currentTimeIndex } = useSimulationStore.getState();
     const { results } = useSimulationStore.getState();
     const { showLabels, showPipeArrows } = useUIStore.getState();
@@ -46,8 +46,13 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
     let value: number | null = null;
     let range = { min: 0, max: 100 };
 
+    let currentMode = 'none';
+    let activeGradient = nodeGradient; // Default
+
     // --- PIPES ---
     if (featureType === 'pipe') {
+        currentMode = linkColorMode;
+        activeGradient = linkGradient;
         const diameter = feature.get('diameter') || 100;
 
         // Auto Scale Logic (Overrides fixed width)
@@ -56,16 +61,16 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
         }
 
         // Color Mode Logic
-        if (colorMode === 'diameter') {
+        if (currentMode === 'diameter') {
             value = diameter;
             range = minMax.diameter || { min: 0, max: 500 };
-        } else if (colorMode === 'roughness') {
+        } else if (currentMode === 'roughness') {
             value = feature.get('roughness');
             range = minMax.roughness || { min: 80, max: 150 };
-        } else if (colorMode === 'velocity' && activeSnapshot?.links[featureId]) {
+        } else if (currentMode === 'velocity' && activeSnapshot?.links[featureId]) {
             value = activeSnapshot.links[featureId].velocity;
             range = minMax.velocity;
-        } else if (colorMode === 'flow' && activeSnapshot?.links[featureId]) {
+        } else if (currentMode === 'flow' && activeSnapshot?.links[featureId]) {
             value = Math.abs(activeSnapshot.links[featureId].flow);
             range = minMax.flow;
         }
@@ -73,21 +78,23 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
 
     // --- NODES ---
     else if (['junction', 'tank', 'reservoir'].includes(featureType)) {
-        if (colorMode === 'elevation') {
+        currentMode = nodeColorMode;
+        activeGradient = nodeGradient;
+        if (currentMode === 'elevation') {
             value = feature.get('elevation');
             range = { min: 0, max: 100 };
-        } else if (colorMode === 'pressure' && activeSnapshot?.nodes[featureId]) {
+        } else if (currentMode === 'pressure' && activeSnapshot?.nodes[featureId]) {
             value = activeSnapshot.nodes[featureId].pressure;
             range = minMax.pressure;
-        } else if (colorMode === 'head' && activeSnapshot?.nodes[featureId]) {
+        } else if (currentMode === 'head' && activeSnapshot?.nodes[featureId]) {
             value = activeSnapshot.nodes[featureId].head;
             range = minMax.head;
         }
     }
 
     // 4. Apply Gradient Override
-    if (value !== null && colorMode !== 'none') {
-        color = getColor(value, range.min, range.max);
+    if (value !== null && currentMode !== 'none') {
+        color = getColor(value, range.min, range.max, activeGradient);
     }
 
     // 5. Finalize Color with Opacity

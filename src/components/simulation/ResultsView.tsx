@@ -1,33 +1,21 @@
 "use client";
 
 import {
-  AlertTriangle,
-  ArrowLeft,
-  BarChart3,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  FileText,
-  Layers,
-  Pause,
-  Play,
-  RefreshCcw,
-  Save,
-  Terminal,
-  Timer,
-} from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
+    AlertTriangle, ArrowLeft, BarChart3, ChevronLeft, ChevronRight, Download, FileText, Layers,
+    Pause, Play, RefreshCcw, Save, Terminal, Timer
+} from 'lucide-react';
+import { useParams } from 'next/navigation';
+import React, { useEffect, useMemo, useState } from 'react';
 
-import { cn } from "@/lib/utils";
-import { useSimulationStore } from "@/store/simulationStore";
-import { useStyleStore } from "@/store/styleStore";
-import { useUIStore } from "@/store/uiStore";
+import { cn } from '@/lib/utils';
+import { useSimulationStore } from '@/store/simulationStore';
+import { useStyleStore } from '@/store/styleStore';
+import { useUIStore } from '@/store/uiStore';
 
-import { FormGroup } from "../form-controls/FormGroup";
-import { FormSelect } from "../form-controls/FormSelect";
-import { Button } from "../ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
-import { useParams } from "next/navigation";
+import { FormGroup } from '../form-controls/FormGroup';
+import { FormSelect } from '../form-controls/FormSelect';
+import { Button } from '../ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 
 export function ResultsView() {
   const params = useParams();
@@ -47,7 +35,9 @@ export function ResultsView() {
     saveResultsToDB,
   } = useSimulationStore();
 
-  const { colorMode, setColorMode } = useStyleStore();
+  const { nodeColorMode, setNodeColorMode, linkColorMode, setLinkColorMode } =
+    useStyleStore();
+
   const { setActiveModal } = useUIStore();
 
   const [showLog, setShowLog] = useState(false);
@@ -163,11 +153,20 @@ export function ResultsView() {
   const totalSteps = history.snapshots.length;
   const isEPS = totalSteps > 1;
 
-  const visulationOptions = [
+  const nodeOptions = [
     { label: "Pressure", value: "pressure" },
-    { label: "Velocity", value: "velocity" },
     { label: "Total Head", value: "head" },
+    { label: "Demand", value: "demand" },
+    { label: "Elevation", value: "elevation" },
+    { label: "None", value: "none" },
+  ];
+
+  const linkOptions = [
+    { label: "Velocity", value: "velocity" },
     { label: "Flow Rate", value: "flow" },
+    { label: "Headloss", value: "headloss" },
+    { label: "Diameter", value: "diameter" },
+    { label: "None", value: "none" },
   ];
 
   return (
@@ -325,10 +324,17 @@ export function ResultsView() {
         {/* Map Visualization */}
         <FormGroup label="Visualization">
           <FormSelect
-            label=""
-            value={colorMode || ""}
-            onChange={(v) => setColorMode(v)}
-            options={visulationOptions}
+            label="Nodes"
+            value={nodeColorMode}
+            onChange={(v) => setNodeColorMode(v)}
+            options={nodeOptions}
+          />
+
+          <FormSelect
+            label="Links"
+            value={linkColorMode}
+            onChange={(v) => setLinkColorMode(v)}
+            options={linkOptions}
           />
         </FormGroup>
 

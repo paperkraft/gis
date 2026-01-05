@@ -27,10 +27,13 @@ export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
     // 2. Get Simulation & Style State
     const { results: simulationResults } = useSimulationStore();
     const {
-        colorMode,
+        nodeColorMode,
+        linkColorMode,
+        nodeGradient,
+        linkGradient,
+
         labelMode,
         minMax,
-        gradientStops,
         styleType,
         classCount,
         layerStyles
@@ -133,10 +136,14 @@ export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
         flowAnimationStyle,
 
         simulationResults,
-        colorMode,
+
+        nodeColorMode,
+        linkColorMode,
+        nodeGradient,
+        linkGradient,
+
         labelMode,
         minMax,
-        gradientStops,
         styleType,
         classCount,
         layerStyles
