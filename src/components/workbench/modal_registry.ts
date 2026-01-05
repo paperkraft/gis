@@ -13,10 +13,11 @@ import { PumpProperties } from '../properties/PumpProperties';
 import { ReservoirProperties } from '../properties/ReservoirProperties';
 import { TankProperties } from '../properties/TankProperties';
 import { ValveProperties } from '../properties/ValveProperties';
-import { SimulationGraphs } from '../simulation/SimulationGraphs';
 import { AutoElevationPanel } from '../panels/AutoElevationPanel';
 import { NetworkValidationPanel } from '../panels/NetworkValidationPanel';
 import { ScenarioManagerPanel } from '../simulation/ScenarioManagerPanel';
+import { SimulationGraphs } from '../simulation/graphs/SimulationGraphs';
+// import { SimulationGraphs } from '../simulation/SimulationGraphs';
 
 interface ModalConfig {
   title: string;

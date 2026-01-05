@@ -7,6 +7,7 @@ import { usePropertyForm } from "@/hooks/usePropertyForm";
 import { SaveActions } from "../form-controls/SaveActions";
 import { FeatureHeader } from "./FeatureHeader";
 import { TopologyInfo } from "./TopologyInfo";
+import { toast } from "sonner";
 
 export function TankProperties() {
   const {
@@ -21,7 +22,33 @@ export function TankProperties() {
     handleAutoElevate,
     selectedFeatureId,
   } = usePropertyForm();
+
   if (!selectedFeatureId) return null;
+
+  const onSave = () => {
+    // 1. Validate
+    if ((formData.diameter ?? 0) <= 0) {
+      toast.error("Diameter must be positive");
+      return;
+    }
+
+    const min = formData.minLevel ?? 0;
+    const max = formData.maxLevel ?? 0;
+    const init = formData.initialLevel ?? 0;
+
+    if (min >= max) {
+      toast.error("Min Level must be lower than Max Level");
+      return;
+    }
+    if (init < min || init > max) {
+      toast.error("Initial Level must be between Min and Max");
+      return;
+    }
+
+    // 2. Save
+    handleSave();
+    toast.success("Tank properties saved");
+  };
 
   return (
     <div className="p-4 space-y-4">
@@ -106,7 +133,7 @@ export function TankProperties() {
         </div>
       </FormGroup>
 
-      <SaveActions onSave={handleSave} disabled={!hasChanges} />
+      <SaveActions onSave={onSave} disabled={!hasChanges} />
     </div>
   );
 }

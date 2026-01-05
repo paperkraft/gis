@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 
 import { useNetworkStore } from '@/store/networkStore';
 import { ProjectService } from '@/lib/services/ProjService';
+import { LineString, Point } from 'ol/geom';
 
 export function useProjectSave(projectId: string) {
     const [isSaving, setIsSaving] = useState(false);
@@ -26,13 +27,45 @@ export function useProjectSave(projectId: string) {
         try {
             // Serialize Features to GeoJSON
             const writer = new GeoJSON();
-            // Get Changed Features
-            const changedFeatures = Array.from(features.values()).filter(f => modifiedIds.has(f.getId() as string));
 
-            // TRANSFORM COORDINATES (The Fix)
-            // featureProjection: What the map uses (Web Mercator / Meters)
-            // dataProjection: What the DB wants (WGS84 / Lat/Lon)
-            const geoJSON = writer.writeFeaturesObject(changedFeatures, {
+            // 1. Filter only Modified Features
+            const rawChangedFeatures = Array.from(features.values()).filter(f => modifiedIds.has(f.getId() as string));
+
+            // 2. Reconstruct Link Geometries to prevent "Drift"
+            const featuresToSave = rawChangedFeatures.map(f => {
+                const type = f.get('type');
+                const props = f.getProperties();
+
+                // Check if it's a Link (Pipe, Pump, Valve)
+                if (['pipe', 'pump', 'valve'].includes(type)) {
+                    // Try to find connected nodes in the FULL feature list
+                    const sourceId = props.source || props.startNodeId || props.fromNode;
+                    const targetId = props.target || props.endNodeId || props.toNode;
+
+                    if (sourceId && targetId) {
+                        const sNode = features.get(sourceId);
+                        const tNode = features.get(targetId);
+
+                        if (sNode && tNode) {
+                            // Found both nodes! Rebuild geometry from scratch.
+                            const sGeom = (sNode.getGeometry() as Point).getCoordinates();
+                            const tGeom = (tNode.getGeometry() as Point).getCoordinates();
+
+                            // Clone the feature so we don't mess up the live map during save
+                            const clone = f.clone();
+                            // Force a straight line between the two nodes
+                            clone.setGeometry(new LineString([sGeom, tGeom]));
+                            clone.setId(f.getId()); // Clone often drops ID
+                            return clone;
+                        }
+                    }
+                }
+                // If it's a Node or unrelated feature, return as is
+                return f;
+            });
+
+            // 3. Serialize (Auto-transform 3857 -> 4326)
+            const geoJSON = writer.writeFeaturesObject(featuresToSave, {
                 featureProjection: 'EPSG:3857',
                 dataProjection: 'EPSG:4326'
             });
@@ -66,4 +99,4 @@ export function useProjectSave(projectId: string) {
     };
 
     return { saveProject, isSaving };
-}
+} 

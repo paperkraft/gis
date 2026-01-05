@@ -36,6 +36,9 @@ interface SimulationState {
     togglePlayback: () => void;
     nextStep: () => void;
     resetSimulation: () => void;
+
+    loadResults: (projectId: string) => Promise<void>;
+    saveResultsToDB: (projectId: string) => Promise<boolean>;
 }
 
 export const useSimulationStore = create<SimulationState>((set, get) => ({
@@ -153,5 +156,88 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
             report: null,
             isPlaying: false
         });
-    }
+    },
+
+    saveResultsToDB: async (projectId: string) => {
+        const { history, report, warnings } = get();
+        if (!history || !projectId) {
+            toast.error("No simulation results to save");
+            return false;
+        }
+
+        const toastId = toast.loading("Saving results...");
+
+        try {
+            // STRATEGY A: REPORT STEP FILTERING
+            // Only keep snapshots where time is a multiple of 3600 (1 hour)
+            // AND always keep the first (0) and last snapshot.
+            const REPORT_INTERVAL = 3600;
+
+            const reducedSnapshots = history.snapshots.filter((s, index) => {
+                const isHourly = s.time % REPORT_INTERVAL === 0;
+                const isFirst = index === 0;
+                const isLast = index === history.snapshots.length - 1;
+                return isHourly || isFirst || isLast;
+            });
+
+            // We also need to filter the timestamps array to match
+            const reducedTimestamps = reducedSnapshots.map(s => s.time);
+
+            const payload = {
+                projectId,
+                history: {
+                    ...history,
+                    timestamps: reducedTimestamps,
+                    snapshots: reducedSnapshots
+                },
+                report: report,
+                warnings: warnings
+            };
+
+            const res = await fetch("/api/simulation/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+
+            if (!res.ok) throw new Error("Server failed to save");
+
+            const data = await res.json();
+            toast.success("Simulation saved", { id: toastId });
+            return true;
+
+        } catch (e) {
+            console.error(e);
+            toast.error("Failed to save results", { id: toastId });
+            return false;
+        }
+    },
+
+    loadResults: async (projectId: string) => {
+        try {
+            const res = await fetch(`/api/workbench/${projectId}/simulation`);
+            if (!res.ok) return;
+
+            const data = await res.json();
+
+            if (data.found && data.history) {
+                const history = data.history;
+                const lastIndex = history.snapshots.length - 1;
+
+                set({
+                    status: 'completed',
+                    isSimulating: false,
+                    history: history,
+                    // Auto-select the last timestep so the map shows results immediately
+                    results: history.snapshots[lastIndex],
+                    currentTimeIndex: lastIndex,
+                    report: data.report || null,
+                    warnings: data.warnings || [],
+                });
+                console.log("Simulation results loaded from DB");
+            }
+        } catch (e) {
+            console.error("Failed to load results", e);
+        }
+    },
 }));

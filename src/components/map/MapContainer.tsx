@@ -32,8 +32,13 @@ import { MapControls } from "./MapControls";
 import { AttributeTable } from "./AttributeTable";
 import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 import { MapLayers } from "./MapLayers";
+import { useSimulationStore } from "@/store/simulationStore";
+import { useParams } from "next/navigation";
 
 export function MapContainer() {
+  const params = useParams();
+  const projectId = params?.id as string;
+
   const mapRef = useRef<HTMLDivElement>(null);
   const lastSelectedIdRef = useRef<string | null>(null);
 
@@ -171,6 +176,15 @@ export function MapContainer() {
 
   // Activate Synchronization
   useMapFeatureSync();
+
+  // Simulation results from database
+  const { loadResults } = useSimulationStore();
+
+  useEffect(() => {
+    if (projectId) {
+      loadResults(projectId);
+    }
+  }, [projectId, loadResults]);
 
   return (
     <div className="relative w-full h-full bg-gray-100 dark:bg-gray-900 flex flex-col">

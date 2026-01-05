@@ -1,11 +1,12 @@
-import { FormGroup } from '@/components/form-controls/FormGroup';
-import { FormInput } from '@/components/form-controls/FormInput';
-import { FormSelect } from '@/components/form-controls/FormSelect';
-import { usePropertyForm } from '@/hooks/usePropertyForm';
+import { FormGroup } from "@/components/form-controls/FormGroup";
+import { FormInput } from "@/components/form-controls/FormInput";
+import { FormSelect } from "@/components/form-controls/FormSelect";
+import { usePropertyForm } from "@/hooks/usePropertyForm";
 
-import { SaveActions } from '../form-controls/SaveActions';
-import { FeatureHeader } from './FeatureHeader';
-import { TopologyInfo } from './TopologyInfo';
+import { SaveActions } from "../form-controls/SaveActions";
+import { FeatureHeader } from "./FeatureHeader";
+import { TopologyInfo } from "./TopologyInfo";
+import { toast } from "sonner";
 
 export function PumpProperties() {
   const {
@@ -20,6 +21,11 @@ export function PumpProperties() {
   } = usePropertyForm();
 
   if (!selectedFeatureId) return null;
+
+  const onSave = () => {
+    handleSave();
+    toast.success("Pump properties saved");
+  };
 
   return (
     <div className="p-4 space-y-4">
@@ -65,7 +71,7 @@ export function PumpProperties() {
         />
       </FormGroup>
 
-      <SaveActions onSave={handleSave} disabled={!hasChanges} />
+      <SaveActions onSave={onSave} disabled={!hasChanges} />
     </div>
   );
 }

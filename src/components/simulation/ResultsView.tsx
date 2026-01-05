@@ -12,6 +12,7 @@ import {
   Pause,
   Play,
   RefreshCcw,
+  Save,
   Terminal,
   Timer,
 } from "lucide-react";
@@ -26,8 +27,12 @@ import { FormGroup } from "../form-controls/FormGroup";
 import { FormSelect } from "../form-controls/FormSelect";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
+import { useParams } from "next/navigation";
 
 export function ResultsView() {
+  const params = useParams();
+  const projectId = params?.id as string;
+
   const {
     isPlaying,
     history,
@@ -39,6 +44,7 @@ export function ResultsView() {
     togglePlayback,
     warnings,
     report,
+    saveResultsToDB,
   } = useSimulationStore();
 
   const { colorMode, setColorMode } = useStyleStore();
@@ -356,11 +362,23 @@ export function ResultsView() {
             color="green"
             onClick={handleDownloadReport}
           />
+          <ActionButton
+            icon={Save}
+            title="Save Results"
+            desc="Save run to database"
+            color="green"
+            onClick={() => saveResultsToDB(projectId)}
+          />
         </div>
       </div>
 
       <div className="p-2 border-t border-slate-100 bg-slate-50">
-        <Button variant={"ghost"} size={'sm'} className="w-full text-xs"  onClick={resetSimulation}>
+        <Button
+          variant={"ghost"}
+          size={"sm"}
+          className="w-full text-xs"
+          onClick={resetSimulation}
+        >
           <RefreshCcw /> New Simulation
         </Button>
       </div>

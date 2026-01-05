@@ -1,11 +1,12 @@
-import { FormGroup } from '@/components/form-controls/FormGroup';
-import { FormInput } from '@/components/form-controls/FormInput';
-import { FormSelect } from '@/components/form-controls/FormSelect';
-import { usePropertyForm } from '@/hooks/usePropertyForm';
+import { FormGroup } from "@/components/form-controls/FormGroup";
+import { FormInput } from "@/components/form-controls/FormInput";
+import { FormSelect } from "@/components/form-controls/FormSelect";
+import { usePropertyForm } from "@/hooks/usePropertyForm";
 
-import { SaveActions } from '../form-controls/SaveActions';
-import { FeatureHeader } from './FeatureHeader';
-import { TopologyInfo } from './TopologyInfo';
+import { SaveActions } from "../form-controls/SaveActions";
+import { FeatureHeader } from "./FeatureHeader";
+import { TopologyInfo } from "./TopologyInfo";
+import { toast } from "sonner";
 
 export function ValveProperties() {
   const {
@@ -18,7 +19,17 @@ export function ValveProperties() {
     handleZoom,
     selectedFeatureId,
   } = usePropertyForm();
+
   if (!selectedFeatureId) return null;
+
+  const onSave = () => {
+    if ((formData.diameter ?? 0) <= 0) {
+      toast.error("Diameter must be positive");
+      return;
+    }
+    handleSave();
+    toast.success("Valve properties saved");
+  };
 
   return (
     <div className="p-4 space-y-4">
@@ -74,7 +85,7 @@ export function ValveProperties() {
         />
       </FormGroup>
 
-      <SaveActions onSave={handleSave} disabled={!hasChanges} />
+      <SaveActions onSave={onSave} disabled={!hasChanges} />
     </div>
   );
 }

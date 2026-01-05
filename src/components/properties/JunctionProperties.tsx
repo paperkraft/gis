@@ -8,6 +8,7 @@ import { usePropertyForm } from "@/hooks/usePropertyForm";
 import { FeatureHeader } from "./FeatureHeader";
 import { TopologyInfo } from "./TopologyInfo";
 import { SaveActions } from "../form-controls/SaveActions";
+import { toast } from "sonner";
 
 export function JunctionProperties() {
   const {
@@ -24,6 +25,11 @@ export function JunctionProperties() {
   } = usePropertyForm();
 
   if (!selectedFeatureId) return null;
+
+  const onSave = () => {
+    handleSave();
+    toast.success("Junction properties saved");
+  };
 
   return (
     <div className="p-4 space-y-4">
@@ -85,7 +91,7 @@ export function JunctionProperties() {
           options={[{ value: "1", label: "Default Pattern" }]}
         />
       </FormGroup>
-      <SaveActions onSave={handleSave} disabled={!hasChanges} />
+      <SaveActions onSave={onSave} disabled={!hasChanges} />
     </div>
   );
 }

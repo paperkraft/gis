@@ -6,6 +6,7 @@ import { usePropertyForm } from "@/hooks/usePropertyForm";
 import { SaveActions } from "../form-controls/SaveActions";
 import { FeatureHeader } from "./FeatureHeader";
 import { TopologyInfo } from "./TopologyInfo";
+import { toast } from "sonner";
 
 export function PipeProperties() {
   const {
@@ -19,7 +20,28 @@ export function PipeProperties() {
     handleReverse,
     selectedFeatureId,
   } = usePropertyForm();
+
   if (!selectedFeatureId) return null;
+
+  const onSave = () => {
+    // 1. Validate
+    if ((formData.length ?? 0) <= 0) {
+      toast.error("Length must be greater than 0");
+      return;
+    }
+    if ((formData.diameter ?? 0) <= 0) {
+      toast.error("Diameter must be greater than 0");
+      return;
+    }
+    if ((formData.roughness ?? 0) <= 0) {
+      toast.error("Roughness must be greater than 0");
+      return;
+    }
+
+    // 2. Save
+    handleSave();
+    toast.success("Pipe properties saved");
+  };
 
   return (
     <div className="p-4 space-y-4">
@@ -85,7 +107,7 @@ export function PipeProperties() {
         />
       </FormGroup>
 
-      <SaveActions onSave={handleSave} disabled={!hasChanges} />
+      <SaveActions onSave={onSave} disabled={!hasChanges} />
     </div>
   );
 }

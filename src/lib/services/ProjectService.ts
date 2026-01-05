@@ -169,17 +169,17 @@ export class ProjectService {
             rawFeatures = Array.from(networkStore.features.values());
         }
 
-        // Filter only Modified Features
-        const featuresToUpsert = rawFeatures.filter(f => {
-            const fid = f.getId();
-            return fid && modifiedIds.has(fid.toString());
-        });
-
         // Build a Lookup Map of *Current* Features (Critical for Pump/Valve Geometry Reconstruction)
         const currentFeaturesMap = new Map<string, Feature>();
         rawFeatures.forEach(f => {
             const id = f.getId();
             if (id) currentFeaturesMap.set(id.toString(), f);
+        });
+
+        // Filter only Modified Features
+        const featuresToUpsert = rawFeatures.filter(f => {
+            const fid = f.getId();
+            return fid && modifiedIds.has(fid.toString());
         });
 
         const features = featuresToUpsert
@@ -207,7 +207,8 @@ export class ProjectService {
 
                 // SPECIAL HANDLING: Pump/Valve (Point -> LineString)
                 // We must use 'currentFeaturesMap' to get the MOVED node positions
-                if (['pump', 'valve'].includes(type) && geometryType === 'Point' && sourceId && targetId) {
+                if (['pipe', 'pump', 'valve'].includes(type) && sourceId && targetId) {
+                    // if (['pump', 'valve'].includes(type) && geometryType === 'Point' && sourceId && targetId) {
                     const sNode = currentFeaturesMap.get(sourceId);
                     const tNode = currentFeaturesMap.get(targetId);
 

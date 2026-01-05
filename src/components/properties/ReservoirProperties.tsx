@@ -8,6 +8,7 @@ import { usePropertyForm } from "@/hooks/usePropertyForm";
 import { SaveActions } from "../form-controls/SaveActions";
 import { FeatureHeader } from "./FeatureHeader";
 import { TopologyInfo } from "./TopologyInfo";
+import { toast } from "sonner";
 
 export function ReservoirProperties() {
   const {
@@ -24,6 +25,11 @@ export function ReservoirProperties() {
   } = usePropertyForm();
 
   if (!selectedFeatureId) return null;
+
+  const onSave = () => {
+    handleSave();
+    toast.success("Reservoir properties saved");
+  };
 
   return (
     <div className="p-4 space-y-4">
@@ -88,7 +94,7 @@ export function ReservoirProperties() {
         />
       </FormGroup>
 
-      <SaveActions onSave={handleSave} disabled={!hasChanges} />
+      <SaveActions onSave={onSave} disabled={!hasChanges} />
     </div>
   );
 }
