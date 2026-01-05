@@ -1,17 +1,25 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, Check, FileText, Loader2, Plus, Upload } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  FileText,
+  Loader2,
+  Plus,
+  Upload,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
-import { ProjectSettingsForm } from '@/components/shared/ProjectSettingsForm';
-import { Button } from '@/components/ui/button';
-import { ModalDialog } from '@/components/ui/modal-dialog';
-import { ProjectService } from '@/lib/services/ProjectService';
-import { cn } from '@/lib/utils';
-import { ProjectSettings } from '@/types/network';
+import { ProjectSettingsForm } from "@/components/shared/ProjectSettingsForm";
+import { Button } from "@/components/ui/button";
+import { ModalDialog } from "@/components/ui/modal-dialog";
+import { ProjectService } from "@/lib/services/ProjectService";
+import { cn } from "@/lib/utils";
+import { ProjectSettings } from "@/types/network";
 
-import Input from '../shared/Input';
+import Input from "../shared/Input";
 
 interface NewProjectModalProps {
   isOpen: boolean;
@@ -82,7 +90,7 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
         description,
         finalSettings
       );
-      router.push(`/project/${id}`);
+      router.push(`/workbench/${id}`);
       onClose();
     } catch (e) {
       alert("Failed to create project.");
@@ -105,7 +113,7 @@ export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
         text,
         settings.projection
       );
-      router.push(`/project/${id}`);
+      router.push(`/workbench/${id}`);
       onClose();
     } catch (e) {
       console.error(e);

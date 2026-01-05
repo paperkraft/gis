@@ -67,8 +67,7 @@ export const WORKBENCH_MENU: MenuItem[] = [
                     { id: "set_time", type: "ITEM", label: "Time Pattern" },
                     { id: "set_demand", type: "ITEM", label: "Demand Pattern" },
                     { id: "set_data", type: "ITEM", label: "Data Tables (Pipe / Valve)" },
-                    { id: "set_pattern", type: "ITEM", label: "Pattern Curves", modalType: "CURVES_PATTERNS" },
-                    { id: "set_ctrl", type: "ITEM", label: "Control", modalType: "CONTROLS" },
+
                 ]
             },
             {
@@ -78,7 +77,6 @@ export const WORKBENCH_MENU: MenuItem[] = [
                 icon: Map,
                 children: [
                     { id: "terr_layer", type: "ITEM", label: "Layers", icon: Map },
-
                     { id: "terr_elvn", type: "ITEM", label: "Elevation", icon: Mountain, modalType: "AUTO_ELEVATION" },
                 ]
             },
@@ -204,8 +202,8 @@ export const WORKBENCH_MENU: MenuItem[] = [
                     { id: "sim_opt", type: "ITEM", label: "Network Options" },
                     { id: "sim_meth", type: "ITEM", label: "Analysis Method" },
                     { id: "sim_dem_opt", type: "ITEM", label: "Demand Options" },
-                    { id: "sim_curve", type: "ITEM", label: "Curves" },
-                    { id: "sim_ctrl", type: "ITEM", label: "Controls" },
+                    { id: "sim_curve", type: "ITEM", label: "Curves", modalType: "CURVES_PATTERNS" },
+                    { id: "sim_ctrl", type: "ITEM", label: "Controls", modalType: "CONTROLS" },
                 ]
             },
             {
