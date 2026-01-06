@@ -1,16 +1,17 @@
 "use client";
 
-import { Loader2 } from 'lucide-react';
-import dynamic from 'next/dynamic';
-import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { Loader2 } from "lucide-react";
+import dynamic from "next/dynamic";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
-import WorkbenchLayout from '@/components/workbench/WorkbenchLayout';
-import { ProjectService } from '@/lib/services/ProjectService';
-import { useNetworkStore } from '@/store/networkStore';
-import { useScenarioStore } from '@/store/scenarioStore';
-import { useSimulationStore } from '@/store/simulationStore';
-import { useUIStore } from '@/store/uiStore';
+import WorkbenchLayout from "@/components/workbench/WorkbenchLayout";
+import { ProjectService } from "@/lib/services/ProjectService";
+import { useNetworkStore } from "@/store/networkStore";
+import { useScenarioStore } from "@/store/scenarioStore";
+import { useSimulationStore } from "@/store/simulationStore";
+import { useUIStore } from "@/store/uiStore";
+import { useStyleStore } from "@/store/styleStore";
 
 const MapContainer = dynamic(
   () => import("@/components/map/MapContainer").then((mod) => mod.MapContainer),
@@ -32,6 +33,8 @@ export default function WorkbenchEditor() {
         useSimulationStore.getState().resetSimulation();
         useUIStore.getState().setActivePanel("NONE");
         useUIStore.getState().setActiveModal("NONE");
+        useStyleStore.getState().setLinkColorMode("none");
+        useStyleStore.getState().setNodeColorMode("none");
 
         try {
           const success = await ProjectService.loadProject(params.id as string);

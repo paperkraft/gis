@@ -193,7 +193,9 @@ export function MapContainer() {
         <div ref={mapRef} className="w-full h-full" />
 
         <MapToolbar />
+
         <MapControls />
+
         <Legend />
 
         <MapLayers />
