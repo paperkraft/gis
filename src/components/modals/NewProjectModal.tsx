@@ -134,7 +134,6 @@ export function NewProjectModal() {
       if (projectId) {
         setCreatedProjectId(projectId);
         setLoading(false);
-        toast.success("Project created successfully");
       }
     } catch (error) {
       toast.error("Failed to create project");
@@ -151,7 +150,7 @@ export function NewProjectModal() {
             <Box className="size-5 text-primary" />
             {createdProjectId ? "Project Ready" : "Create New Project"}
           </DialogTitle>
-          <DialogDescription className="hidden"/>
+          <DialogDescription className="hidden" />
         </DialogHeader>
 
         {createdProjectId ? (
@@ -159,7 +158,6 @@ export function NewProjectModal() {
           <ProjectSuccessView
             title={formData.title}
             projectType={projectType}
-            units={formData.units}
             onClose={handleClose}
             onOpen={handleOpenProject}
           />

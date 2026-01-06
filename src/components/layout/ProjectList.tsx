@@ -12,6 +12,7 @@ import { ProjectMetadata } from "@/lib/services/ProjectService";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
+import CustomToolTip from "../shared/CustomToolTip";
 
 interface ProjectListProps {
   projects: ProjectMetadata[] | [];
@@ -163,17 +164,19 @@ function GridCard({ data, onClick, isSelected, openProject }: any) {
             <FolderOpen size={20} />
           </div>
           {isSelected && (
-            <Button
-              variant={"ghost"}
-              size={"icon-sm"}
-              className="group text-muted-foreground/80 hover:text-primary"
-              onClick={(e) => {
-                e.stopPropagation();
-                openProject();
-              }}
-            >
-              <ExternalLink className="size-4" />
-            </Button>
+            <CustomToolTip tooltip="Open">
+              <Button
+                variant={"ghost"}
+                size={"icon-sm"}
+                className="group text-muted-foreground/80 hover:text-primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openProject();
+                }}
+              >
+                <ExternalLink className="size-4" />
+              </Button>
+            </CustomToolTip>
           )}
         </div>
 

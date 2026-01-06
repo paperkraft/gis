@@ -42,8 +42,8 @@ function SelectionCard({ active, onClick, icon: Icon, title, desc }: any) {
                 <Icon size={20} />
             </div>
             <div>
-                <h3 className="font-bold text-sm text-slate-800">{title}</h3>
-                <p className="text-xs text-slate-500 mt-1">{desc}</p>
+                <h3 className={cn("font-bold text-sm", active ? "text-blue-900" : "text-slate-700")}>{title}</h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">{desc}</p>
             </div>
         </div>
     );

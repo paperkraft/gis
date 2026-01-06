@@ -1,48 +1,49 @@
-import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Check, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ProjectSuccessViewProps {
-    title: string;
-    projectType: string;
-    units: string;
-    onClose: () => void;
-    onOpen: () => void;
+  title: string;
+  projectType: string;
+  onClose: () => void;
+  onOpen: () => void;
 }
 
-export function ProjectSuccessView({ title, projectType, units, onClose, onOpen }: ProjectSuccessViewProps) {
-    return (
-        <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-6 animate-in fade-in slide-in-from-bottom-4">
-            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-2">
-                <CheckCircle2 size={32} />
-            </div>
-            <div className="space-y-2">
-                <h3 className="text-xl font-bold text-slate-800">"{title}" Created!</h3>
-                <p className="text-sm text-slate-500 max-w-sm mx-auto">
-                    {projectType === 'blank'
-                        ? "Your empty project has been initialized. You can now start drawing your network."
-                        : "Network geometry and settings have been imported successfully."}
-                </p>
-            </div>
+export function ProjectSuccessView({
+  title,
+  projectType,
+  onClose,
+  onOpen,
+}: ProjectSuccessViewProps) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in fade-in slide-in-from-bottom-4">
+      <div className="w-20 h-20 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-6 ring-8 ring-green-50/50">
+        <Check size={40} strokeWidth={3} />
+      </div>
 
-            <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 w-full max-w-sm text-left space-y-2">
-                <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">Type</span>
-                    <span className="font-bold text-slate-700 capitalize">{projectType} Project</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">Units</span>
-                    <span className="font-bold text-slate-700">{units}</span>
-                </div>
-            </div>
+      <h3 className="text-2xl font-bold text-slate-800 mb-2">
+        Project Created!
+      </h3>
 
-            <div className="flex gap-3 pt-4 w-full justify-center">
-                <Button variant="outline" onClick={onClose}>
-                    Close
-                </Button>
-                <Button onClick={onOpen} className="bg-green-600 hover:bg-green-700 text-white gap-2 px-8">
-                    Open Workbench <ArrowRight size={16} />
-                </Button>
-            </div>
-        </div>
-    );
+      <p className="text-slate-500 max-w-sm mx-auto mb-8 leading-relaxed">
+        <strong className="text-slate-800">{title}</strong> has been
+        successfully initialized.
+        {projectType === "blank"
+          ? " You can now start designing your network in the Workbench."
+          : " All network data and settings have been imported."}
+      </p>
+
+      <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm justify-center">
+        <Button
+          variant="outline"
+          onClick={onClose}
+        >
+          <LayoutDashboard size={16} />
+          Dashboard
+        </Button>
+        <Button onClick={onOpen}>
+          Open Workbench <ArrowRight size={16} />
+        </Button>
+      </div>
+    </div>
+  );
 }

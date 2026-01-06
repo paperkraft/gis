@@ -18,7 +18,6 @@ export default function Dashboard() {
   const [projects, setProjects] = useState<ProjectMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadProjects = async () => {
     setLoading(true);
@@ -33,16 +32,12 @@ export default function Dashboard() {
   }, []);
 
   const handleCreate = () => {
-    // setIsModalOpen(true);
     setActiveModal("NEW_PROJECT");
   };
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    if (confirm("Are you sure you want to delete this project?")) {
-      await ProjectService.deleteProject(id);
-      loadProjects(); // Refresh list
-    }
+    //   loadProjects(); // Refresh list
+    setActiveModal("DELETE_PROJECT");
   };
 
   const filteredProjects = projects
@@ -63,7 +58,7 @@ export default function Dashboard() {
   return (
     <>
       <AppLayout>
-        <div className="px-4 py-3 flex items-center justify-between border-b">
+        <div className="p-3 px-4 flex items-center justify-between border-b">
           <div>
             <h1 className="text-xl font-medium text-slate-800 mb-1">
               My Projects
