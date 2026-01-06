@@ -1,38 +1,44 @@
 "use client";
 
-import { Save } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Save } from "lucide-react";
+import { useEffect, useState } from "react";
 
-import { Button } from '@/components/ui/button';
-import { flowUnitOptions, headLossUnitOptions, projectionList } from '@/constants/project';
-import { useNetworkStore } from '@/store/networkStore';
-import { ProjectSettings } from '@/types/network';
+import { Button } from "@/components/ui/button";
+import {
+  flowUnitOptions,
+  headLossUnitOptions,
+  projectionList,
+} from "@/constants/project";
+import { useNetworkStore } from "@/store/networkStore";
 
-import { FormGroup } from '../form-controls/FormGroup';
-import { FormInput } from '../form-controls/FormInput';
-import { FormSelect } from '../form-controls/FormSelect';
+import { FormGroup } from "../form-controls/FormGroup";
+import { FormInput } from "../form-controls/FormInput";
+import { FormSelect } from "../form-controls/FormSelect";
+import { toast } from "sonner";
 
 export function ProjectSettingsPanel() {
-  const { settings, updateSettings } = useNetworkStore();
+  const { settings, updateSettings, patterns } = useNetworkStore();
 
-  // Local state to prevent constant re-renders on every keystroke
-  const [localSettings, setLocalSettings] = useState<ProjectSettings>(settings);
+  const [formData, setFormData] = useState(settings);
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Sync on mount
-  useEffect(() => {
-    setLocalSettings(settings);
-    setHasChanges(false);
-  }, [settings]);
+  const patternOptions = [
+    { value: "1", label: "Default (1)" },
+    ...patterns.map((p) => ({
+      value: p.id,
+      label: `${p.id} - ${p.description || ""}`,
+    })),
+  ];
 
-  const handleChange = (key: keyof ProjectSettings, value: any) => {
-    setLocalSettings((prev) => ({ ...prev, [key]: value }));
+  const handleChange = (key: string, value: any) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
     setHasChanges(true);
   };
 
   const handleSave = () => {
-    updateSettings(localSettings);
+    updateSettings(formData);
     setHasChanges(false);
+    toast.success("Project settings updated");
   };
 
   return (
@@ -42,20 +48,20 @@ export function ProjectSettingsPanel() {
         <FormGroup label="General Information">
           <FormInput
             label="Project Title"
-            value={localSettings.title || ""}
+            value={formData.title || ""}
             onChange={(v) => handleChange("title", v)}
           />
 
           <FormInput
             textarea
             label="Description"
-            value={localSettings.description || ""}
+            value={formData.description || ""}
             onChange={(v) => handleChange("description", v)}
           />
 
           <FormSelect
             label="Projection"
-            value={localSettings.projection || ""}
+            value={formData.projection || ""}
             onChange={(v) => handleChange("projection", v)}
             options={projectionList}
             description="Coordinates will be converted to this projection on export."
@@ -66,32 +72,78 @@ export function ProjectSettingsPanel() {
 
         {/* Section 2: Hydraulics */}
         <FormGroup label="Hydraulic Defaults">
+          <FormSelect
+            label="Default Pattern"
+            value={formData.defaultPattern || "1"}
+            onChange={(v) => handleChange("defaultPattern", v)}
+            options={patternOptions}
+          />
+
           <div className="grid grid-cols-2 gap-3">
             <FormSelect
               label="Flow Units"
-              value={localSettings.units || ""}
+              value={formData.units || ""}
               onChange={(v) => handleChange("units", v)}
               options={flowUnitOptions}
             />
             <FormSelect
               label="Head Loss Formula"
-              value={localSettings.headloss || ""}
+              value={formData.headloss || ""}
               onChange={(v) => handleChange("headloss", v)}
               options={headLossUnitOptions}
             />
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <FormInput
               type="number"
               label="Viscosity"
-              value={localSettings.viscosity || 0}
+              value={formData.viscosity || 0}
               onChange={(v) => handleChange("viscosity", parseFloat(v))}
             />
             <FormInput
               type="number"
               label="Specific Gravity"
-              value={localSettings.specificGravity || 0}
+              value={formData.specificGravity || 0}
               onChange={(v) => handleChange("specificGravity", parseFloat(v))}
+            />
+          </div>
+        </FormGroup>
+
+        {/* GLOBAL DEMAND CONTROL */}
+        <FormGroup label="Global Controls">
+          <FormInput
+            label="Demand Multiplier"
+            value={formData.demandMultiplier ?? 1.0}
+            onChange={(v) => handleChange("demandMultiplier", parseFloat(v))}
+            type="number"
+            step="0.1"
+            description="Scale all demands (e.g. 1.5 = 50% increase)"
+          />
+        </FormGroup>
+
+        {/* TIME SETTINGS */}
+        <FormGroup label="Time Defaults">
+          <div className="grid grid-cols-2 gap-3">
+            <FormInput
+              label="Duration (Hrs)"
+              value={formData.duration || "24:00"}
+              onChange={(v) => handleChange("duration", v)}
+            />
+            <FormInput
+              label="Hydraulic Step"
+              value={formData.hydraulicStep || "1:00"}
+              onChange={(v) => handleChange("hydraulicStep", v)}
+            />
+            <FormInput
+              label="Pattern Step"
+              value={formData.patternStep || "1:00"}
+              onChange={(v) => handleChange("patternStep", v)}
+            />
+            <FormInput
+              label="Report Step"
+              value={formData.reportStep || "1:00"}
+              onChange={(v) => handleChange("reportStep", v)}
             />
           </div>
         </FormGroup>

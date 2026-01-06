@@ -28,6 +28,7 @@ interface ModalConfig {
 
 export type WorkbenchModalType =
     | "NONE"
+    | "NEW_PROJECT"
      // Network
     | "JUNCTION_PROP"
     | "RESERVOIR_PROP"

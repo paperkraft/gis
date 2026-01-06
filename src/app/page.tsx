@@ -4,14 +4,17 @@ import { Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { ProjectMetadata, ProjectService } from "@/lib/services/ProjectService";
 import AppLayout from "@/components/layout/AppLayout";
-import { Button } from "@/components/ui/button";
-import { NewProjectModal } from "@/components/modals/NewProjectModal";
 import ProjectList from "@/components/layout/ProjectList";
+import { NewProjectModal } from "@/components/modals/NewProjectModal";
+import { Button } from "@/components/ui/button";
+import { ProjectMetadata, ProjectService } from "@/lib/services/ProjectService";
+import { useUIStore } from "@/store/uiStore";
 
 export default function Dashboard() {
   const router = useRouter();
+  const { setActiveModal } = useUIStore();
+
   const [projects, setProjects] = useState<ProjectMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -30,7 +33,8 @@ export default function Dashboard() {
   }, []);
 
   const handleCreate = () => {
-    setIsModalOpen(true);
+    // setIsModalOpen(true);
+    setActiveModal("NEW_PROJECT");
   };
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
@@ -72,14 +76,7 @@ export default function Dashboard() {
 
         <ProjectList projects={filteredProjects} handleDelete={handleDelete} />
       </AppLayout>
-
-      <NewProjectModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          loadProjects();
-        }}
-      />
+      <NewProjectModal />
     </>
   );
 }

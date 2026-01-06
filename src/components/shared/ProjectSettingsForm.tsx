@@ -113,8 +113,8 @@ export function ProjectSettingsForm({
             type="number"
             step={1}
             label="Trials"
-            value={settings.trials}
-            onChange={(v) => onChange("trials", parseFloat(v as string))}
+            value={settings.maxTrials}
+            onChange={(v) => onChange("maxTrials", parseFloat(v as string))}
           />
 
           <Input

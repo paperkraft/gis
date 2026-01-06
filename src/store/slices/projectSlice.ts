@@ -33,12 +33,26 @@ const DEFAULT_SETTINGS: ProjectSettings = {
     headloss: "H-W",
     projection: "EPSG:3857",
 
-    // Extra fields
+    // Hydraulics
     specificGravity: 1.0,
     viscosity: 1.0,
-    trials: 40,
+    maxTrials: 40,
     accuracy: 0.001,
+
+    // Controls
     demandMultiplier: 1.0,
+    emitterExponent: 0.5,
+
+    // Time Settings (EPANET Defaults)
+    duration: "24:00",
+    hydraulicStep: "1:00",
+    patternStep: "1:00",
+    reportStep: "1:00",
+    reportStart: "0:00",
+    startClock: "12:00 AM",
+
+    // Pattern
+    defaultPattern: "1"
 };
 
 export const createProjectSlice: StateCreator<NetworkState, [], [], ProjectSlice> = (set, get) => ({

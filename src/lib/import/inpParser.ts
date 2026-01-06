@@ -29,6 +29,7 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
 
         // 1. Parse Metadata
         const optionsMap = parseOptions(sections['OPTIONS'] || []);
+        const timesMap = parseOptions(sections['TIMES'] || []);
         let coordinates = parseCoordinates(sections['COORDINATES'] || []);
         let vertices = parseVertices(sections['VERTICES'] || []);
 
@@ -84,14 +85,30 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
         // 3. Create Settings (Store the Source Projection as the Project Projection)
         const settings: ProjectSettings = {
             title: sections['TITLE']?.[0] || "Untitled Project",
+            projection: sourceProjection,
+
+            // Hydraulics
             units: (optionsMap['UNITS'] as any) || 'GPM',
             headloss: (optionsMap['HEADLOSS'] as any) || 'H-W',
             specificGravity: parseFloat(optionsMap['SPECIFIC GRAVITY'] || '1.0'),
             viscosity: parseFloat(optionsMap['VISCOSITY'] || '1.0'),
-            trials: parseInt(optionsMap['TRIALS'] || '24'),
+            maxTrials: parseInt(optionsMap['TRIALS'] || '24'),
             accuracy: parseFloat(optionsMap['ACCURACY'] || '0.001'),
+
+            // Controls
             demandMultiplier: parseFloat(optionsMap['DEMAND MULTIPLIER'] || '1.0'),
-            projection: sourceProjection,
+            emitterExponent: parseFloat(optionsMap['EMITTER EXPONENT'] || '0.5'),
+
+            // Times (Defaulting if missing)
+            duration: timesMap['DURATION'] || '24:00',
+            hydraulicStep: timesMap['HYDRAULIC TIMESTEP'] || '1:00',
+            patternStep: timesMap['PATTERN TIMESTEP'] || '1:00',
+            reportStep: timesMap['REPORT TIMESTEP'] || '1:00',
+            reportStart: timesMap['REPORT START'] || '0:00',
+            startClock: timesMap['START CLOCKTIME'] || '12:00 AM',
+            
+            // Pattern
+            defaultPattern: optionsMap['PATTERN'] || "1"
         };
 
         const patterns = parsePatterns(sections['PATTERNS'] || []);
@@ -173,7 +190,6 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
         createComplexHelper(sections['VALVES'] || [], 'valve', p => ({
             diameter: parseFloat(p[3]), valveType: p[4], setting: parseFloat(p[5]), status: 'Active'
         }));
-
 
         // 6. Build Connectivity
         buildConnectivity(allNodes, features.filter(f => ['pipe', 'pump', 'valve'].includes(f.get('type'))));

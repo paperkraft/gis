@@ -1,301 +1,212 @@
 "use client";
 
-import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  FileText,
-  Loader2,
-  Plus,
-  Upload,
-} from "lucide-react";
+import { Box, Cloud } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
+import { toast } from "sonner";
 
-import { ProjectSettingsForm } from "@/components/shared/ProjectSettingsForm";
 import { Button } from "@/components/ui/button";
-import { ModalDialog } from "@/components/ui/modal-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ProjectService } from "@/lib/services/ProjectService";
-import { cn } from "@/lib/utils";
-import { ProjectSettings } from "@/types/network";
+import { useUIStore } from "@/store/uiStore";
 
-import Input from "../shared/Input";
+// Import Sub-components
+import { ProjectFormFields } from "./new-project/ProjectFormFields";
+import { ProjectSuccessView } from "./new-project/ProjectSuccessView";
+import { ProjectTypeSelector } from "./new-project/ProjectTypeSelector";
 
-interface NewProjectModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-type Step = "name-choice" | "settings" | "import";
-
-const DEFAULT_SETTINGS: ProjectSettings = {
+const DEFAULT_FORM_DATA = {
   title: "",
-  units: "GPM",
-  headloss: "H-W",
-  specificGravity: 1.0,
-  viscosity: 1.0,
-  trials: 24,
-  accuracy: 0.001,
-  demandMultiplier: 1.0,
+  description: "",
   projection: "EPSG:3857",
+  units: "LPS",
 };
 
-export function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
+export function NewProjectModal() {
+  const { activeModal, setActiveModal } = useUIStore();
   const router = useRouter();
-  const [step, setStep] = useState<Step>("name-choice");
-  const [projectName, setProjectName] = useState("");
-  const [description, setProjectDescription] = useState("");
-  const [settings, setSettings] = useState<ProjectSettings>(DEFAULT_SETTINGS);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [file, setFile] = useState<File | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const processingRef = useRef(false);
+  // State
+  const [loading, setLoading] = useState(false);
+  const [projectType, setProjectType] = useState<"blank" | "import">("blank");
+  const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [fileContent, setFileContent] = useState<string>("");
+  const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      setStep("name-choice");
-      setProjectName("");
-      setProjectDescription("");
-      setSettings(DEFAULT_SETTINGS);
-      setFile(null);
-      setIsProcessing(false);
-      processingRef.current = false;
+  const isOpen = activeModal === "NEW_PROJECT";
+
+  // --- Handlers ---
+  const handleClose = () => {
+    setActiveModal("NONE");
+    setTimeout(() => {
+      setFormData(DEFAULT_FORM_DATA);
+      setProjectType("blank");
+      setImportFile(null);
+      setFileContent("");
+      setCreatedProjectId(null);
+      setLoading(false);
+    }, 300);
+  };
+
+  const handleOpenProject = () => {
+    if (createdProjectId) {
+      handleClose();
+      router.push(`/workbench/${createdProjectId}`);
     }
-  }, [isOpen]);
-
-  const handleSettingsChange = (key: keyof ProjectSettings, value: any) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleCreateBlank = () => {
-    if (!projectName) return;
-    setSettings((prev) => ({ ...prev, title: projectName, description }));
-    setStep("settings");
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.name.toLowerCase().endsWith(".inp")) {
+        toast.error("Please select a valid .inp file");
+        return;
+      }
+      setImportFile(file);
+      const name = file.name.replace(/\.[^/.]+$/, "");
+      setFormData((prev) => ({ ...prev, title: name }));
+
+      const reader = new FileReader();
+      reader.onload = (e) => setFileContent(e.target?.result as string);
+      reader.readAsText(file);
+    }
   };
 
-  const handleSetupImport = () => {
-    if (!projectName) return;
-    setStep("import");
-  };
+  const handleCreate = async () => {
+    if (!formData.title.trim()) {
+      toast.error("Project title is required");
+      return;
+    }
 
-  const handleFinalizeBlank = async () => {
-    if (processingRef.current) return;
-    processingRef.current = true;
-    setIsProcessing(true);
+    setLoading(true);
 
     try {
-      const finalSettings = { ...settings, title: projectName };
-      const id = await ProjectService.createProjectFromSettings(
-        projectName,
-        description,
-        finalSettings
-      );
-      router.push(`/workbench/${id}`);
-      onClose();
-    } catch (e) {
-      alert("Failed to create project.");
-      processingRef.current = false;
-      setIsProcessing(false);
+      let projectId = "";
+      if (projectType === "blank") {
+        const settings = {
+          title: formData.title,
+          description: formData.description,
+          projection: formData.projection,
+          units: formData.units as any,
+          // Defaults
+          headloss: "H-W",
+          specificGravity: 1.0,
+          viscosity: 1.0,
+          maxTrials: 40,
+          accuracy: 0.001,
+          demandMultiplier: 1.0,
+          emitterExponent: 0.5,
+          duration: "24:00",
+          hydraulicStep: "1:00",
+          patternStep: "1:00",
+          reportStep: "1:00",
+          reportStart: "0:00",
+          startClock: "12:00 AM",
+        };
+        projectId = await ProjectService.createProjectFromSettings(
+          formData.title,
+          formData.description,
+          settings as any
+        );
+      } else {
+        if (!fileContent) {
+          toast.error("No file content loaded");
+          setLoading(false);
+          return;
+        }
+        projectId = await ProjectService.createProjectFromFile(
+          formData.title,
+          formData.description,
+          fileContent,
+          formData.projection
+        );
+      }
+
+      if (projectId) {
+        setCreatedProjectId(projectId);
+        setLoading(false);
+        toast.success("Project created successfully");
+      }
+    } catch (error) {
+      toast.error("Failed to create project");
+      setLoading(false);
     }
-  };
-
-  const handleFinalizeImport = async () => {
-    if (!file || processingRef.current) return;
-    processingRef.current = true;
-    setIsProcessing(true);
-
-    try {
-      const text = await file.text();
-      // Pass the selected projection from the form
-      const id = await ProjectService.createProjectFromFile(
-        projectName,
-        description,
-        text,
-        settings.projection
-      );
-      router.push(`/workbench/${id}`);
-      onClose();
-    } catch (e) {
-      console.error(e);
-      alert("Failed to import project file.");
-      processingRef.current = false;
-      setIsProcessing(false);
-    }
-  };
-
-  // --- FOOTER RENDERERS ---
-  const renderFooter = () => {
-    if (step === "name-choice") return null;
-
-    return (
-      <>
-        <Button
-          variant="ghost"
-          onClick={() => setStep("name-choice")}
-          className="gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back
-        </Button>
-        {step === "settings" ? (
-          <Button
-            onClick={handleFinalizeBlank}
-            disabled={isProcessing}
-            className="bg-blue-600 hover:bg-blue-700 text-white min-w-[140px] gap-2"
-          >
-            {isProcessing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              "Create Project"
-            )}
-            {!isProcessing && <ArrowRight className="w-4 h-4" />}
-          </Button>
-        ) : (
-          <Button
-            onClick={handleFinalizeImport}
-            disabled={!file || isProcessing}
-            className="bg-green-600 hover:bg-green-700 text-white min-w-[140px] gap-2"
-          >
-            {isProcessing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              "Import & Create"
-            )}
-            {!isProcessing && <Upload className="w-4 h-4" />}
-          </Button>
-        )}
-      </>
-    );
   };
 
   return (
-    <ModalDialog
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Create New Project"
-      subtitle={
-        step === "name-choice"
-          ? "Start your hydraulic simulation"
-          : step === "settings"
-          ? "Configure Defaults"
-          : "Import Data"
-      }
-      icon={Plus}
-      footer={renderFooter()}
-      maxWidth="lg"
-    >
-      {/* STEP 1: Name & Choice */}
-      {step === "name-choice" && (
-        <div className="space-y-6">
-          <Input
-            label="Project Name"
-            autoFocus
-            value={projectName}
-            placeholder="e.g. Downtown Water Network"
-            onChange={(v) => setProjectName(v as string)}
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent className="sm:max-w-[750px] p-0 gap-0 overflow-hidden bg-white dark:bg-slate-950 flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <DialogHeader className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
+          <DialogTitle className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <Box className="size-5 text-primary" />
+            {createdProjectId ? "Project Ready" : "Create New Project"}
+          </DialogTitle>
+          <DialogDescription className="hidden"/>
+        </DialogHeader>
+
+        {createdProjectId ? (
+          // --- SUCCESS VIEW ---
+          <ProjectSuccessView
+            title={formData.title}
+            projectType={projectType}
+            units={formData.units}
+            onClose={handleClose}
+            onOpen={handleOpenProject}
           />
+        ) : (
+          // --- FORM VIEW ---
+          <>
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+              <ProjectTypeSelector
+                value={projectType}
+                onChange={setProjectType}
+              />
 
-          <Input
-            label="Description"
-            value={description}
-            placeholder="Description of Water Network"
-            onChange={(v) => setProjectDescription(v as string)}
-          />
+              <ProjectFormFields
+                projectType={projectType}
+                formData={formData}
+                setFormData={setFormData}
+                importFile={importFile}
+                fileInputRef={fileInputRef as any}
+                handleFileSelect={handleFileSelect}
+              />
+            </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              disabled={!projectName}
-              onClick={handleCreateBlank}
-              className="flex flex-col items-center p-5 border-2 border-gray-200 dark:border-gray-700 rounded-xl hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed group text-left"
-            >
-              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-3 group-hover:scale-110 transition-transform text-blue-600 dark:text-blue-400">
-                <FileText className="w-6 h-6" />
+            <DialogFooter className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center w-full shrink-0">
+              <div className="text-xs text-slate-400 flex items-center gap-2">
+                <Cloud size={12} /> <span>Synced to Cloud</span>
               </div>
-              <h3 className="font-bold text-gray-900 dark:text-white">
-                Blank Project
-              </h3>
-              <p className="text-xs text-gray-500 mt-1">Start from scratch</p>
-            </button>
-
-            <button
-              disabled={!projectName}
-              onClick={handleSetupImport}
-              className="flex flex-col items-center p-5 border-2 border-gray-200 dark:border-gray-700 rounded-xl hover:border-green-500 hover:bg-green-50/50 dark:hover:bg-green-900/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed group text-left"
-            >
-              <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full mb-3 group-hover:scale-110 transition-transform text-green-600 dark:text-green-400">
-                <Upload className="w-6 h-6" />
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={handleClose}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreate}
+                  disabled={
+                    loading || (projectType === "import" && !importFile)
+                  }
+                >
+                  {loading
+                    ? "Creating..."
+                    : projectType === "import"
+                    ? "Import & Create"
+                    : "Create Project"}
+                </Button>
               </div>
-              <h3 className="font-bold text-gray-900 dark:text-white">
-                Import File
-              </h3>
-              <p className="text-xs text-gray-500 mt-1">From .INP file</p>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 2A: Blank Settings */}
-      {step === "settings" && (
-        <ProjectSettingsForm
-          settings={settings}
-          onChange={handleSettingsChange}
-          mode="create"
-        />
-      )}
-
-      {/* STEP 2B: Import File */}
-      {step === "import" && (
-        <div className="space-y-6">
-          <div
-            className={cn(
-              "border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer relative group",
-              file
-                ? "border-green-500 bg-green-50/30 dark:bg-green-900/10"
-                : "border-gray-300 dark:border-gray-700 hover:border-blue-400 hover:bg-blue-50/30 dark:hover:bg-blue-900/10"
-            )}
-          >
-            <input
-              type="file"
-              accept=".inp"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-              className="absolute inset-0 opacity-0 cursor-pointer z-10"
-            />
-            {file ? (
-              <div className="flex flex-col items-center">
-                <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full text-green-600 dark:text-green-400 mb-2">
-                  <Check className="w-6 h-6" />
-                </div>
-                <p className="font-bold text-gray-900 dark:text-white">
-                  {file.name}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {(file.size / 1024).toFixed(1)} KB
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center">
-                <Upload className="w-8 h-8 text-gray-400 mb-2 group-hover:scale-110 transition-transform" />
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Click or Drag .INP File
-                </p>
-                <p className="text-xs text-gray-500 mt-1">EPANET Input File</p>
-              </div>
-            )}
-          </div>
-
-          {/* Projection Selector via reusable form? Or just custom since it's only one field */}
-          <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700/50">
-            {/* We can just reuse the component logic here manually for simplicity in this specific unique step */}
-            <label className="text-xs font-bold uppercase tracking-wider text-gray-900 dark:text-white mb-2 block">
-              Source Projection
-            </label>
-            <ProjectSettingsForm
-              settings={settings}
-              onChange={handleSettingsChange}
-              mode="create"
-            />
-          </div>
-        </div>
-      )}
-    </ModalDialog>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

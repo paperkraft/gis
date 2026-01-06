@@ -6,7 +6,7 @@ export type NodeType = "junction" | "tank" | "reservoir";
 export type LinkType = "pipe" | "pump" | "valve";
 export type FeatureType = NodeType | LinkType;
 
-export type FlowUnit = 'CFS' | 'GPM' | 'MGD' | 'IMGD' | 'AFD' | 'LPS' | 'LPM' | 'MLD' | 'CMH' | 'CMD';
+export type FlowUnits = 'CFS' | 'GPM' | 'MGD' | 'IMGD' | 'AFD' | 'LPS' | 'LPM' | 'MLD' | 'CMH' | 'CMD';
 export type HeadlossFormula = 'H-W' | 'D-W' | 'C-M';
 
 export interface NetworkFeatureProperties {
@@ -62,18 +62,32 @@ export interface ValidationWarning {
 export interface ProjectSettings {
     title: string;
     description?: string;
-    units: FlowUnit;
+
+    // Hydraulics
+    units: FlowUnits;
     headloss: HeadlossFormula;
     specificGravity: number;
     viscosity: number;
-    trials: number;
+    maxTrials: number;
     accuracy: number;
+
     demandMultiplier: number;
+    emitterExponent: number;
+
     projection: string;
 
     patterns?: TimePattern[];
     curves?: PumpCurve[];
     controls?: NetworkControl[];
+
+    duration?: string;         // e.g. "24:00"
+    hydraulicStep?: string;    // e.g. "1:00"
+    patternStep?: string;      // e.g. "1:00"
+    reportStep?: string;       // e.g. "1:00"
+    reportStart?: string;      // e.g. "0:00"
+    startClock?: string;       // e.g. "12:00 AM"
+
+    defaultPattern?: string;   // e.g. "1", "Pat-A", etc.
 }
 export interface TimePattern {
     id: string;

@@ -23,7 +23,7 @@ export const FormSelect = ({
   className,
   options,
   description = "",
-  props
+  props,
 }: FormSelectProps) => (
   <div className={cn(className)}>
     {label && (
@@ -47,8 +47,8 @@ export const FormSelect = ({
           : "bg-background border-input focus:border-primary focus:ring-1 focus:ring-primary"
       }`}
     >
-      {options.map((item) => (
-        <option key={item.value} value={item.value}>
+      {options.map((item, idx) => (
+        <option key={item.value + idx} value={item.value}>
           {item.label}
         </option>
       ))}

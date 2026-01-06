@@ -13,6 +13,7 @@ interface FormInputProps {
   description?: string;
   textarea?: boolean;
   rows?: number;
+  step?: string;
   props?: any;
 }
 
@@ -29,6 +30,7 @@ export const FormInput = ({
   textarea = false,
   rows,
   description = "",
+  step,
   props,
 }: FormInputProps) => (
   <div className={cn(className)}>
@@ -74,6 +76,7 @@ export const FormInput = ({
             ? "bg-slate-50 text-slate-400 border-slate-200"
             : "bg-white border-input focus:border-primary focus:ring-1 focus:ring-primary"
         }`}
+        step={step}
       />
     )}
 

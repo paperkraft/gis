@@ -31,7 +31,7 @@ export function SimulationPanelOG() {
   const projectId = params.id;
 
   const { features } = useNetworkStore();
-  const { setSimulationReportModalOpen, setActiveTab } = useUIStore();
+  const { setSimulationReportModalOpen } = useUIStore();
 
   const {
     status,
@@ -91,13 +91,12 @@ export function SimulationPanelOG() {
   const handleRun = () => {
     setLogs(["> Starting simulation..."]);
     if (projectId) {
-      runSimulation(projectId as string);
+      runSimulation();
     }
   };
 
   const handleClose = () => {
     resetSimulation();
-    setActiveTab("network-editor");
   };
 
   const handleDownloadInput = () => {

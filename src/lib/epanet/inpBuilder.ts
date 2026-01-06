@@ -1,7 +1,7 @@
-import { NetworkControl, NetworkFeatureProperties, ProjectSettings, PumpCurve, TimePattern } from "@/types/network";
 import { Feature } from "ol";
 import { LineString, Point } from "ol/geom";
 import { transform } from "ol/proj";
+import { NetworkControl, NetworkFeatureProperties, ProjectSettings, PumpCurve, TimePattern } from "@/types/network";
 
 const pad = (val: any, width: number = 16) => {
     let str = (val !== undefined && val !== null) ? String(val) : '0';
@@ -15,6 +15,13 @@ const getId = (f: Feature): string => {
     return id ? String(id).trim() : 'UNKNOWN';
 };
 
+// Helper to ensure "HH:MM" format if user passed just a number like "24"
+const formatTime = (val: string | number) => {
+    if (typeof val === 'number') return `${val}:00`;
+    if (!val) return "0:00";
+    return val.includes(':') ? val : `${val}:00`;
+};
+
 export function buildINP(features: Feature[],
     patterns: TimePattern[] = [],
     curves: PumpCurve[] = [],
@@ -23,13 +30,15 @@ export function buildINP(features: Feature[],
 ): string {
     const lines: string[] = [];
 
-    // --- 0. PRE-PROCESSING ---
+    const defaultPatternId = settings?.defaultPattern || "1";
+
+    // --- PRE-PROCESSING ---
     // Ensure we have a default pattern if none exist
     const safePatterns = [...patterns];
-    const hasPattern1 = safePatterns.some(p => p.id === "1");
-    if (!hasPattern1) {
+    const hasDefaultPattern = safePatterns.some(p => p.id === defaultPatternId);
+    if (!hasDefaultPattern) {
         safePatterns.push({
-            id: "1",
+            id: defaultPatternId,
             description: "Default",
             multipliers: Array(24).fill(1.0)
         });
@@ -68,7 +77,8 @@ export function buildINP(features: Feature[],
         junctions.forEach(f => {
             const props = f.getProperties() as NetworkFeatureProperties;
             // Use '1' as default pattern if none specified
-            const pattern = props.pattern || (hasPattern1 ? "1" : "");
+            // const pattern = props.pattern || (defaultPatternId ? "1" : "");
+            const pattern = props.pattern || defaultPatternId
             lines.push(`${pad(getId(f))} ${pad(props.elevation ?? 0)} ${pad(props.demand ?? 0)} ${pad(pattern)} ;`);
         });
         lines.push('');
@@ -201,8 +211,9 @@ export function buildINP(features: Feature[],
         }
     }
 
-    // --- COORDINATES (Optional, mainly for viz) ---
+    // --- COORDINATES (Optional) ---
     const nodes = [...junctions, ...reservoirs, ...tanks];
+
     if (nodes.length > 0) {
         lines.push('[COORDINATES]');
         lines.push(';Node           X-Coord         Y-Coord');
@@ -224,7 +235,7 @@ export function buildINP(features: Feature[],
         lines.push('');
     }
 
-    // --- 14. VERTICES (For bent pipes) ---
+    // --- VERTICES (For bent pipes) ---
     if (pipes.length > 0) {
         const bentPipes = pipes.filter(f => {
             const geom = f.getGeometry() as LineString;
@@ -256,30 +267,34 @@ export function buildINP(features: Feature[],
     lines.push('[OPTIONS]');
     lines.push(`Units              ${settings?.units || 'LPS'}`);
     lines.push(`Headloss           ${settings?.headloss || 'H-W'}`);
+
+    lines.push(`Demand Multiplier  ${settings?.demandMultiplier ?? 1.0}`);
+
     lines.push(`Specific Gravity   ${settings?.specificGravity || 1.0}`);
     lines.push(`Viscosity          ${settings?.viscosity || 1.0}`);
-    lines.push(`Trials             ${settings?.trials || 40}`);
+    lines.push(`Trials             ${settings?.maxTrials || 40}`);
     lines.push(`Accuracy           ${settings?.accuracy || 0.001}`);
+
+    // Default Engine Settings
     lines.push('CHECKFREQ          2');
     lines.push('MAXCHECK           10');
     lines.push('DAMPLIMIT          0');
     lines.push('UNBALANCED         Continue 10');
-    lines.push('PATTERN            1');
+    // lines.push('PATTERN            1');
+    lines.push(`PATTERN            ${defaultPatternId}`);
     lines.push('');
 
     // lines.push(`Duration           ${options?.duration || 24}:00`);
     // lines.push(`Hydraulic Timestep ${options?.timeStep || "1:00"}`);
     lines.push('[TIMES]');
-    lines.push('Duration           24:00');
-    lines.push('Hydraulic Timestep 1:00');
-    lines.push('Pattern Timestep   1:00');
-    lines.push('Report Timestep    1:00');
-    lines.push('Report Start       0:00');
-    lines.push('Start Time         0:00');
+    lines.push(`Duration           ${formatTime(settings?.duration || "24:00")}`);
+    lines.push(`Hydraulic Timestep ${formatTime(settings?.hydraulicStep || "1:00")}`);
+    lines.push(`Pattern Timestep   ${formatTime(settings?.patternStep || "1:00")}`);
+    lines.push(`Report Timestep    ${formatTime(settings?.reportStep || "1:00")}`);
+    lines.push(`Report Start       ${formatTime(settings?.reportStart || "0:00")}`);
+    lines.push(`Start ClockTime    ${settings?.startClock || "12:00 AM"}`);
     lines.push('Statistic          None');
     lines.push('');
-
-
 
     lines.push('[END]');
     return lines.join('\n');
