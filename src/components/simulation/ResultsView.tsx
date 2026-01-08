@@ -148,6 +148,12 @@ export function ResultsView() {
     a.click();
   };
 
+  const handleBack = () => {
+    resetSimulation();
+    setNodeColorMode("none");
+    setLinkColorMode("none");
+  }
+
   if (!stats || !history) return null;
 
   const totalSteps = history.snapshots.length;
@@ -181,7 +187,7 @@ export function ResultsView() {
         )}
       >
         <button
-          onClick={resetSimulation}
+          onClick={handleBack}
           className="p-1.5 hover:bg-white/50 rounded text-slate-500 hover:text-slate-800 transition-all"
         >
           <ArrowLeft size={14} />

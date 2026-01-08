@@ -9,13 +9,22 @@ import { ContextMenu } from "./ContextMenu";
 import { PANEL_REGISTRY } from "./panel_registry";
 import { ProjectTreePanel } from "./ProjectTreePanel";
 import { WorkbenchModal } from "./WorkbenchModal";
+import { AttributeTable } from "../panels/AttributeTablePanel";
 
 export default function WorkbenchLayout({ children }: { children: ReactNode }) {
   const [isResizing, setIsResizing] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState(260);
 
-  const { activeModal, activePanel, setActiveModal } = useUIStore();
+  const {
+    activeModal,
+    activePanel,
+    sidebarWidth,
+    isCollapsed,
+    showAttributeTable,
+    setActiveModal,
+    setSidebarWidth,
+    setIsCollapsed,
+    setShowAttributeTable,
+  } = useUIStore();
 
   const settings = useNetworkStore((state) => state.settings);
 
@@ -58,18 +67,6 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
     };
   }, [resize, stopResizing]);
 
-  // --- KEYBOARD SHORTCUT ---
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.code === "KeyB") {
-        e.preventDefault();
-        setIsCollapsed((prev) => !prev);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
   return (
     <div className="h-screen w-screen bg-slate-50 overflow-hidden flex flex-col font-sans text-slate-700">
       <Header
@@ -79,19 +76,14 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
       />
 
       <div className="flex-1 relative overflow-hidden">
-        <div className="absolute inset-0 z-0 bg-slate-200">
-          <div className="w-full h-full flex items-center justify-center text-slate-400">
-            {children}
-          </div>
-        </div>
-
-        <div className="absolute inset-0 z-10 pointer-events-none p-3 pb-10 flex justify-between">
+        {/* Sidebar Container */}
+        <div className="absolute inset-0 z-10 pointer-events-none p-2 pb-9 flex justify-between">
           <div
             className="relative pointer-events-auto flex transition-all duration-300 ease-in-out"
             style={{ width: isCollapsed ? 0 : sidebarWidth }}
           >
             <div
-              className={`flex-1 bg-background ring-1 ring-slate-900/5 rounded-lg shadow-xl overflow-hidden transition-opacity duration-300 ${
+              className={`flex-1 bg-background border border-slate-300 rounded-md shadow-[2px_0_8px_rgba(0,0,0,0.15)] overflow-hidden transition-opacity duration-300 ${
                 isCollapsed ? "opacity-0" : "opacity-100"
               }`}
             >
@@ -120,6 +112,13 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
 
+        {/* Map Container */}
+        <div className="absolute inset-0 z-0 bg-slate-200">
+          <div className="w-full h-full flex items-center justify-center text-slate-400">
+            {children}
+          </div>
+        </div>
+
         {activeModal !== "NONE" && (
           <WorkbenchModal
             key={activeModal}
@@ -131,6 +130,11 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
 
         <ContextMenu />
       </div>
+
+      <AttributeTable
+        isOpen={showAttributeTable}
+        onClose={() => setShowAttributeTable(false)}
+      />
     </div>
   );
 }

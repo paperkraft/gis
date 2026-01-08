@@ -1,10 +1,12 @@
 import {
-    BarChart3Icon, CheckCircle2, Circle, Cpu, Hexagon, LucideIcon, Minus, Mountain, Palette, Pentagon, Settings, Square,
-    Table2, Triangle,
+    BarChart3Icon, CheckCircle2, Circle, Cpu, Hexagon, LucideIcon, Minus, Mountain, Palette,
+    Pentagon, Settings, Square, Table2, Triangle, UploadIcon
 } from 'lucide-react';
 
+import { AutoElevationPanel } from '../panels/AutoElevationPanel';
 import { ControlManagerPanel } from '../panels/ControlManagerPanel';
 import { DataManagerPanel } from '../panels/DataManagerPanel';
+import { NetworkValidationPanel } from '../panels/NetworkValidationPanel';
 import { ProjectSettingsPanel } from '../panels/ProjectSettingsPanel';
 import { StyleSettingsPanel } from '../panels/StyleSettingsPanel';
 import { JunctionProperties } from '../properties/JunctionProperties';
@@ -13,11 +15,8 @@ import { PumpProperties } from '../properties/PumpProperties';
 import { ReservoirProperties } from '../properties/ReservoirProperties';
 import { TankProperties } from '../properties/TankProperties';
 import { ValveProperties } from '../properties/ValveProperties';
-import { AutoElevationPanel } from '../panels/AutoElevationPanel';
-import { NetworkValidationPanel } from '../panels/NetworkValidationPanel';
-import { ScenarioManagerPanel } from '../simulation/ScenarioManagerPanel';
 import { SimulationGraphs } from '../simulation/graphs/SimulationGraphs';
-// import { SimulationGraphs } from '../simulation/SimulationGraphs';
+import { ScenarioManagerPanel } from '../simulation/ScenarioManagerPanel';
 
 interface ModalConfig {
   title: string;
@@ -27,25 +26,27 @@ interface ModalConfig {
 }
 
 export type WorkbenchModalType =
-    | "NONE"
-    | "NEW_PROJECT"
-    | "DELETE_PROJECT"
-     // Network
-    | "JUNCTION_PROP"
-    | "RESERVOIR_PROP"
-    | "TANK_PROP"
-    | "PIPE_PROP"
-    | "PUMP_PROP"
-    | "VALVE_PROP"
-    // Rest
-    | "PROJECT_SETTINGS"
-    | "STYLE_SETTINGS"
-    | "SIMULATION_GRAPHS"
-    | "SCENARIO_MANAGER"
-    | "CURVES_PATTERNS"
-    | "AUTO_ELEVATION"
-    | "CONTROLS"
-    | "VALIDATION"
+  | "NONE"
+  | "NEW_PROJECT"
+  | "DELETE_PROJECT"
+  | "EXPORT_PROJECT"
+    // Network
+  | "JUNCTION_PROP"
+  | "RESERVOIR_PROP"
+  | "TANK_PROP"
+  | "PIPE_PROP"
+  | "PUMP_PROP"
+  | "VALVE_PROP"
+  // Rest
+  | "PROJECT_SETTINGS"
+  | "STYLE_SETTINGS"
+  | "SIMULATION_GRAPHS"
+  | "SCENARIO_MANAGER"
+  | "CURVES_PATTERNS"
+  | "AUTO_ELEVATION"
+  | "CONTROLS"
+  | "VALIDATION"
+  | "BOOKMARK"
    
     
 export const MODAL_REGISTRY: Partial<Record<WorkbenchModalType, ModalConfig>> = {

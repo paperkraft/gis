@@ -34,10 +34,12 @@ export interface ContextMenuState {
 interface UIState {
 
     // Sidebar
+    isCollapsed: boolean;
+    sidebarWidth: number;
+
+    // Symbology
     showLabels: boolean;
-    sidebarOpen: boolean;
     showPipeArrows: boolean;
-    sidebarCollapsed: boolean;
 
     // Snapping
     isSnappingEnabled: boolean;
@@ -83,7 +85,9 @@ interface UIState {
 
     // Actions - Sidebar
     toggleSidebar: () => void;
-    setSidebarCollapsed: (collapsed: boolean) => void;
+    setIsCollapsed: (collapse: boolean) => void;
+    setSidebarWidth: (width: number) => void;
+
     setShowLabels: (show: boolean) => void;
     setShowPipeArrows: (show: boolean) => void;
 
@@ -136,6 +140,9 @@ interface UIState {
 
 const DEFAULT_STATE = {
 
+    sidebarWidth: 260,
+    isCollapsed: false,
+
     // Modal
     componentSelectionModalOpen: false,
     keyboardShortcutsModalOpen: false,
@@ -168,8 +175,6 @@ const DEFAULT_STATE = {
 
     activeTool: 'pan' as const,
     baseLayer: 'osm' as const,
-    sidebarOpen: true,
-    sidebarCollapsed: false,
 
     layerVisibility: {
         reservoir: true,
@@ -196,6 +201,8 @@ export const useUIStore = create<UIState>((set, get) => ({
     // default state
     ...DEFAULT_STATE,
 
+    setSidebarWidth: (width) => set({ sidebarWidth: width }),
+
     setContextMenu: (menu) => set({ contextMenu: menu }),
     setActiveStyleLayer: (layer) => set({ activeStyleLayer: layer }),
 
@@ -219,7 +226,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     setDeleteModalOpen: (open) => set({ deleteModalOpen: open }),
     setImportModalOpen: (open) => set({ importModalOpen: open }),
     setExportModalOpen: (open) => set({ exportModalOpen: open }),
-    
+
     setMeasurementType: (type) => set({ measurementType: type }),
     setShowPipeArrows: (show) => set({ showPipeArrows: show }),
     setShowLabels: (show) => set({ showLabels: show }),
@@ -259,8 +266,8 @@ export const useUIStore = create<UIState>((set, get) => ({
         set((state) => ({ showAttributeTable: !state.showAttributeTable }));
     },
 
-    toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-    setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+    toggleSidebar: () => set((state) => ({ isCollapsed: !state.isCollapsed })),
+    setIsCollapsed: () => set((state) => ({ isCollapsed: !state.isCollapsed })),
 
     // Layer actions
     toggleLayerVisibility: (layerId) => {

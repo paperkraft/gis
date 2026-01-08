@@ -70,7 +70,7 @@ export function generateINP(
     lines.push(`Headloss           ${settings.headloss}`);
     lines.push(`Specific Gravity   ${settings.specificGravity}`);
     lines.push(`Viscosity          ${settings.viscosity}`);
-    lines.push(`Trials             ${settings.trials}`);
+    lines.push(`Trials             ${settings.maxTrials}`);
     lines.push(`Accuracy           ${settings.accuracy}`);
     lines.push('CHECKFREQ          2');
     lines.push('MAXCHECK           10');

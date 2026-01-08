@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Grid3X3 } from "lucide-react";
+import { Check, Grid3X3, Mountain, Moon, Sun, Satellite } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BaseLayerType, useBaseLayer } from "@/hooks/useBaseLayer";
 
@@ -27,132 +27,193 @@ export function BaseLayerPicker({
 
   return (
     <div className="absolute bottom-0 right-12 z-50 mb-0 animate-in fade-in slide-in-from-right-4 duration-200">
-      <div className="bg-background p-3 rounded-md shadow-xl border border-slate-300 grid grid-cols-3 gap-3 w-60">
-        {/* 1. OSM */}
+      <div className="bg-white p-3 rounded-lg shadow-xl border border-slate-300 grid grid-cols-3 gap-3 w-64">
+        {/* 1. STREETS (Standard) */}
         <LayerOption
-          label="Standard"
-          active={current === "osm"}
-          onClick={() => handleSelect("osm")}
+          label="Streets"
+          active={current === "streets"}
+          onClick={() => handleSelect("streets")}
         >
-          <div className="w-full h-full bg-[#f2efe9] relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-1/2 h-full bg-[#aad3df]" />
-            <div className="absolute top-2 left-2 w-full h-2 bg-[#f7c97e] -rotate-12" />
+          <div className="w-full h-full bg-[#f6f6f4] relative overflow-hidden">
+            {/* Roads */}
+            <div className="absolute top-0 right-0 w-1/2 h-full bg-[#dde5ed]" />
+            <div className="absolute top-2 left-[-10%] w-[120%] h-2 bg-[#ffffff] border-y border-[#cfcfcf] -rotate-12" />
+            <div className="absolute bottom-2 right-[-10%] w-[120%] h-3 bg-[#fbb03b] border-y border-[#d69632] -rotate-45" />
           </div>
         </LayerOption>
 
-        {/* 2. Mapbox (Streets style) */}
+        {/* 2. OUTDOORS (Terrain) */}
         <LayerOption
-          label="Mapbox"
-          active={current === "mapbox"}
-          onClick={() => handleSelect("mapbox")}
+          label="Outdoors"
+          active={current === "outdoors"}
+          onClick={() => handleSelect("outdoors")}
         >
           <div className="w-full h-full bg-[#eef0f5] relative overflow-hidden">
-            {/* Distinctive Mapbox Blue/Black roads */}
-            <div className="absolute top-3 left-0 w-full h-1.5 bg-slate-800 -rotate-6" />
-            <div className="absolute bottom-3 left-0 w-full h-1 bg-[#4264fb] rotate-12" />
-            <div className="absolute top-0 right-0 w-8 h-8 bg-[#c6e2b8] rounded-bl-xl" />
+            {/* Green Park Area */}
+            <div className="absolute top-0 right-0 w-2/3 h-2/3 bg-[#cdeebb] rounded-bl-3xl" />
+            {/* Contour Line Hint */}
+            <div className="absolute bottom-2 left-2 w-8 h-8 border border-slate-300/50 rounded-full" />
+            <div className="absolute -bottom-2.5 -left-2.5 w-16 h-16 border border-slate-300/50 rounded-full" />
+            <Mountain
+              size={14}
+              className="absolute bottom-1 right-1 text-slate-400 opacity-50"
+            />
           </div>
         </LayerOption>
 
-        {/* 3. Satellite */}
+        {/* 3. SATELLITE (Pure Imagery) */}
         <LayerOption
           label="Satellite"
           active={current === "satellite"}
           onClick={() => handleSelect("satellite")}
         >
           <div className="w-full h-full bg-[#3a4a38] relative overflow-hidden">
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30" />
-            <div className="absolute top-0 right-0 w-1/2 h-full bg-[#1e2f23] blur-sm" />
+            {/* Texture Pattern */}
+            <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_center,var(--tw-gradient-stops))] from-slate-600 to-slate-900" />
+            {/* Green patches */}
+            <div className="absolute top-0 right-0 w-1/2 h-full bg-[#1e2f23] blur-md" />
+            <div className="absolute bottom-0 left-0 w-1/3 h-1/2 bg-[#2a3c2e] blur-sm" />
           </div>
         </LayerOption>
 
-        {/* 4. Terrain */}
+        {/* 4. HYBRID (Satellite + Streets) */}
         <LayerOption
-          label="Terrain"
-          active={current === "terrain"}
-          onClick={() => handleSelect("terrain")}
+          label="Hybrid"
+          active={current === "satellite-streets"}
+          onClick={() => handleSelect("satellite-streets")}
         >
-          <div className="w-full h-full bg-[#e8e6e1] relative overflow-hidden flex flex-col justify-center items-center">
-            {/* Contour Lines effect */}
-            <div className="w-12 h-8 border border-slate-400/40 rounded-[50%] absolute top-2 -left-2.5" />
-            <div className="w-16 h-10 border border-slate-400/40 rounded-[60%] absolute top-4 left-2" />
-            <div className="w-10 h-6 border border-slate-400/40 rounded-[40%] absolute bottom-2 right-[-5px]" />
-            {/* Hillshade */}
-            <div className="absolute inset-0 bg-linear-to-tr from-slate-400/20 to-transparent pointer-events-none" />
+          <div className="w-full h-full bg-[#2c3e2d] relative overflow-hidden">
+            {/* Dark base */}
+            <div className="absolute inset-0 bg-black/20" />
+            {/* Roads overlay */}
+            <div className="absolute top-4 left-[-10%] w-[120%] h-1.5 bg-white/90 -rotate-12 shadow-sm" />
+            <div className="absolute bottom-3 right-[-10%] w-[120%] h-1 bg-[#fbb03b] -rotate-45" />
+            <Satellite
+              size={12}
+              className="absolute top-1 right-1 text-white/50"
+            />
           </div>
         </LayerOption>
 
-        {/* 5. Light */}
+        {/* 5. LIGHT (Clean) */}
         <LayerOption
           label="Light"
           active={current === "light"}
           onClick={() => handleSelect("light")}
         >
-          <div className="w-full h-full bg-slate-50 relative border border-slate-100">
-            <div className="absolute top-2 left-0 w-full h-px bg-slate-300 -rotate-12" />
+          <div className="w-full h-full bg-[#f8f9fa] relative border border-slate-100">
+            <div className="absolute top-4 left-[-10%] w-[120%] h-px bg-slate-300 -rotate-6" />
+            <div className="absolute bottom-4 right-[-10%] w-[120%] h-px bg-slate-300 -rotate-6" />
+            <Sun size={12} className="absolute top-1 right-1 text-slate-400" />
           </div>
         </LayerOption>
 
-        {/* 6. Dark */}
+        {/* 6. DARK (Night) */}
         <LayerOption
           label="Dark"
           active={current === "dark"}
           onClick={() => handleSelect("dark")}
         >
           <div className="w-full h-full bg-[#1a1a1a] relative">
-            <div className="absolute top-2 left-0 w-full h-px bg-[#333] -rotate-12" />
+            <div className="absolute top-4 left-[-10%] w-[120%] h-px bg-[#333] -rotate-6" />
+            <div className="absolute bottom-4 right-[-10%] w-[120%] h-px bg-[#444] -rotate-6" />
+            <Moon size={12} className="absolute top-1 right-1 text-slate-600" />
           </div>
         </LayerOption>
 
-        {/* BLANK (Schematic) */}
-        <LayerOption
-          label="Blank"
-          active={current === "blank"}
-          onClick={() => handleSelect("blank")}
-        >
-          <div className="w-full h-full bg-white relative border border-slate-100 flex items-center justify-center text-slate-200">
-            <Grid3X3 size={24} strokeWidth={1} />
-          </div>
-        </LayerOption>
+        {/* 7. BLANK (Schematic) */}
+        <div className="col-span-3 pt-2 border-t border-slate-200 mt-1">
+          <LayerOption
+            label="No Base Map (Grid Only)"
+            active={current === "blank"}
+            onClick={() => handleSelect("blank")}
+            wide
+          >
+            <div className="w-full h-full bg-background relative flex items-center gap-3 px-3">
+              <Grid3X3 size={18} />
+              <div className="flex flex-col items-start">
+                <span className="text-xs font-bold text-slate-700">
+                  Schematic Mode
+                </span>
+                <span className="text-[9px] text-muted-foreground">
+                  White background with grid
+                </span>
+              </div>
+            </div>
+          </LayerOption>
+        </div>
       </div>
 
-      {/* Arrow */}
-      <div className="absolute -right-1.5 bottom-4 w-3 h-3 bg-background transform rotate-45 border-r border-t border-slate-300" />
+      {/* Pointer Arrow */}
+      <div className="absolute -right-1.5 bottom-3 size-3 bg-background transform rotate-45 border-r border-t border-slate-300" />
     </div>
   );
 }
 
-function LayerOption({ active, onClick, children, label }: any) {
+// --- SUB COMPONENT ---
+
+interface LayerOptionProps {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  label: string;
+  wide?: boolean; // For the "Blank" option at bottom
+}
+
+function LayerOption({
+  active,
+  onClick,
+  children,
+  label,
+  wide,
+}: LayerOptionProps) {
   return (
     <button
       onClick={onClick}
-      className="group flex flex-col items-center gap-2 outline-none"
+      className={cn(
+        "group flex flex-col items-center gap-1.5 outline-none transition-all",
+        wide ? "flex-row w-full" : ""
+      )}
     >
       <div
         className={cn(
-          "w-16 h-16 rounded-md overflow-hidden border-2 transition-all shadow-sm relative bg-slate-100",
-          active
+          "overflow-hidden transition-all shadow-sm relative bg-slate-100",
+          wide
+            ? "w-full h-10 rounded border hover:border-slate-300"
+            : "w-16 h-16 rounded-lg border-2",
+
+          active && !wide
             ? "border-primary ring-2 ring-blue-100 ring-offset-1"
-            : "border-slate-200 hover:border-slate-300 hover:shadow-md"
+            : !wide &&
+                "border-slate-200 group-hover:border-slate-300 group-hover:shadow-md",
+
+          active && wide ? "border-primary bg-blue-50/50" : ""
         )}
       >
         {children}
-        {active && (
-          <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
+
+        {/* Active Badge (Only for square cards) */}
+        {active && !wide && (
+          <div className="absolute inset-0 bg-blue-900/10 flex items-center justify-center animate-in fade-in zoom-in-95 duration-200">
             <div className="bg-primary rounded-full p-0.5 shadow-sm">
               <Check size={12} className="text-white" />
             </div>
           </div>
         )}
       </div>
-      <span
-        className={cn(
-          "text-[10px] font-medium transition-colors",
-          active ? "text-blue-700" : "text-slate-500 group-hover:text-slate-700"
-        )}
-      >
-        {label}
-      </span>
+
+      {!wide && (
+        <span
+          className={cn(
+            "text-[10px] font-medium transition-colors",
+            active
+              ? "text-primary font-bold"
+              : "text-slate-500 group-hover:text-slate-700"
+          )}
+        >
+          {label}
+        </span>
+      )}
     </button>
   );
 }

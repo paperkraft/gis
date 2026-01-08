@@ -29,7 +29,6 @@ import { Legend } from "./Legend";
 import { StatusBar } from "./StatusBar";
 import { MapToolbar } from "./MapToolbar";
 import { MapControls } from "./MapControls";
-import { AttributeTable } from "./AttributeTable";
 import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 import { MapLayers } from "./MapLayers";
 import { useSimulationStore } from "@/store/simulationStore";
@@ -199,13 +198,6 @@ export function MapContainer() {
         <Legend />
 
         <MapLayers />
-
-        {/* Panels */}
-        <AttributeTable
-          isOpen={showAttributeTable}
-          onClose={() => setShowAttributeTable(false)}
-          vectorSource={vectorSource || undefined}
-        />
 
         <DeleteConfirmationModal
           isOpen={deleteModalOpen}

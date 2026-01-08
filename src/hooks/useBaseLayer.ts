@@ -8,9 +8,18 @@ import { useCallback } from 'react';
 
 import { useMapStore } from '@/store/mapStore';
 
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "pk.YOUR_TOKEN_HERE";
+export const MapboxStyle = {
+    STREETS: 'mapbox/streets-v12',
+    OUTDOORS: 'mapbox/outdoors-v12',
+    LIGHT: 'mapbox/light-v11',
+    DARK: 'mapbox/dark-v11',
+    SATELLITE: 'mapbox/satellite-v9',
+    SATELLITE_STREETS: 'mapbox/satellite-streets-v12',
+};
 
-export type BaseLayerType = 'osm' | 'satellite' | 'light' | 'dark' | 'mapbox' | 'terrain' | 'blank';
+export type BaseLayerType = 'streets' | 'satellite' | 'satellite-streets' | 'light' | 'dark' | 'outdoors' | 'blank' | 'osm';
+
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 export function useBaseLayer() {
     const map = useMapStore((state) => state.map);
@@ -19,22 +28,13 @@ export function useBaseLayer() {
         if (!map) return;
         const layers = map.getLayers();
 
-        const defaultLayer = layers.item(0);
-        if (defaultLayer instanceof TileLayer && !defaultLayer.get('isBaseLayer')) {
-            defaultLayer.set('isBaseLayer', true);
-            defaultLayer.set('baseType', 'osm');
-            defaultLayer.setZIndex(0);
-        }
-
         // 1. MANAGE GRATICULE (GRID)
         let gridLayer = layers.getArray().find(l => l.get('isGrid')) as Graticule;
-
         if (!gridLayer) {
             gridLayer = new Graticule({
                 strokeStyle: new Stroke({ color: 'rgba(0,0,0,0.1)', width: 1 }),
-                // showLabels: true,
                 wrapX: false,
-                zIndex: 1, // Just above base maps
+                zIndex: 1,
                 visible: false,
             });
             gridLayer.set('isGrid', true);
@@ -46,103 +46,77 @@ export function useBaseLayer() {
             map.getTargetElement().style.backgroundColor = '#ffffff';
         } else {
             gridLayer.setVisible(false);
-            map.getTargetElement().style.backgroundColor = '';
+            map.getTargetElement().style.backgroundColor = '#eef0f4';
         }
 
-        // 2. MANAGE BASE LAYERS (Toggle Visibility)
-
+        // 2. CREATE LAYER (With Fallback)
         const getOrCreateLayer = (layerType: BaseLayerType): TileLayer<any> | null => {
-            if (layerType === 'blank') return null; // Blank is handled by Graticule above
+            if (layerType === 'blank') return null;
 
-            // Check if layer exists
+            // Check if layer already exists in the stack
             const existing = layers.getArray().find(l => l.get('baseType') === layerType);
             if (existing) return existing as TileLayer<any>;
 
-            // If not, create it
             let source;
-            switch (layerType) {
-                // 1. SATELLITE (Esri World Imagery)
-                case 'satellite':
-                    source = new XYZ({
-                        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                        maxZoom: 19,
-                        attributions: 'Tiles © Esri'
-                    });
-                    break;
 
-                // 2. LIGHT (CartoDB Positron)
-                case 'light':
-                    source = new XYZ({
-                        url: 'https://{a-c}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-                        attributions: '© CARTO'
-                    });
-                    break;
+            // If user wants Mapbox but no token is found, fallback to OSM
+            const isMapboxType = ['streets', 'outdoors', 'light', 'dark', 'satellite', 'satellite-streets'].includes(layerType);
 
-                // 3. DARK (CartoDB Dark Matter)
-                case 'dark':
-                    source = new XYZ({
-                        url: 'https://{a-c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-                        attributions: '© CARTO'
-                    });
-                    break;
+            if (isMapboxType && !MAPBOX_TOKEN) {
+                console.warn(`Mapbox Token missing. Falling back to OSM for layer: ${layerType}`);
+                // For Satellite, OSM doesn't have a direct equivalent, so we map to OSM Standard (better than blank)
+                // Or you could use a free satellite provider like Esri World Imagery here if you prefer.
+                source = new OSM();
+            }
+            else if (layerType === 'osm') {
+                source = new OSM();
+            }
+            else {
+                // We have a token, or it's a type we can handle
+                let styleId = MapboxStyle.STREETS;
+                switch (layerType) {
+                    case 'satellite': styleId = MapboxStyle.SATELLITE; break;
+                    case 'satellite-streets': styleId = MapboxStyle.SATELLITE_STREETS; break;
+                    case 'light': styleId = MapboxStyle.LIGHT; break;
+                    case 'dark': styleId = MapboxStyle.DARK; break;
+                    case 'outdoors': styleId = MapboxStyle.OUTDOORS; break;
+                    case 'streets': default: styleId = MapboxStyle.STREETS; break;
+                }
 
-                // 4. MAPBOX (Streets v11)
-                case 'mapbox':
-                    source = new XYZ({
-                        // You can change 'streets-v11' to 'outdoors-v11', 'light-v10', etc.
-                        url: `https://api.mapbox.com/styles/v1/mapbox/light-v10/tiles/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
-                        tileSize: 512,
-                        attributions: '© Mapbox',
-                        // Mapbox 512px tiles offset fix
-                        tileGrid: undefined // OL handles standard XYZ well, sometimes projection tweaking is needed for 512
-                    });
-                    break;
-
-                // 5. TERRAIN (OpenTopoMap or Esri World Topo)
-                case 'terrain':
-                    source = new XYZ({
-                        url: 'https://{a-c}.tile.opentopomap.org/{z}/{x}/{y}.png',
-                        maxZoom: 17,
-                        attributions: 'Map data: © OpenStreetMap, SRTM | Map style: © OpenTopoMap'
-                    });
-                    break;
-
-                // 6. STANDARD (OSM)
-                case 'osm':
-                default:
-                    source = new OSM();
-                    break;
+                source = new XYZ({
+                    url: `https://api.mapbox.com/styles/v1/${styleId}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
+                    attributions: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a>',
+                    tileSize: 512,
+                });
             }
 
             const newLayer = new TileLayer({
-                source,
-                zIndex: 0, // Ensure it sits at the bottom
-                visible: false, // Start hidden
-                preload: Infinity, // Optional: aggressive caching
+                source: source,
+                zIndex: 0,
+                visible: false,
+                preload: Infinity,
+                properties: {
+                    baseType: layerType,
+                    isBaseLayer: true
+                }
             });
 
-            newLayer.set('baseType', layerType); // Tag it
-            newLayer.set('isBaseLayer', true);   // Tag as base
             map.addLayer(newLayer);
-
             return newLayer;
-        }
+        };
 
-        // A. Ensure the target layer exists and is visible
+        // 3. TOGGLE VISIBILITY
         const targetLayer = getOrCreateLayer(type);
-        layers.forEach((layer) => {
-            // Skip the Grid and Network layers
-            if (layer.get('isGrid') || layer.get('name') === 'network') return;
 
-            // If it's the target, show it
+        layers.forEach((layer) => {
+            if (!layer.get('isBaseLayer')) return;
             if (layer === targetLayer) {
                 layer.setVisible(true);
-            }
-            // If it's ANY OTHER base layer (including the default one), hide it
-            else if (layer instanceof TileLayer && (layer.get('isBaseLayer') || layer.getZIndex() === 0)) {
+            } else {
                 layer.setVisible(false);
             }
         });
+
     }, [map]);
 
     return { setBaseLayer };

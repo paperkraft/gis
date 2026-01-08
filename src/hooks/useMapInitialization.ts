@@ -17,7 +17,9 @@ import { BoundaryLayer } from '@/lib/map/baseLayers';
 import { getFeatureStyle } from '@/lib/styles/featureStyles';
 import { useMapStore } from '@/store/mapStore';
 import TileLayer from 'ol/layer/Tile';
-import { OSM } from 'ol/source';
+import { OSM, XYZ } from 'ol/source';
+
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElement | null>) {
 
@@ -41,19 +43,33 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
             zIndex: 10,
         });
 
+        const baseLayer = new TileLayer({
+            source: new XYZ({
+                url: `https://api.mapbox.com/styles/v1/mapbox/light-v11/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
+                attributions: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a>',
+                tileSize: 512, // Important for High-DPI (Retina) screens
+            }),
+            properties: {
+                isBaseLayer: true,
+                baseType: 'light'
+            }
+        });
+
+        const layer = baseLayer || new TileLayer({
+            source: new OSM(),
+            zIndex: 0,
+            properties: {
+                isBaseLayer: true,
+                baseType: 'osm'
+            }
+        });
+
         // Create Map
         const map = new Map({
             target: mapTargetRef.current,
 
             layers: [
-                new TileLayer({
-                    source: new OSM(),
-                    zIndex: 0,
-                    properties: {
-                        isBaseLayer: true,
-                        baseType: 'osm',
-                    }
-                }),
+                layer,
                 networkLayer,
                 BoundaryLayer
             ],

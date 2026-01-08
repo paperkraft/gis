@@ -136,8 +136,9 @@
 }
 
 .ol-scale-line {
-  bottom: 2.15rem !important;
-  /* right: 0 !important; */
+  left: 50% !important;
+  transform: translateX(-50%);
+  bottom: 2.35rem !important;
 }
 
 /* Added: Style for DragBox selection */

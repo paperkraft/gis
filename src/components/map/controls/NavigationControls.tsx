@@ -3,7 +3,6 @@
 import {
   Bookmark,
   ExpandIcon,
-  Focus,
   MapIcon,
   Maximize,
   Search,
@@ -18,7 +17,6 @@ import {
   handleZoomOut,
   handleZoomToExtent,
 } from "@/lib/interactions/map-controls";
-import { useBookmarkStore } from "@/store/bookmarkStore";
 import { useMapStore } from "@/store/mapStore";
 import { useUIStore } from "@/store/uiStore";
 
@@ -37,12 +35,13 @@ export function NavigationControls({
   const map = useMapStore((state) => state.map);
   const {
     activeTool,
+    activeModal,
     showLocationSearch,
     setActiveTool,
     setShowLocationSearch,
+    setActiveModal,
   } = useUIStore();
 
-  const { isPanelOpen, togglePanel } = useBookmarkStore();
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
@@ -52,8 +51,7 @@ export function NavigationControls({
       document.removeEventListener("fullscreenchange", handleFsChange);
   }, []);
 
-  const isActiveGroup =
-    isPanelOpen || activeTool === "zoom-box" || isFullscreen;
+  const isActiveGroup = activeTool === "zoom-box" || isFullscreen || activeModal === "BOOKMARK"
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -120,7 +118,7 @@ export function NavigationControls({
         <Divider />
 
         <ToolBtn
-          onClick={togglePanel}
+          onClick={() => setActiveModal("BOOKMARK")}
           isActive={showLocationSearch}
           icon={Bookmark}
           title="Bookmarks"

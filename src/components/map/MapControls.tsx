@@ -1,15 +1,11 @@
 "use client";
 
-import { Printer, Save } from "lucide-react";
-import { useParams } from "next/navigation";
+import { FileDown, Printer } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 
 import { handlePrint } from "@/lib/interactions/map-controls";
-import { ProjectService } from "@/lib/services/ProjectService";
 import { cn } from "@/lib/utils";
 import { useMapStore } from "@/store/mapStore";
-import { useNetworkStore } from "@/store/networkStore";
 import { useUIStore } from "@/store/uiStore";
 
 // Import Modals
@@ -28,19 +24,19 @@ import { StandaloneControl } from "./controls/Shared";
 import { AssetSearch } from "./controls/AssetSearch";
 import { LocationSearch } from "./LocationSearch";
 import { BookmarkPanel } from "./BookmarkPanel";
+import { ExportPanel } from "./ExportPanel";
 
 export function MapControls() {
-  const params = useParams();
   const map = useMapStore((state) => state.map);
 
-  const { hasUnsavedChanges } = useNetworkStore();
-
   const {
+    activeModal,
     importModalOpen,
     exportModalOpen,
     setImportModalOpen,
     setExportModalOpen,
     setShowLocationSearch,
+    setActiveModal,
   } = useUIStore();
 
   const controlsRef = useRef<HTMLDivElement>(null);
@@ -71,13 +67,6 @@ export function MapControls() {
     setActiveGroup(activeGroup === group ? null : group);
   };
 
-  const handleSave = async () => {
-    if (params.id) {
-      await ProjectService.saveCurrentProject(params.id as string);
-      toast.success("Project Saved");
-    }
-  };
-
   return (
     <>
       <div
@@ -104,14 +93,10 @@ export function MapControls() {
         />
 
         <StandaloneControl
-          onClick={handleSave}
-          icon={Save}
-          title="Save Network"
-          colorClass={
-            hasUnsavedChanges
-              ? "text-amber-600 dark:text-amber-500 animate-pulse"
-              : ""
-          }
+          icon={FileDown}
+          title="Export Network"
+          isActive={activeModal === "EXPORT_PROJECT"}
+          onClick={() => setActiveModal("EXPORT_PROJECT")}
         />
       </div>
 
@@ -121,6 +106,7 @@ export function MapControls() {
       <BookmarkPanel />
       <LocationSearch />
       <QueryBuilderModal />
+      <ExportPanel />
 
       <ImportModal
         isOpen={importModalOpen}
