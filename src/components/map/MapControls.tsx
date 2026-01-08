@@ -72,8 +72,8 @@ export function MapControls() {
       <div
         ref={controlsRef}
         className={cn(
-          "absolute top-4 right-4 z-10 flex flex-col items-center",
-          "rounded shadow-xl p-0.5 gap-0.5",
+          "absolute top-2.5 right-2 z-10 flex flex-col items-center",
+          "rounded-sm shadow-xl p-0.5 gap-1",
           "border border-white/20 dark:border-gray-700/50",
           "bg-white/80 dark:bg-gray-900/80 backdrop-blur-md",
           "transition-all hover:bg-white/95 dark:hover:bg-gray-900/95"

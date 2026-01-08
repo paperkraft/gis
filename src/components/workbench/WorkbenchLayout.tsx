@@ -83,7 +83,7 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
             style={{ width: isCollapsed ? 0 : sidebarWidth }}
           >
             <div
-              className={`flex-1 bg-background border border-slate-300 rounded-md shadow-[2px_0_8px_rgba(0,0,0,0.15)] overflow-hidden transition-opacity duration-300 ${
+              className={`flex-1 bg-background border border-slate-200 rounded-md shadow-[2px_0_8px_rgba(0,0,0,0.12)] overflow-hidden transition-opacity duration-300 ${
                 isCollapsed ? "opacity-0" : "opacity-100"
               }`}
             >

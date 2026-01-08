@@ -11,8 +11,8 @@ export function MapToolbar() {
   return (
     <div
       className={cn(
-        "absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center",
-        "rounded-md shadow-xl p-1 gap-1",
+        "absolute top-2.5 left-1/2 -translate-x-1/2 z-10 flex items-center",
+        "rounded-sm shadow-xl p-1 gap-1",
         "border border-white/20 dark:border-gray-700/50",
         "bg-white/80 dark:bg-gray-900/80 backdrop-blur-md",
         "transition-all hover:bg-white/95 dark:hover:bg-gray-900/95"

@@ -26,8 +26,8 @@ export function BaseLayerPicker({
   };
 
   return (
-    <div className="absolute bottom-0 right-12 z-50 mb-0 animate-in fade-in slide-in-from-right-4 duration-200">
-      <div className="bg-white p-3 rounded-lg shadow-xl border border-slate-300 grid grid-cols-3 gap-3 w-64">
+    <div className="absolute bottom-0 right-11 z-50 mb-0 animate-in fade-in slide-in-from-right-4 duration-200">
+      <div className="bg-background p-2 py-3 rounded-sm shadow-lg grid grid-cols-3 gap-1 w-64 ring-1 ring-slate-900/5">
         {/* 1. STREETS (Standard) */}
         <LayerOption
           label="Streets"
@@ -145,7 +145,7 @@ export function BaseLayerPicker({
       </div>
 
       {/* Pointer Arrow */}
-      <div className="absolute -right-1.5 bottom-3 size-3 bg-background transform rotate-45 border-r border-t border-slate-300" />
+      <div className="absolute -right-1.5 bottom-3 size-3 bg-background transform rotate-45 border-r border-t border-slate-900/5" />
     </div>
   );
 }

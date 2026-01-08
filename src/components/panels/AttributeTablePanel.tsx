@@ -42,7 +42,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   
   // LAYOUT STATE
-  const [tableHeight, setTableHeight] = useState(350); // Default Height
+  const [tableHeight, setTableHeight] = useState(300);
   const [isResizing, setIsResizing] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
 
@@ -188,7 +188,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
 
   if (!isOpen) return null;
 
-  const leftPosition = (!isCollapsed && !isFullScreen) ? sidebarWidth + 24 : 16;
+  const leftPosition = (!isCollapsed && !isFullScreen) ? sidebarWidth + 16 : 16;
 
   return (
     <div 
@@ -196,11 +196,11 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
         style={{ height: isFullScreen ? "100%" : tableHeight, left: leftPosition }}
         className={cn(
             // BASE STYLES shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]
-            "absolute bottom-10 right-4 z-30 flex flex-col rounded-lg bg-background border border-slate-200 shadow-[0_-1px_10px_0_rgba(0,0,0,0.1)]",
+            "absolute bottom-9 right-2 z-30 flex flex-col rounded-sm bg-background border border-slate-200 shadow-[0_-1px_10px_0_rgba(0,0,0,0.1)]",
             // ANIMATION FOR SIDEBAR ADJUSTMENT 
             "transition-all duration-300 ease-in-out",
             // FULL SCREEN OVERRIDE
-            isFullScreen && "top-0 left-0 right-0 h-full z-50 border-t-0"
+            isFullScreen && "top-0 left-0! right-0 h-full z-50 border-t-0"
         )}
     >
       
@@ -217,7 +217,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
       )}
 
       {/* 2. HEADER & TABS */}
-      <div className="flex flex-col rounded-t-lg bg-slate-50 border-b border-slate-200">
+      <div className="flex flex-col rounded-t-sm bg-slate-50 border-b border-slate-200">
          
          {/* Toolbar Row */}
          <div className="flex items-center justify-between px-2 py-1.5 border-b border-slate-200/50">
@@ -233,15 +233,15 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
                    placeholder="Filter..."
                    value={searchTerm}
                    onChange={(e) => setSearchTerm(e.target.value)}
-                   className="h-6 w-32 focus:w-48 pl-7 text-[11px] bg-white border border-slate-300 rounded hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-all"
+                   className="h-6 w-32 focus:w-48 pl-7 text-[11px] bg-white border border-slate-300 rounded hover:border-blue-400 focus:border-primary focus:ring-0 transition-all"
                  />
                </div>
             </div>
 
             <div className="flex items-center gap-1">
                <Button variant="ghost" size="icon-sm" onClick={handleExport} className="size-6 text-slate-500 hover:text-green-600" title="Export CSV"><Download size={12}/></Button>
-               <Button variant="ghost" size="icon-sm" onClick={() => setIsFullScreen(!isFullScreen)} className="size-6 text-slate-500 hover:text-blue-600">{isFullScreen ? <Minimize2 size={12}/> : <Maximize2 size={12}/>}</Button>
-               <Button variant="ghost" size="icon-sm" onClick={onClose} className="size-6 text-slate-500 hover:text-red-600"><X size={12}/></Button>
+               <Button variant="ghost" size="icon-sm" onClick={() => setIsFullScreen(!isFullScreen)} className="size-6 text-slate-500 hover:text-primary">{isFullScreen ? <Minimize2 size={12}/> : <Maximize2 size={12}/>}</Button>
+               <Button variant="ghost" size="icon-sm" onClick={onClose} className="size-6 text-slate-500 hover:text-destructive"><X size={12}/></Button>
             </div>
          </div>
 
@@ -257,7 +257,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
                     className={cn(
                        "flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium border-t border-l border-r rounded-t-sm transition-all relative top-px",
                        isActive 
-                         ? "bg-white border-slate-300 border-b-white text-blue-700 z-10" 
+                         ? "bg-white border-slate-300 border-b-white text-primary z-10" 
                          : "bg-slate-100 border-transparent text-slate-500 hover:bg-slate-200 hover:text-slate-700"
                     )}
                   >
@@ -282,7 +282,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
                       className={cn(
                         "px-3 py-2 text-[10px] font-bold text-slate-600 uppercase border-r border-b border-slate-200 cursor-pointer hover:bg-slate-100 flex items-center justify-between group select-none shrink-0",
                         col.width || "w-24",
-                        col.isResult && "bg-blue-50/50 text-blue-700 border-blue-100"
+                        col.isResult && "bg-blue-50/50 text-primary border-blue-100"
                       )}
                     >
                       <span>{col.label}</span>
@@ -343,14 +343,14 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
       </div>
 
       {/* 4. FOOTER STATUS BAR */}
-      <div className="bg-slate-50 px-3 py-1 rounded-b-lg border-t border-slate-200 text-[10px] text-slate-500 flex justify-between items-center select-none">
+      <div className="bg-slate-50 px-3 py-1 rounded-b-sm border-t border-slate-200 text-[10px] text-slate-500 flex justify-between items-center select-none">
          <div className="flex gap-4">
             <span>{sortedData.length} Elements</span>
             <span className="text-slate-400">|</span>
             <span>{activeTab === 'all' ? 'All Types' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1) + 's'}</span>
          </div>
          {simStatus === 'completed' && (
-            <div className="flex items-center gap-1.5 text-blue-600 font-medium">
+            <div className="flex items-center gap-1.5 text-primary font-medium">
                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
                Results Loaded
             </div>

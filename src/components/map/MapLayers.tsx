@@ -14,7 +14,7 @@ export function MapLayers() {
   const [currentLayer, setCurrentLayer] = useState<BaseLayerType>("light");
 
   return (
-    <div className="absolute bottom-10 right-4 z-30 flex flex-col gap-3 animate-in slide-in-from-right-4">
+    <div className="absolute bottom-10 right-2.5 z-30 flex flex-col gap-3 animate-in slide-in-from-right-4">
       <div className="relative">
         <BaseLayerPicker
           isOpen={showLayerPicker}
