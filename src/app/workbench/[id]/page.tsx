@@ -10,8 +10,8 @@ import { ProjectService } from "@/lib/services/ProjectService";
 import { useNetworkStore } from "@/store/networkStore";
 import { useScenarioStore } from "@/store/scenarioStore";
 import { useSimulationStore } from "@/store/simulationStore";
-import { useUIStore } from "@/store/uiStore";
 import { useStyleStore } from "@/store/styleStore";
+import { useUIStore } from "@/store/uiStore";
 
 const MapContainer = dynamic(
   () => import("@/components/map/MapContainer").then((mod) => mod.MapContainer),

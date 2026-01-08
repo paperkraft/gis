@@ -8,7 +8,7 @@ const geometry = (name: string, type: string) => {
     })(name);
 };
 
-// --- 1. PROJECTS (Keep mostly as is) ---
+// --- 1. PROJECTS ---
 export const projects = pgTable("projects", {
     id: uuid("id").defaultRandom().primaryKey(),
     title: text("title").notNull(),
@@ -74,7 +74,6 @@ export const links = pgTable("links", {
 }));
 
 // --- 4. SIMULATION RESULTS (New for Scale) ---
-// Don't store results in RAM for large networks. Save them here.
 export const simulationRuns = pgTable("simulation_runs", {
     id: uuid("id").defaultRandom().primaryKey(),
     projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }).notNull(),
@@ -98,4 +97,14 @@ export const simulationResults = pgTable("simulation_results", {
 
     // The "Lite" Time Series (Only Report Steps)
     timeSeries: jsonb("time_series"),
+});
+
+// --- 5. BOOKMARKS ---
+export const bookmarks = pgTable("bookmarks", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
+    name: text("name").notNull(),
+    center: jsonb("center").$type<number[]>().notNull(),
+    zoom: doublePrecision("zoom").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
 });

@@ -1,17 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bookmark, Check, MapPin, Plus, Trash2, X } from "lucide-react";
+import { Bookmark, Check, Loader2, MapPin, Trash2, X } from "lucide-react";
 import { useMapStore } from "@/store/mapStore";
 import { useUIStore } from "@/store/uiStore";
 import { useBookmarkStore } from "@/store/bookmarkStore";
 import { Button } from "@/components/ui/button";
 import { FloatingPanel } from "./FloatingPanel";
-import { easeOut } from 'ol/easing';
+import { easeOut } from "ol/easing";
+import { useParams } from "next/navigation";
 
 export function BookmarkPanel() {
+  const params = useParams();
   const map = useMapStore((state) => state.map);
-  const { bookmarks, addBookmark, removeBookmark } = useBookmarkStore();
+  const { bookmarks, isLoading, addBookmark, fetchBookmarks, removeBookmark } =
+    useBookmarkStore();
   const { activeModal, setActiveModal } = useUIStore();
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -21,6 +24,13 @@ export function BookmarkPanel() {
   const [customName, setCustomName] = useState("");
 
   const isOpen = activeModal === "BOOKMARK";
+  const projectId = params.id as string;
+
+  useEffect(() => {
+    if (projectId) {
+      fetchBookmarks(projectId);
+    }
+  }, [projectId]);
 
   // Reset state when panel closes
   useEffect(() => {
@@ -43,8 +53,9 @@ export function BookmarkPanel() {
     setCustomName("");
   };
 
-  const handleConfirmAdd = () => {
+  const handleConfirmAdd = async () => {
     if (!map) return;
+
     const view = map.getView();
     const center = view.getCenter();
     const zoom = view.getZoom();
@@ -53,12 +64,10 @@ export function BookmarkPanel() {
 
     const finalName = customName.trim() || `View ${bookmarks.length + 1}`;
 
-    addBookmark({
-      id: crypto.randomUUID(),
+    await addBookmark(projectId, {
       name: finalName,
       center,
       zoom,
-      timestamp: Date.now(),
     });
 
     setIsAdding(false);
@@ -73,15 +82,15 @@ export function BookmarkPanel() {
   const handleGoTo = (b: any) => {
     if (!map) return;
     const view = map.getView();
-    
+
     const startCenter = view.getCenter();
     const startZoom = view.getZoom() || 10;
-    
+
     if (!startCenter) return;
 
     // 1. Calculate Distance
     const dist = Math.sqrt(
-        Math.pow(b.center[0] - startCenter[0], 2) + 
+      Math.pow(b.center[0] - startCenter[0], 2) +
         Math.pow(b.center[1] - startCenter[1], 2)
     );
 
@@ -91,50 +100,53 @@ export function BookmarkPanel() {
     let flightZoom = startZoom;
     let duration = 2000;
 
-    if (dist > 1000000) { // Very Long (Continent/Country)
-        flightZoom = 4;   
-        duration = 3500;
-    } else if (dist > 50000) { // Long (Inter-city)
-        flightZoom = 8;
-        duration = 2500;
-    } else if (dist > 5000) { // Medium (City-wide)
-        flightZoom = Math.min(startZoom, b.zoom) - 2;
-        duration = 1500;
+    if (dist > 1000000) {
+      // Very Long (Continent/Country)
+      flightZoom = 4;
+      duration = 3500;
+    } else if (dist > 50000) {
+      // Long (Inter-city)
+      flightZoom = 8;
+      duration = 2500;
+    } else if (dist > 5000) {
+      // Medium (City-wide)
+      flightZoom = Math.min(startZoom, b.zoom) - 2;
+      duration = 1500;
     }
 
     // 3. Execute the Sequence (Using callbacks for strict ordering)
     // We cannot run concurrent animations reliably for long hops.
     // We strictly: Pan -> Zoom Out -> Zoom In.
-    
-    if (dist > 5000) {
-        // --- LONG DISTANCE FLIGHT ---
-        view.animate({
-            center: b.center,
-            duration: duration,
-            easing: easeOut
-        });
 
-        // The "Bounce" zoom: Out then In
-        view.animate(
-            {
-                zoom: flightZoom,
-                duration: duration / 2,
-                easing: easeOut
-            },
-            {
-                zoom: b.zoom,
-                duration: duration / 2,
-                easing: easeOut
-            }
-        );
+    if (dist > 5000) {
+      // --- LONG DISTANCE FLIGHT ---
+      view.animate({
+        center: b.center,
+        duration: duration,
+        easing: easeOut,
+      });
+
+      // The "Bounce" zoom: Out then In
+      view.animate(
+        {
+          zoom: flightZoom,
+          duration: duration / 2,
+          easing: easeOut,
+        },
+        {
+          zoom: b.zoom,
+          duration: duration / 2,
+          easing: easeOut,
+        }
+      );
     } else {
-        // --- SHORT HOP (No Zoom Out) ---
-        view.animate({
-            center: b.center,
-            zoom: b.zoom,
-            duration: 800,
-            easing: easeOut
-        });
+      // --- SHORT HOP (No Zoom Out) ---
+      view.animate({
+        center: b.center,
+        zoom: b.zoom,
+        duration: 800,
+        easing: easeOut,
+      });
     }
   };
 
@@ -197,7 +209,12 @@ export function BookmarkPanel() {
       footer={footerContent}
     >
       <div className="space-y-1">
-        {bookmarks.length === 0 ? (
+        {isLoading && bookmarks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-32 text-slate-400 gap-2">
+            <Loader2 size={24} className="animate-spin text-blue-500" />
+            <span className="text-xs">Loading bookmarks...</span>
+          </div>
+        ) : bookmarks.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-24 text-slate-400 text-xs text-center px-4">
             <MapPin size={20} className="mb-2 opacity-50" />
             <p>No bookmarks yet.</p>
