@@ -5,6 +5,8 @@ import {
   ExternalLink,
   FolderOpen,
   GitBranchMinus,
+  Loader2,
+  Map,
   MousePointerClick,
   Trash2,
   Users,
@@ -17,13 +19,21 @@ import { useUIStore } from "@/store/uiStore";
 
 import { DeleteProjectModal } from "../modals/DeleteProjectModal";
 import CustomToolTip from "../shared/CustomToolTip";
+import { NetworkThumbnail } from "./NetworkThumbnail";
 
 interface PanelProps {
+  loadingThumbnail?: boolean;
   activeProject: any;
+  features: any;
   handleClose: () => void;
 }
 
-export const RightPanel = ({ activeProject, handleClose }: PanelProps) => {
+export const RightPanel = ({
+  loadingThumbnail = false,
+  activeProject,
+  features,
+  handleClose,
+}: PanelProps) => {
   const route = useRouter();
   const { setActiveModal } = useUIStore();
 
@@ -34,11 +44,12 @@ export const RightPanel = ({ activeProject, handleClose }: PanelProps) => {
   const handleDelete = useCallback((e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     setActiveModal("DELETE_PROJECT");
+    //shadow-[-5px_0_10px_rgba(0,0,0,0.03)]
   }, []);
 
   return (
     <>
-      <aside className="w-70 h-[calc(100vh-100px)] bg-white border-l border-slate-200 flex flex-col shrink-0 z-10 shadow-[-5px_0_10px_rgba(0,0,0,0.03)]">
+      <aside className="hidden w-70 h-[calc(100vh-100px)] bg-white border-l border-slate-200 lg:flex flex-col shrink-0 z-10">
         {/* CONDITIONAL RENDER: PLACEHOLDER VS DETAILS */}
         {!activeProject ? (
           // --- OPTION 1: PLACEHOLDER STATE ---
@@ -81,23 +92,30 @@ export const RightPanel = ({ activeProject, handleClose }: PanelProps) => {
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-5 animate-in fade-in duration-300">
-              {/* Thumbnail */}
-              <div className="h-36 bg-slate-100 rounded-lg mb-6 flex items-center justify-center relative overflow-hidden border border-slate-200 group cursor-pointer">
-                <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#94a3b8_1px,transparent_1px)] bg-size-[16px_16px]" />
-                <FolderOpen
-                  size={48}
-                  className="text-slate-300 group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute top-3 right-3 bg-white/90 backdrop-blur text-[10px] font-bold px-2 py-1 rounded border border-slate-200 shadow-sm text-slate-500 uppercase">
-                  Self
-                </div>
+            <div className="flex-1 overflow-y-auto p-5 animate-in fade-in duration-300 space-y-3">
+              <div className="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wider flex items-center gap-2">
+                <Map size={12} /> Network Preview
               </div>
+              
+              {/* Thumbnail */}
+              {loadingThumbnail ? (
+                <div className="relative w-full h-48 bg-slate-100 animate-pulse rounded-md flex items-center justify-center border border-slate-200">
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                    <span className="text-xs text-slate-400">
+                      Loading preview…
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <NetworkThumbnail data={features || []} className="w-full h-48" />
+              )}
 
               {/* Details */}
               <h2 className="text-base font-medium text-slate-800 mb-2">
                 {activeProject.name}
               </h2>
+
               <div className="flex items-center gap-3 text-xs text-slate-400 mb-6">
                 <span className="flex items-center gap-1">
                   <Clock size={12} />{" "}
@@ -113,6 +131,7 @@ export const RightPanel = ({ activeProject, handleClose }: PanelProps) => {
               <h6 className="text-[10px] font-semibold uppercase mb-2 border-b border-slate-100 pb-2">
                 Project description
               </h6>
+
               <div className="text-[11px] text-slate-600 leading-relaxed mb-8">
                 {activeProject.description}
               </div>

@@ -1,43 +1,38 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { FolderOpen, MailPlus, Users, Wallet } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback } from "react";
+
+import { cn } from "@/lib/utils";
+
+import { sidebarMenus } from "./sidebar";
 
 export const Sidebar = () => {
   const router = useRouter();
-  const handleNavigate = useCallback((path: string) => {
-    router.push(path);
-  }, []);
+  const pathname = usePathname();
+
+  const handleNavigate = useCallback(
+    (path: string) => {
+      router.push(path);
+    },
+    [router]
+  );
+
+  // Helper to determine if a path is active
+  const isActive = (path: string) => pathname === path;
 
   return (
     <aside className="w-64 bg-background flex flex-col shrink-0 border-r border-slate-200 z-20 transition-all duration-300 ease-in-out">
       <div className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
-        <NavItem
-          icon={FolderOpen}
-          label="My Projects"
-          active
-          onClick={() => handleNavigate("/")}
-        />
-        <NavItem
-          icon={Users}
-          label="Shared with me"
-          onClick={() => handleNavigate("/shared-projects")}
-        />
-        <div className="mt-8 px-3 mb-2 text-[11px] font-medium text-muted-foreground">
-          Section
-        </div>
-        <NavItem
-          icon={MailPlus}
-          label="Invitations"
-          onClick={() => handleNavigate("/invitation")}
-        />
-        <NavItem
-          icon={Wallet}
-          label="Subscription"
-          onClick={() => handleNavigate("/subscription")}
-        />
+        {sidebarMenus.map((menu) => (
+          <NavItem
+            key={menu.href}
+            icon={menu.icon}
+            label={menu.title}
+            active={isActive(menu.href)}
+            onClick={() => handleNavigate(menu.href)}
+          />
+        ))}
       </div>
     </aside>
   );
