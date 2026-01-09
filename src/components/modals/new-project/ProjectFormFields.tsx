@@ -1,5 +1,5 @@
-import { AlertTriangle, CheckCircle2, FileArchive, FileCode2, Loader2, UploadCloud, XCircle } from 'lucide-react';
-import React from 'react';
+import { AlertTriangle, CheckCircle2, FileArchive, FileCode2, Loader2, MapPin, Search, UploadCloud, X, XCircle } from 'lucide-react';
+import React, { useState } from 'react';
 
 import { FormGroup } from '@/components/form-controls/FormGroup';
 import { FormInput } from '@/components/form-controls/FormInput';
@@ -10,6 +10,11 @@ import { cn } from '@/lib/utils';
 import { ProjectType } from './ProjectTypeSelector';
 import { GisValidationResult } from '@/lib/gis/gisValidator';
 import { COMMON_PROJECTIONS } from '@/lib/gis/projections';
+import { AutoProjection, getProjectionFromLocation } from '@/lib/gis/locationToZone';
+import { toast } from 'sonner';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 interface ProjectFormFieldsProps {
     projectType: ProjectType;
@@ -21,18 +26,40 @@ interface ProjectFormFieldsProps {
     fileInputRef: React.RefObject<HTMLInputElement>;
     handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
 
-    // GIS Validation & Projection Props (New)
+    // GIS Validation & Projection Props
     validating?: boolean;
     validationResult?: GisValidationResult | null;
-    selectedEPSG?: string;
-    setSelectedEPSG?: (val: string) => void;
     showProjectionSelect?: boolean;
+    onProjectionFound?: (proj: AutoProjection) => void;
 }
 
 export function ProjectFormFields({ 
     projectType, formData, setFormData, importFile, fileInputRef, handleFileSelect,
-    validating, validationResult, selectedEPSG, setSelectedEPSG, showProjectionSelect 
+    validating, validationResult, showProjectionSelect,
+    onProjectionFound
+    
 }: ProjectFormFieldsProps) {
+
+    // Local state for the search
+    const [locationQuery, setLocationQuery] = useState("");
+    const [isSearching, setIsSearching] = useState(false);
+    const [foundZone, setFoundZone] = useState<AutoProjection | null>(null);
+
+    const handleLocationSearch = async () => {
+        if (!locationQuery.trim()) return;
+        setIsSearching(true);
+        setFoundZone(null);
+
+        try {
+            const result = await getProjectionFromLocation(locationQuery);
+            setFoundZone(result);
+            if (onProjectionFound) onProjectionFound(result);
+        } catch (error) {
+            toast.error("Location not found. Try a major city name.");
+        } finally {
+            setIsSearching(false);
+        }
+    };
     
     const handleChange = (key: string, val: any) => setFormData({ ...formData, [key]: val });
 
@@ -64,16 +91,7 @@ export function ProjectFormFields({
                             placeholder="Describe the project goals..."
                         />
 
-                        { projectType === 'gis' && showProjectionSelect && setSelectedEPSG && (
-                            <FormSelect
-                                label="Confirm Coordinate System"
-                                name="coord-system"
-                                value={selectedEPSG}
-                                onChange={(v)=> setSelectedEPSG(v)}
-                                options={COMMON_PROJECTIONS}
-                                className='text-primary'
-                            />
-                        )}
+                        
                     </FormGroup>
                 </div>
             </div>
@@ -98,7 +116,6 @@ export function ProjectFormFields({
                                     onChange={(v)=> handleChange('projection', v)}
                                     options={projectionList}
                                 />
-                               
                             </div>
                         </FormGroup>
                         
@@ -112,58 +129,98 @@ export function ProjectFormFields({
                         <div
                             onClick={() => fileInputRef.current?.click()}
                             className={cn(
-                                "border-2 border-dashed rounded-xl h-36 flex flex-col items-center justify-center text-slate-400 transition-all cursor-pointer",
-                                importFile ? "border-green-400 bg-green-50 text-green-600" : "border-slate-200 hover:border-blue-400 hover:text-blue-500 bg-slate-50/50"
+                                "relative mt-2 border-2 border-dashed rounded-xl h-36 flex flex-col items-center justify-center text-slate-400 transition-all cursor-pointer",
+                                importFile ? "border-green-400 bg-green-50 text-green-600" : "border-slate-200 hover:border-blue-400 hover:text-blue-500 bg-slate-50/50",
+                                // validationResult
+                                validationResult?.status === 'error' && "border-red-400 bg-red-50 text-red-600 hover:border-red-500 hover:text-red-700",
+                                validationResult?.status === 'warning' && "border-amber-400 bg-amber-50 text-amber-600 hover:border-amber-500 hover:text-amber-700"
                             )}
                         >
                             <input ref={fileInputRef} type="file" accept={acceptExt} className="hidden" onChange={handleFileSelect} />
+
                             {importFile ? (
-                                <>
+                                <div className="flex flex-col items-center gap-0.5">
                                     {projectType === 'gis' ? <FileArchive size={20} /> : <FileCode2 size={20} />}
-                                    <span className="text-sm font-bold">{importFile.name}</span>
+                                    <span className="text-xs font-bold">{importFile.name}</span>
                                     <span className="text-[10px] opacity-70">{(importFile.size / 1024).toFixed(1)} KB</span>
-                                    <span className="text-[10px] mt-2 bg-white px-2 py-0.5 rounded border border-green-200">Click to change</span>
-                                </>
+                                    <span className="text-[10px] text-slate-500">Click to change file</span>
+
+                                    {/* Analysis */}
+                                    {validating && (
+                                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-3">
+                                            <Loader2 size={14} className="animate-spin" /> Analyzing geometry...
+                                        </div>
+                                    )}
+
+                                    {/* Validation Result */}
+                                    {validationResult && (
+                                        <div className={cn(
+                                            "p-2 text-[10px] flex gap-2 items-start leading-snug animate-in slide-in-from-top-2 fade-in duration-300",
+                                            validationResult.status === 'error' ? "bg-red-50 border-red-200 text-red-700" :
+                                            validationResult.status === 'warning' ? "bg-amber-50 border-amber-200 text-amber-700" :
+                                            "bg-green-50 border-green-200 text-green-700"
+                                        )}>
+                                            <div className='flex gap-1'>
+                                                <div className="shrink-0">
+                                                    {validationResult.status === 'error' ? <XCircle size={14}/> : 
+                                                    validationResult.status === 'warning' ? <AlertTriangle size={14}/> : <CheckCircle2 size={14}/>}
+                                                </div>
+                                                <span className="font-bold block mb-0.5">
+                                                    {validationResult.status === 'error' ? 'Invalid File' : 
+                                                    validationResult.status === 'warning' ? 'Projection Warning :' : 'Valid Geometry'}
+                                                </span>
+                                                {validationResult.message}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             ) : (
-                                <>
+                                <div className="flex flex-col items-center">
                                     <UploadCloud size={32} className="mb-2" />
                                     <span className="text-xs font-medium">{uploadLabel}</span>
                                     <span className="text-[10px] opacity-70 mt-1">{uploadDesc}</span>
-                                </>
+                                </div>
                             )}
                         </div>
 
-                        {/* Specific Warning for GIS */}
-                        {projectType === 'gis' && !importFile && (
-                            <div className="bg-amber-50 border border-amber-100 p-2.5 rounded text-[10px] text-amber-700 leading-tight">
-                                <strong>Note:</strong> "Upload a .zip file containing at least .shp, .shx, .dbf, and .prj files." or GeoJson.<br/> We will auto-create pipes along the road centerlines.
-                            </div>
-                        )}
+                        {projectType === 'gis' && showProjectionSelect && (
+                            <div className="p-3 bg-blue-50 border border-blue-100 rounded-md animate-in fade-in zoom-in-95 space-y-2">
+                                <div>
+                                    <h6 className="text-[11px] font-bold text-primary uppercase tracking-wide">
+                                        Identify Project Location
+                                    </h6>
+                                    <p className="text-[10px] text-primary leading-relaxed">
+                                        We detected local coordinates.<br/>Enter the city/region name to automatically fix the projection.
+                                    </p>
+                                </div>
 
-                        {/* --- Validation Feedback UI --- */}
-                        {projectType === 'gis' && importFile && (
-                            <div className="animate-in slide-in-from-top-2 fade-in duration-300">
-                                {validating ? (
-                                    <div className="flex items-center gap-2 text-xs text-slate-500 p-2">
-                                        <Loader2 size={14} className="animate-spin" /> Analyzing geometry...
-                                    </div>
-                                ) : validationResult && (
-                                    <div className={cn(
-                                        "p-3 rounded-md text-[11px] border flex gap-2 items-start leading-snug",
-                                        validationResult.status === 'error' ? "bg-red-50 border-red-200 text-red-700" :
-                                        validationResult.status === 'warning' ? "bg-amber-50 border-amber-200 text-amber-700" :
-                                        "bg-green-50 border-green-200 text-green-700"
-                                    )}>
-                                        <div className="shrink-0 mt-0.5">
-                                            {validationResult.status === 'error' ? <XCircle size={14}/> : 
-                                             validationResult.status === 'warning' ? <AlertTriangle size={14}/> : <CheckCircle2 size={14}/>}
-                                        </div>
+                                <div className="flex gap-2">
+                                    <FormInput
+                                        label=""
+                                        name="location-search"
+                                        value={locationQuery}
+                                        onChange={(v)=> setLocationQuery(v)}
+                                        placeholder="e.g. Kolhapur, Maharashtra, India"
+                                        onKeyDown={(e) => e.key === 'Enter' && handleLocationSearch()}
+                                        className='w-full'
+                                    />
+                                    <Button 
+                                        size="sm" 
+                                        onClick={handleLocationSearch} 
+                                        disabled={isSearching}
+                                        className='size-7.5'
+                                        // className="bg-blue-600 text-white hover:bg-blue-700"
+                                    >
+                                        {isSearching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                                    </Button>
+                                </div>
+
+                                {foundZone && (
+                                    <div className="flex items-start gap-2 text-[10px] text-green-700 bg-green-100/50 p-2 rounded border border-green-500">
+                                        <MapPin size={14} className="shrink-0 mt-0.5" />
                                         <div>
-                                            <span className="font-bold block mb-0.5">
-                                                {validationResult.status === 'error' ? 'Invalid File' : 
-                                                 validationResult.status === 'warning' ? 'Projection Warning' : 'Valid Geometry'}
-                                            </span>
-                                            {validationResult.message}
+                                            <span className="font-bold block">Detected: UTM Zone {foundZone.zone}{foundZone.hemisphere} - {foundZone.code}</span>
+                                            <span className="block line-clamp-1">{foundZone.locationName}</span>
                                         </div>
                                     </div>
                                 )}
@@ -171,6 +228,7 @@ export function ProjectFormFields({
                         )}
                     </FormGroup>
                 )}
+
             </div>
         </div>
     );

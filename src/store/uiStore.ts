@@ -33,6 +33,9 @@ export interface ContextMenuState {
 
 interface UIState {
 
+    // project refresh key
+    projectRefreshKey: number;
+
     // Sidebar
     isCollapsed: boolean;
     sidebarWidth: number;
@@ -82,6 +85,8 @@ interface UIState {
     contextMenu: ContextMenuState | null;
     activeStyleLayer: string | null;
 
+    // project refresh utility
+    refreshProjects: () => void;
 
     // Actions - Sidebar
     toggleSidebar: () => void;
@@ -139,6 +144,8 @@ interface UIState {
 }
 
 const DEFAULT_STATE = {
+
+    projectRefreshKey: 0,
 
     sidebarWidth: 260,
     isCollapsed: false,
@@ -200,6 +207,8 @@ export const useUIStore = create<UIState>((set, get) => ({
 
     // default state
     ...DEFAULT_STATE,
+
+    refreshProjects: () => set((state) => ({ projectRefreshKey: state.projectRefreshKey + 1 })),
 
     setSidebarWidth: (width) => set({ sidebarWidth: width }),
 

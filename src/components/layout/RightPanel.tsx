@@ -2,7 +2,6 @@ import {
   CircleSmall,
   Clock,
   Copy,
-  Edit2,
   ExternalLink,
   FolderOpen,
   GitBranchMinus,
@@ -12,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import React from "react";
+import React, { useCallback } from "react";
 
 import { useUIStore } from "@/store/uiStore";
 
@@ -22,20 +21,20 @@ import CustomToolTip from "../shared/CustomToolTip";
 interface PanelProps {
   activeProject: any;
   handleClose: () => void;
-  handleDelete: (e: React.MouseEvent, id: string) => void;
 }
 
-export const RightPanel = ({
-  activeProject,
-  handleClose,
-  handleDelete,
-}: PanelProps) => {
+export const RightPanel = ({ activeProject, handleClose }: PanelProps) => {
   const route = useRouter();
-  const { activeModal, setActiveModal } = useUIStore();
+  const { setActiveModal } = useUIStore();
 
   const handleOpenProject = (id: string) => {
     route.replace(`/workbench/${id}`);
   };
+
+  const handleDelete = useCallback((e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setActiveModal("DELETE_PROJECT");
+  }, []);
 
   return (
     <>

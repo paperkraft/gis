@@ -20,7 +20,7 @@ import { ProjectService } from "@/lib/services/ProjectService";
 import { useUIStore } from "@/store/uiStore";
 
 export function DeleteProjectModal({ activeProject }: { activeProject: any }) {
-  const { activeModal, setActiveModal } = useUIStore();
+  const { activeModal, setActiveModal, refreshProjects } = useUIStore();
 
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -47,7 +47,7 @@ export function DeleteProjectModal({ activeProject }: { activeProject: any }) {
       await ProjectService.deleteProject(project.id);
       toast.success("Project deleted successfully");
       handleClose();
-      router.refresh();
+      refreshProjects();
     } catch (error) {
       toast.error("Failed to delete project");
       console.error(error);

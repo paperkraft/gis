@@ -1,32 +1,25 @@
 "use client";
 
-import { Box, Cloud } from "lucide-react";
-import { useRouter } from "next/navigation";
-import React, { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { Box, Cloud } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import React, { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { convertGisToINP } from "@/lib/gis/gisImporter";
-import { GisValidationResult, validateGisFile } from "@/lib/gis/gisValidator";
-import { ProjectService } from "@/lib/services/ProjectService";
-import { useUIStore } from "@/store/uiStore";
-import { FlowUnits } from "@/types/network";
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
+} from '@/components/ui/dialog';
+import { convertGisToINP } from '@/lib/gis/gisImporter';
+import { GisValidationResult, validateGisFile } from '@/lib/gis/gisValidator';
+import { AutoProjection } from '@/lib/gis/locationToZone';
+import { ProjectService } from '@/lib/services/ProjectService';
+import { useUIStore } from '@/store/uiStore';
+import { FlowUnits } from '@/types/network';
 
 // Import Sub-components
-import { ProjectFormFields } from "./new-project/ProjectFormFields";
-import { ProjectSuccessView } from "./new-project/ProjectSuccessView";
-import {
-  ProjectType,
-  ProjectTypeSelector,
-} from "./new-project/ProjectTypeSelector";
+import { ProjectFormFields } from './new-project/ProjectFormFields';
+import { ProjectSuccessView } from './new-project/ProjectSuccessView';
+import { ProjectType, ProjectTypeSelector } from './new-project/ProjectTypeSelector';
 
 const DEFAULT_FORM_DATA = {
   title: "",
@@ -37,42 +30,50 @@ const DEFAULT_FORM_DATA = {
 
 export function NewProjectModal() {
   const router = useRouter();
-  const { activeModal, setActiveModal } = useUIStore();
+  const { activeModal, setActiveModal, refreshProjects } = useUIStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // State
+  // --- STATE ---
   const [loading, setLoading] = useState(false);
   const [projectType, setProjectType] = useState<ProjectType>("blank");
-  const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
-  const [importFile, setImportFile] = useState<File | null>(null);
-  const [fileContent, setFileContent] = useState<string>("");
   const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
 
-  // Projection State
-  const [selectedEPSG, setSelectedEPSG] = useState("EPSG:4326");
-  const [showProjectionSelect, setShowProjectionSelect] = useState(false);
+  // Form Data
+  const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
 
-  // New GIS State
+  // File & Content State
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [fileContent, setFileContent] = useState<string>("");
+
+  // GIS Validation State
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<GisValidationResult | null>(null);
 
+  // GIS Projection State
+  const [showProjectionSelect, setShowProjectionSelect] = useState(false);
+  const [selectedEPSG, setSelectedEPSG] = useState("EPSG:4326");
+
   const isOpen = activeModal === "NEW_PROJECT";
+
+  const handleReset = () => {
+    setProjectType("blank");
+    setImportFile(null);
+    setFileContent("");
+    setCreatedProjectId("");
+    setValidationResult(null);
+    setShowProjectionSelect(false);
+    setSelectedEPSG("EPSG:4326");
+    setFormData(DEFAULT_FORM_DATA);
+    setValidating(false);
+    setLoading(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
-      // 1. Reset all local state
-      setProjectType("blank");
-      setImportFile(null);
-      setValidationResult(null);
-      setFormData(DEFAULT_FORM_DATA);
-      setValidating(false);
-      setLoading(false);
-      setShowProjectionSelect(false);
-
-      // 2. Clear the hidden file input (Important!)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      handleReset();
     }
   }, [isOpen]);
 
@@ -80,12 +81,7 @@ export function NewProjectModal() {
   const handleClose = () => {
     setActiveModal("NONE");
     setTimeout(() => {
-      setFormData(DEFAULT_FORM_DATA);
-      setProjectType("blank");
-      setImportFile(null);
-      setFileContent("");
-      setCreatedProjectId(null);
-      setLoading(false);
+      handleReset();
     }, 300);
   };
 
@@ -100,17 +96,17 @@ export function NewProjectModal() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setImportFile(file);
     const title = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
     setFormData((prev) => ({ ...prev, title: formData.title || title }));
 
     const name = file.name.toLowerCase();
 
-    // A. GIS Validation
+    // A. GIS Import Logic
     if (projectType === "gis") {
       setValidating(true);
       setValidationResult(null);
-      setShowProjectionSelect(false); // Reset first
+      setShowProjectionSelect(false);
+      setSelectedEPSG("EPSG:4326");
 
       const isValid =
         name.endsWith(".zip") ||
@@ -124,27 +120,26 @@ export function NewProjectModal() {
         return;
       }
 
-      // Run the Validator
+      // Run Validation
       const result = await validateGisFile(file);
       setValidationResult(result);
 
-      // Logic: Show dropdown if Warning or if message mentions "Projected"
+      // If status is 'warning' OR message mentions "Projected"/"Meters",
+      // show the "Identify Location" search box.
       if (
         result.status === "warning" ||
         result.message?.toLowerCase().includes("projected")
       ) {
         setShowProjectionSelect(true);
-        // Optional: Default to a likely projection if you know your users' region
-        // setSelectedEPSG("EPSG:32643");
       } else {
-        // Safe Lat/Lon
+        // If valid (Lat/Lon), we hide the search box and stick to 4326
         setShowProjectionSelect(false);
-        setSelectedEPSG("EPSG:4326");
       }
 
       setValidating(false);
     }
-    // B. INP Reading
+
+    // B. INP Import Logic
     else if (projectType === "import") {
       if (!name.endsWith(".inp")) {
         toast.error("Please select a valid .inp file");
@@ -154,6 +149,14 @@ export function NewProjectModal() {
       reader.onload = (e) => setFileContent(e.target?.result as string);
       reader.readAsText(file);
     }
+
+    setImportFile(file);
+  };
+
+  // Projection Found Callback (From ProjectFormFields)
+  const handleProjectionFound = (proj: AutoProjection) => {
+    setSelectedEPSG(proj.code); // e.g. "EPSG:32643"
+    toast.success(`Projection set to Zone ${proj.zone}${proj.hemisphere}`);
   };
 
   const handleCreate = async () => {
@@ -169,7 +172,6 @@ export function NewProjectModal() {
 
       // --- PATH A: GIS IMPORT ---
       if (projectType === "gis") {
-        // Safety Check: Do not proceed if Validator found Error
         if (!importFile || validationResult?.status === "error") {
           toast.error("Cannot create project from invalid file.");
           setLoading(false);
@@ -178,13 +180,14 @@ export function NewProjectModal() {
 
         toast.loading("Converting GIS data to network model...");
 
-        // 1. Convert Logic (Runs locally in browser)
+        // Convert to INP using the detected EPSG
+        // If the user didn't search, it defaults to EPSG:4326 (Lat/Lon)
         const inpContent = await convertGisToINP(
           importFile,
           {
             defaultDiameter: 150,
             defaultRoughness: 100,
-            tolerance: 0.0001, // ~11 meters snapping
+            tolerance: 0.0001, // ~1 meters snapping
           },
           selectedEPSG
         );
@@ -200,14 +203,19 @@ export function NewProjectModal() {
         // 2. API Call to create project from INP
         projectId = await ProjectService.createProjectFromFile(
           formData.title,
-          formData.description || "Imported from GIS",
+          formData.description || `Imported from ${importFile.name}`,
           inpContent
         );
       }
 
       // --- PATH B: INP IMPORT ---
       else if (projectType === "import") {
-        if (!fileContent) throw new Error("File content is empty");
+        if (!fileContent) {
+          toast.error("File content is empty.");
+          setLoading(false);
+          return;
+        }
+
         projectId = await ProjectService.createProjectFromFile(
           formData.title,
           formData.description || "Imported from INP file",
@@ -234,6 +242,7 @@ export function NewProjectModal() {
       if (projectId) {
         setCreatedProjectId(projectId);
         setLoading(false);
+        refreshProjects();
       }
     } catch (error: any) {
       console.error(error);
@@ -248,9 +257,9 @@ export function NewProjectModal() {
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-[750px] p-0 gap-0 overflow-hidden bg-white dark:bg-slate-950 flex flex-col max-h-[90vh]">
         {/* Header */}
-        <DialogHeader className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
-          <DialogTitle className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-            <Box className="size-5 text-primary" />
+        <DialogHeader className="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
+          <DialogTitle className="text-md font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <Box className="size-4 text-primary" />
             {createdProjectId ? "Project Ready" : "Create New Project"}
           </DialogTitle>
           <DialogDescription className="hidden" />
@@ -268,33 +277,49 @@ export function NewProjectModal() {
           // --- FORM VIEW ---
           <>
             <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
+
               <ProjectTypeSelector
                 value={projectType}
-                onChange={setProjectType}
+                onChange={(t) => {
+                  setProjectType(t);
+                  setImportFile(null);
+                  setValidationResult(null);
+                  setShowProjectionSelect(false);
+                }}
               />
 
               <ProjectFormFields
                 projectType={projectType}
                 formData={formData}
                 setFormData={setFormData}
+                // File Props
                 importFile={importFile}
                 fileInputRef={fileInputRef as any}
                 handleFileSelect={handleFileSelect}
+                // GIS Props
                 validating={validating}
                 validationResult={validationResult}
-                selectedEPSG={selectedEPSG}
-                setSelectedEPSG={setSelectedEPSG}
                 showProjectionSelect={showProjectionSelect}
+                onProjectionFound={handleProjectionFound}
               />
 
+              {projectType === 'gis' && !importFile && (
+                <div className="bg-amber-50 border border-amber-100 p-2.5 rounded text-[11px] text-amber-700 leading-tight">
+                  <strong>Note:</strong> "Upload a .zip file containing at least .shp, .shx, .dbf, and .prj files." or GeoJson. We will auto-create pipes along the road centerlines.
+                </div>
+            )}
             </div>
 
-            <DialogFooter className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center w-full shrink-0">
+            <DialogFooter className="p-3 bg-slate-50 border-t border-slate-100 flex justify-between items-center w-full shrink-0">
               <div className="text-xs text-slate-400 flex items-center gap-2">
                 <Cloud size={12} /> <span>Synced to Cloud</span>
               </div>
               <div className="flex gap-2">
-                <Button variant="ghost" onClick={handleClose}>
+                <Button
+                  variant="ghost"
+                  onClick={handleClose}
+                  disabled={loading}
+                >
                   Cancel
                 </Button>
                 <Button
@@ -308,10 +333,15 @@ export function NewProjectModal() {
                     (projectType === "import" && !importFile)
                   }
                 >
+                  {/* {loading
+                    ? "Creating..."
+                    : projectType === "import" || projectType === "gis"
+                    ? "Import & Create"
+                    : "Create Project"} */}
                   {loading
                     ? "Creating..."
-                    : projectType === "import"
-                    ? "Import & Create"
+                    : validating
+                    ? "Validating..."
                     : "Create Project"}
                 </Button>
               </div>

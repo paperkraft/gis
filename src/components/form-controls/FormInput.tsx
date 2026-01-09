@@ -6,6 +6,7 @@ interface FormInputProps {
   label: string;
   value: any;
   onChange?: (e: any) => void;
+  onKeyDown?: (e: any) => void;
   disabled?: boolean;
   placeholder?: string;
   className?: string;
@@ -14,7 +15,6 @@ interface FormInputProps {
   textarea?: boolean;
   rows?: number;
   step?: string;
-  props?: any;
 }
 
 export const FormInput = ({
@@ -23,6 +23,7 @@ export const FormInput = ({
   label,
   value,
   onChange,
+  onKeyDown,
   disabled,
   placeholder,
   className = "",
@@ -31,7 +32,6 @@ export const FormInput = ({
   rows,
   description = "",
   step,
-  props,
 }: FormInputProps) => (
   <div className={cn(className)}>
     {label && (
@@ -49,10 +49,10 @@ export const FormInput = ({
         name={name}
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
+        onKeyDown={(e) => onKeyDown?.(e)}
         disabled={disabled}
         placeholder={placeholder}
         rows={rows ?? 3}
-        {...props}
         className={`w-full text-xs px-2.5 py-1.5 rounded border outline-none transition-all ${
           disabled
             ? "bg-slate-50 text-slate-400 border-slate-200"
@@ -68,9 +68,9 @@ export const FormInput = ({
         type={type ?? "text"}
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
+        onKeyDown={(e) => onKeyDown?.(e)}
         disabled={disabled}
         placeholder={placeholder}
-        {...props}
         className={`w-full text-xs px-2.5 py-1.5 rounded border outline-none transition-all ${
           disabled
             ? "bg-slate-50 text-slate-400 border-slate-200"

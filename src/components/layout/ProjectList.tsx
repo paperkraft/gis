@@ -1,25 +1,19 @@
-import {
-  Clock,
-  ExternalLink,
-  FolderOpen,
-  Info,
-  LayoutGrid,
-  List,
-} from "lucide-react";
-import React, { useCallback, useState } from "react";
-import { RightPanel } from "./RightPanel";
-import { ProjectMetadata } from "@/lib/services/ProjectService";
-import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { Button } from "../ui/button";
-import CustomToolTip from "../shared/CustomToolTip";
+import { Clock, ExternalLink, FolderOpen, Info, LayoutGrid, List } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import React, { useCallback, useState } from 'react';
+
+import { ProjectMetadata } from '@/lib/services/ProjectService';
+import { cn } from '@/lib/utils';
+
+import CustomToolTip from '../shared/CustomToolTip';
+import { Button } from '../ui/button';
+import { RightPanel } from './RightPanel';
 
 interface ProjectListProps {
   projects: ProjectMetadata[] | [];
-  handleDelete: (e: React.MouseEvent, id: string) => void;
 }
 
-const ProjectList = ({ projects, handleDelete }: ProjectListProps) => {
+const ProjectList = ({ projects }: ProjectListProps) => {
   const route = useRouter();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -126,7 +120,6 @@ const ProjectList = ({ projects, handleDelete }: ProjectListProps) => {
         <RightPanel
           activeProject={activeProject}
           handleClose={handleClick}
-          handleDelete={handleDelete}
         />
       )}
     </div>

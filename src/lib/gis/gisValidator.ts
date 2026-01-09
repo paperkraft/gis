@@ -127,7 +127,7 @@ export async function validateGisFile(file: File): Promise<GisValidationResult> 
                 message: isZip
                     ? "Projected coordinates (Meters) detected. Ensure .prj file is included."
                     // This specific message triggers the UI Dropdown in your modal
-                    : "Projected coordinates (Meters) detected. Please select the correct system below."
+                    : "Projected coordinates (Meters) detected."
             };
         }
 

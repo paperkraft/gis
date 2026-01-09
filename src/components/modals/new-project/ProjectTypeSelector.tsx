@@ -9,7 +9,7 @@ interface ProjectTypeSelectorProps {
 
 export function ProjectTypeSelector({ value, onChange }: ProjectTypeSelectorProps) {
     return (
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-3 gap-4 mb-4">
             <SelectionCard
                 active={value === 'blank'}
                 onClick={() => onChange('blank')}
