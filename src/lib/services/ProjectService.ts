@@ -129,7 +129,7 @@ export class ProjectService {
         const payload = {
             title: name,
             description: description,
-            settings: { ...settings, title: name },
+            settings: { ...settings, title: name, description: description },
         };
 
         try {

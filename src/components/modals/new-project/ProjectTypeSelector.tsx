@@ -1,14 +1,15 @@
-import { FileUp, PenTool } from "lucide-react";
+import { FileUp, Map, PenTool } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+export type ProjectType = 'blank' | 'import' | 'gis';
 interface ProjectTypeSelectorProps {
-    value: 'blank' | 'import';
-    onChange: (val: 'blank' | 'import') => void;
+    value: ProjectType;
+    onChange: (val: ProjectType) => void;
 }
 
 export function ProjectTypeSelector({ value, onChange }: ProjectTypeSelectorProps) {
     return (
-        <div className="grid grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-3 gap-4 mb-6">
             <SelectionCard
                 active={value === 'blank'}
                 onClick={() => onChange('blank')}
@@ -22,6 +23,13 @@ export function ProjectTypeSelector({ value, onChange }: ProjectTypeSelectorProp
                 icon={FileUp}
                 title="Import EPANET File"
                 desc="Upload an existing .inp file to run simulations."
+            />
+            <SelectionCard
+                active={value === 'gis'}
+                onClick={() => onChange('gis')}
+                icon={Map}
+                title="Import GIS"
+                desc="Roads to Pipes."
             />
         </div>
     );

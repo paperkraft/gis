@@ -168,8 +168,8 @@ export function getArrowColor(feature: Feature): string {
 export function getArrowSize(feature: Feature): number {
     const diameter = feature.get('diameter') || 300;
 
-    if (diameter < 150) return 7;
-    if (diameter < 300) return 8;
-    if (diameter < 600) return 10;
-    return 12;
+    if (diameter < 150) return 5;
+    if (diameter < 300) return 6;
+    if (diameter < 600) return 8;
+    return 10;
 }
