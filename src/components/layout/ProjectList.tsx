@@ -211,7 +211,7 @@ const ProjectList = () => {
             filteredProjects.length > 0 &&
             (viewMode === "grid" ? (
               // GRID VIEW
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-in fade-in duration-500">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-in fade-in duration-500">
                 {filteredProjects.map((p) => (
                   <GridCard
                     key={p.id}
@@ -224,7 +224,7 @@ const ProjectList = () => {
               </div>
             ) : (
               // LIST VIEW
-              <div className="rounded  overflow-hidden animate-in fade-in duration-500">
+              <div className="rounded overflow-hidden animate-in fade-in duration-500">
                 <table className="w-full text-left text-sm text-slate-600">
                   <thead className="border bg-primary-foreground">
                     <tr>
@@ -276,13 +276,13 @@ function GridCard({ data, onClick, isSelected, openProject }: any) {
         e.stopPropagation();
         onClick();
       }}
-      className={`group rounded-lg border cursor-pointer overflow-hidden transition-all duration-200 ${
+      className={`group rounded-md border cursor-pointer overflow-hidden transition-all duration-200 ${
         isSelected
           ? "ring-2 ring-primary/80 border-transparent shadow-md transform scale-[1.01]"
           : "shadow-sm hover:shadow-md hover:border-primary/50"
       }`}
     >
-      <div className="p-5">
+      <div className="p-4">
         <div className="flex justify-between items-start mb-3">
           <div
             className={`size-10 rounded flex items-center justify-center transition-colors ${
@@ -291,7 +291,7 @@ function GridCard({ data, onClick, isSelected, openProject }: any) {
                 : "bg-primary-foreground text-primary"
             }`}
           >
-            <FolderOpen size={20} />
+            <FolderOpen size={18} />
           </div>
           {isSelected && (
             <CustomToolTip tooltip="Open">
@@ -310,13 +310,13 @@ function GridCard({ data, onClick, isSelected, openProject }: any) {
           )}
         </div>
 
-        <h3 className="font-bold text-sm mb-1 truncate">{data.name}</h3>
+        <h3 className="font-bold text-sm text-slate-700 truncate">{data.name}</h3>
         <div className="text-xs text-muted-foreground mt-4 flex justify-between">
           <div className="flex items-center gap-1">
-            <Clock className="w-3.5 h-3.5" />
+            <Clock className="size-3.5" />
             {new Date(data.lastModified).toLocaleDateString()}
           </div>
-          <span className="font-medium bg-muted px-2 py-0.5 rounded"></span>
+          <span className="size-5 font-medium bg-muted rounded-full"></span>
         </div>
       </div>
     </div>
