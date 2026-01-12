@@ -28,7 +28,7 @@ export function ProjectTypeSelector({ value, onChange }: ProjectTypeSelectorProp
                 active={value === 'gis'}
                 onClick={() => onChange('gis')}
                 icon={Map}
-                title="Import GIS"
+                title="Build from Lines"
                 desc="Roads to Pipes."
             />
         </div>
