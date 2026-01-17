@@ -6,11 +6,6 @@ import {
   Settings,
   Spline,
   XCircle,
-  Circle,
-  Pentagon,
-  Hexagon,
-  Triangle,
-  Square,
   ArrowLeftRight,
 } from "lucide-react";
 
@@ -71,44 +66,110 @@ export function MapContextMenu({
     e.stopPropagation();
   };
 
+  const CANVAS_MENUS_OPTIONS = [
+    {
+      color: COMPONENT_TYPES.junction.color,
+      label: COMPONENT_TYPES.junction.name,
+      icon: COMPONENT_TYPES.junction.icon,
+      action: "ADD_JUNCTION",
+    },
+    {
+      color: COMPONENT_TYPES.tank.color,
+      label: COMPONENT_TYPES.tank.name,
+      icon: COMPONENT_TYPES.tank.icon,
+      action: "ADD_TANK",
+    },
+    {
+      color: COMPONENT_TYPES.reservoir.color,
+      label: COMPONENT_TYPES.reservoir.name,
+      icon: COMPONENT_TYPES.reservoir.icon,
+      action: "ADD_RESERVOIR",
+    },
+  ];
+
+  const LINK_MENUS_OPTIONS = [
+    {
+      icon: Spline,
+      label: "Vertex",
+      action: "ADD_VERTEX",
+    },
+    {
+      icon: ArrowLeftRight,
+      label: "Reverse Direction",
+      action: "REVERSE_DIRECTION",
+      color: COMPONENT_TYPES.pipe.color,
+    },
+    {
+      icon: COMPONENT_TYPES.junction.icon,
+      label: COMPONENT_TYPES.junction.name,
+      color: COMPONENT_TYPES.junction.color,
+      action: "INSERT_JUNCTION",
+    },
+    {
+      icon: COMPONENT_TYPES.pump.icon,
+      label: COMPONENT_TYPES.pump.name,
+      color: COMPONENT_TYPES.pump.color,
+      action: "INSERT_PUMP",
+    },
+    {
+      icon: COMPONENT_TYPES.valve.icon,
+      label: COMPONENT_TYPES.valve.name,
+      color: COMPONENT_TYPES.valve.color,
+      action: "INSERT_VALVE",
+    },
+    {
+      icon: Settings,
+      label: "Properties",
+      action: "PROPERTIES",
+    },
+    {
+      label: "Delete Pipe",
+      icon: Trash2,
+      action: "DELETE",
+    },
+  ];
+
+  const NODE_MENUS_OPTIONS = [
+    {
+      icon: Settings,
+      label: "Properties",
+      action: "PROPERTIES",
+    },
+    {
+      icon: Trash2,
+      label: "Delete",
+      action: "DELETE",
+    },
+  ];
+
   const renderPipeOptions = () => (
     <>
       <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 dark:bg-slate-900/50 mb-1 border-b">
         PIPE {feature?.get("label") || ""}
       </div>
-      <MenuItem
-        icon={<Spline size={16} />}
-        label="Add Vertex"
-        onClick={() => handleAction("ADD_VERTEX")}
-      />
-      <MenuItem
-        icon={<ArrowLeftRight size={16} color={COMPONENT_TYPES.pipe.color} />}
-        label="Reverse Direction"
-        onClick={() => handleAction("REVERSE_DIRECTION")}
-      />
-      <div className="h-px bg-slate-200 dark:bg-slate-800 my-1" />
-      <MenuItem
-        icon={<Circle size={16} color={COMPONENT_TYPES.junction.color} />}
-        label="Insert Junction"
-        onClick={() => handleAction("INSERT_JUNCTION")}
-      />
-      <MenuItem
-        icon={<Triangle size={16} color={COMPONENT_TYPES.pump.color} />}
-        label="Insert Pump"
-        onClick={() => handleAction("INSERT_PUMP")}
-      />
-      <MenuItem
-        icon={<Square size={16} color={COMPONENT_TYPES.valve.color} />}
-        label="Insert Valve"
-        onClick={() => handleAction("INSERT_VALVE")}
-      />
-      <div className="h-px bg-slate-200 dark:bg-slate-800 my-1" />
-      <MenuItem
-        icon={<Trash2 size={16} />}
-        label="Delete Pipe"
-        color="text-red-600"
-        onClick={() => handleAction("DELETE")}
-      />
+
+      {LINK_MENUS_OPTIONS.map((menu, idx) => {
+        const Icon = menu.icon;
+        const isVertex = menu.label.includes("Vertex");
+        const isFeature = ["Junction", "Pump", "Valve"].includes(menu.label);
+        const label = isVertex ? "Add" : isFeature ? "Insert" : "";
+
+        return (
+          <React.Fragment key={menu.label}>
+            {(idx === 2 || idx === 5) && (
+              <div className="h-px bg-slate-200 dark:bg-slate-800 my-1" />
+            )}
+
+            <MenuItem
+              key={menu.label}
+              icon={<Icon size={16} color={menu.color} />}
+              label={`${label} ${menu.label}`}
+              color={menu.action === "DELETE" ? "text-red-600" : undefined}
+              onClick={() => handleAction(menu.action)}
+            />
+          </React.Fragment>
+        );
+      })}
     </>
   );
 
@@ -138,64 +199,43 @@ export function MapContextMenu({
                 <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 dark:bg-slate-900/50 mb-1 border-b">
                   Canvas
                 </div>
-                <MenuItem
-                  icon={<Circle size={16} />}
-                  label="Add Junction"
-                  onClick={() => handleAction("ADD_JUNCTION")}
-                />
-                <MenuItem
-                  icon={<Pentagon size={16} />}
-                  label="Add Tank"
-                  onClick={() => handleAction("ADD_TANK")}
-                />
-                <MenuItem
-                  icon={<Hexagon size={16} />}
-                  label="Add Reservoir"
-                  onClick={() => handleAction("ADD_RESERVOIR")}
-                />
+
+                {CANVAS_MENUS_OPTIONS.map((menu) => {
+                  const Icon = menu.icon;
+                  return (
+                    <MenuItem
+                      key={menu.label}
+                      icon={<Icon size={16} color={menu.color} />}
+                      label={`Add ${menu.label}`}
+                      onClick={() => handleAction(menu.action)}
+                    />
+                  );
+                })}
               </>
             )}
 
-            {/* ================= NODE MENU ================= */}
-            {type === "NODE" && (
-              <>
-                <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 dark:bg-slate-900/50 mb-1 border-b">
-                  {feature?.get("type")?.toUpperCase() || "NODE"}{" "}
-                  {feature?.get("label") || ""}
-                </div>
-                <MenuItem
-                  icon={<Settings size={16} />}
-                  label="Properties"
-                  onClick={() => handleAction("PROPERTIES")}
-                />
-                <div className="h-px bg-slate-200 dark:bg-slate-800 my-1" />
-                <MenuItem
-                  icon={<Trash2 size={16} />}
-                  label="Delete"
-                  color="text-red-600"
-                  onClick={() => handleAction("DELETE")}
-                />
-              </>
-            )}
-
-            {/* ================= PUMP / VALVE MENU ================= */}
-            {(type === "PUMP" || type === "VALVE") && (
+            {/* ================= NODE / PUMP / VALVE MENU ================= */}
+            {(type === "PUMP" || type === "VALVE" || type === "NODE") && (
               <>
                 <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 dark:bg-slate-900/50 mb-1 border-b">
                   {type} {feature?.get("label") || ""}
                 </div>
-                <MenuItem
-                  icon={<Settings size={16} />}
-                  label="Properties"
-                  onClick={() => handleAction("PROPERTIES")}
-                />
-                <div className="h-px bg-slate-200 dark:bg-slate-800 my-1" />
-                <MenuItem
-                  icon={<Trash2 size={16} />}
-                  label="Delete"
-                  color="text-red-600"
-                  onClick={() => handleAction("DELETE")}
-                />
+                {NODE_MENUS_OPTIONS.map((menu, idx) => {
+                  const Icon = menu.icon;
+                  return (
+                    <React.Fragment key={menu.label}>
+                      {idx == 1 && (
+                        <div className="h-px bg-slate-200 dark:bg-slate-800 my-1" />
+                      )}
+                      <MenuItem
+                        icon={<Icon size={16} />}
+                        label={menu.label}
+                        color={menu.action === "DELETE" ? "text-red-600" : undefined}
+                        onClick={() => handleAction(menu.action)}
+                      />
+                    </React.Fragment>
+                  );
+                })}
               </>
             )}
 
