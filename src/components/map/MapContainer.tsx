@@ -33,6 +33,8 @@ import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 import { MapLayers } from "./MapLayers";
 import { useSimulationStore } from "@/store/simulationStore";
 import { useParams } from "next/navigation";
+import { useMapContextMenu } from "@/hooks/useMapContextMenu";
+import { MapContextMenu } from "./MapContextMenu";
 
 export function MapContainer() {
   const params = useParams();
@@ -54,28 +56,35 @@ export function MapContainer() {
   const {
     activeTool,
     deleteModalOpen,
-    showAttributeTable,
     activeModal,
     setActiveModal,
     setDeleteModalOpen,
-    setShowAttributeTable,
   } = useUIStore();
 
-  // --- Ensure map has features from store ---
+  // --- Optimized Sync: Only add missing features ---
   useEffect(() => {
-    if (
-      vectorSource &&
-      features.size > 0 &&
-      vectorSource.getFeatures().length === 0
-    ) {
-      vectorSource.addFeatures(Array.from(features.values()));
+    if (!vectorSource || features.size === 0) return;
 
-      // Auto-zoom after sync
+    // 1. Initial Load: If map is empty but store has data
+    if (vectorSource.getFeatures().length === 0) {
+      vectorSource.addFeatures(Array.from(features.values()));
       if (map) {
-        setTimeout(() => {
-          handleZoomToExtent(map);
-        }, 200);
+        setTimeout(() => handleZoomToExtent(map), 200);
       }
+      return;
+    }
+
+    // 2. Incremental Sync: Add newly created features that aren't in the map yet
+    // This assumes the Store is the source of truth
+    const featuresToAdd = [];
+    for (const [id, feature] of features) {
+      if (!vectorSource.getFeatureById(id)) {
+        featuresToAdd.push(feature);
+      }
+    }
+
+    if (featuresToAdd.length > 0) {
+      vectorSource.addFeatures(featuresToAdd);
     }
   }, [vectorSource, features, map]);
 
@@ -170,9 +179,6 @@ export function MapContainer() {
   // Measurement
   useMeasurement();
 
-  // Snapping
-  useSnapping();
-
   // Activate Synchronization
   useMapFeatureSync();
 
@@ -185,6 +191,8 @@ export function MapContainer() {
     }
   }, [projectId, loadResults]);
 
+  const contextMenu = useMapContextMenu();
+
   return (
     <div className="relative w-full h-full bg-gray-100 dark:bg-gray-900 flex flex-col">
       <div className="flex-1 relative overflow-hidden">
@@ -192,12 +200,18 @@ export function MapContainer() {
         <div ref={mapRef} className="w-full h-full" />
 
         <MapToolbar />
-
         <MapControls />
-
         <Legend />
-
         <MapLayers />
+
+        <MapContextMenu
+          isVisible={contextMenu.isVisible}
+          position={contextMenu.position}
+          type={contextMenu.type}
+          feature={contextMenu.feature}
+          onClose={contextMenu.onClose}
+          onAction={contextMenu.onAction}
+        />
 
         <DeleteConfirmationModal
           isOpen={deleteModalOpen}

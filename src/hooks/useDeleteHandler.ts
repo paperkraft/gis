@@ -6,13 +6,13 @@ import { useMapStore } from '@/store/mapStore';
 import { DeleteManager } from '@/lib/topology/deleteManager';
 
 export function useDeleteHandler() {
-    const map = useMapStore((state) => state.map);
     const vectorSource = useMapStore((state) => state.vectorSource);
     const {
         selectFeature,
         selectFeatures,
         setSelectedFeature,
         selectedFeatureIds,
+        selectedFeatureId, // Import singular ID
         getFeatureById
     } = useNetworkStore();
 
@@ -21,14 +21,16 @@ export function useDeleteHandler() {
 
     // Initialize DeleteManager
     useEffect(() => {
-        if (!map || !vectorSource) return;
-        deleteManagerRef.current = new DeleteManager(map, vectorSource);
+        if (!vectorSource) return;
+        deleteManagerRef.current = new DeleteManager(vectorSource);
 
-        // Connect callback (Context menu requests usually send a single feature)
+        // Connect callback for internal DeleteManager requests (e.g., keyboard)
         deleteManagerRef.current.onDeleteRequest = (feature: Feature) => {
-            // If right-clicked feature isn't in current selection, select only it
-            if (!selectedFeatureIds.includes(feature.getId() as string)) {
-                selectFeature(feature.getId() as string);
+            const id = feature.getId() as string;
+            // Ensure selection is synced
+            if (!selectedFeatureIds.includes(id)) {
+                selectFeature(id);
+                setSelectedFeature(feature);
             }
             setDeleteModalOpen(true);
         };
@@ -36,24 +38,40 @@ export function useDeleteHandler() {
         return () => {
             deleteManagerRef.current?.cleanup();
         };
-    }, [map, vectorSource, selectFeature, selectedFeatureIds, setDeleteModalOpen]);
+    }, [vectorSource, selectFeature, selectedFeatureIds, setDeleteModalOpen, setSelectedFeature]);
 
-    // Handler for Panel button (usually single context, but safe to default to selection)
+    // Handler for Panel button
     const handleDeleteRequestFromPanel = useCallback(() => {
-        if (selectedFeatureIds.length > 0) {
+        if (selectedFeatureIds.length > 0 || selectedFeatureId) {
             setDeleteModalOpen(true);
         }
-    }, [selectedFeatureIds, setDeleteModalOpen]);
+    }, [selectedFeatureIds, selectedFeatureId, setDeleteModalOpen]);
 
     // Execute Delete for ALL selected features
     const handleDeleteConfirm = useCallback(() => {
         if (!deleteManagerRef.current) return;
 
-        // Create a copy to avoid loop issues if state updates mid-loop
-        const idsToDelete = [...selectedFeatureIds];
+        // Fallback to singular ID if array is empty.
+        // In 'Draw' mode, the interaction often clears the multi-select array, 
+        // but 'selectedFeatureId' remains set by the Context Menu.
+        let idsToDelete = [...selectedFeatureIds];
+        if (idsToDelete.length === 0 && selectedFeatureId) {
+            idsToDelete = [selectedFeatureId];
+        }
+
+        if (idsToDelete.length === 0) {
+            console.warn("[DeleteHandler] No features selected to delete.");
+            setDeleteModalOpen(false);
+            return;
+        }
 
         idsToDelete.forEach(id => {
-            const feature = getFeatureById(id);
+            // Try to find feature in store first, then map source
+            let feature = getFeatureById(id);
+            if (!feature && vectorSource) {
+                feature = vectorSource.getFeatureById(id) as Feature;
+            }
+
             if (feature) {
                 deleteManagerRef.current?.executeDelete(feature);
             }
@@ -66,16 +84,23 @@ export function useDeleteHandler() {
         selectFeatures([]);
         setSelectedFeature(null);
 
-    }, [selectedFeatureIds, setDeleteModalOpen, selectFeature, selectFeatures, setSelectedFeature, getFeatureById]);
+    }, [selectedFeatureIds, selectedFeatureId, setDeleteModalOpen, selectFeature, selectFeatures, setSelectedFeature, getFeatureById, vectorSource]);
 
-    // Calculate Cascade Info dynamically for the selection
+    // Calculate Cascade Info dynamically
     const cascadeInfo = useMemo(() => {
-        if (selectedFeatureIds.length === 0 || !deleteManagerRef.current) {
-            return undefined;
+        if (!deleteManagerRef.current) return undefined;
+
+        let idsToCheck = selectedFeatureIds;
+        if (idsToCheck.length === 0 && selectedFeatureId) {
+            idsToCheck = [selectedFeatureId];
         }
 
+        if (idsToCheck.length === 0) return undefined;
+
         let willCascade = false;
-        const features = selectedFeatureIds.map(id => getFeatureById(id)).filter(f => f) as Feature[];
+        const features = idsToCheck.map(id => {
+            return getFeatureById(id) || vectorSource?.getFeatureById(id);
+        }).filter(f => f) as Feature[];
 
         // Check if ANY selected feature causes a cascade
         for (const feature of features) {
@@ -89,7 +114,7 @@ export function useDeleteHandler() {
         if (willCascade) {
             return {
                 willCascade: true,
-                message: selectedFeatureIds.length > 1
+                message: idsToCheck.length > 1
                     ? "Deleting these items will also remove connected pipes or links."
                     : "Deleting this node will also remove connected pipes."
             };
@@ -97,12 +122,12 @@ export function useDeleteHandler() {
 
         return { willCascade: false, message: "" };
 
-    }, [selectedFeatureIds, getFeatureById]);
+    }, [selectedFeatureIds, selectedFeatureId, getFeatureById, vectorSource]);
 
     return {
         handleDeleteRequestFromPanel,
         handleDeleteConfirm,
         cascadeInfo,
-        deleteCount: selectedFeatureIds.length
+        deleteCount: Math.max(selectedFeatureIds.length, selectedFeatureId ? 1 : 0)
     };
 }

@@ -54,7 +54,7 @@ export class LinkModifyManager {
         // Setup drag handlers
         this.setupDragHandlers();
 
-        this.map.getViewport().style.cursor = 'grab';
+        this.map.getViewport().style.cursor = 'move';
     }
 
     private getConnectedPipes(startJunction: Feature, endJunction: Feature): { pipe: Feature; isStart: boolean }[] {
@@ -93,7 +93,7 @@ export class LinkModifyManager {
                 window.dispatchEvent(new CustomEvent('takeSnapshot'));
 
                 this.isDragging = true;
-                this.map.getViewport().style.cursor = 'grabbing';
+                this.map.getViewport().style.cursor = 'move';
             }
 
             if (this.isDragging) {

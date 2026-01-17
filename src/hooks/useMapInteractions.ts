@@ -6,7 +6,6 @@ import { useCallback, useEffect, useRef } from 'react';
 import { Draw, DragBox } from 'ol/interaction';
 
 import { COMPONENT_TYPES } from '@/constants/networkComponents';
-import { ContextMenuManager } from '@/lib/topology/contextMenuManager';
 import { ModifyManager } from '@/lib/topology/modifyManager';
 import { PipeDrawingManager } from '@/lib/topology/pipeDrawingManager';
 import { VertexLayerManager } from '@/lib/topology/vertexManager';
@@ -25,7 +24,6 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
 
     const pipeDrawingManagerRef = useRef<PipeDrawingManager | null>(null);
     const modifyManagerRef = useRef<ModifyManager | null>(null);
-    const contextMenuManagerRef = useRef<ContextMenuManager | null>(null);
     const vertexLayerManagerRef = useRef<VertexLayerManager | null>(null);
     const drawInteractionRef = useRef<Draw | null>(null);
     const zoomBoxRef = useRef<DragBox | null>(null);
@@ -36,33 +34,26 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
 
         const pipeManager = new PipeDrawingManager(map, vectorSource);
         const modManager = new ModifyManager(map, vectorSource);
-        const menuManager = new ContextMenuManager(map, vectorSource);
         const vertexManager = new VertexLayerManager(map, vectorSource);
 
-        pipeManager.registerWithContextMenu(menuManager);
-        menuManager.setPipeDrawingManager(pipeManager);
 
         const originalStart = pipeManager.startDrawing.bind(pipeManager);
         pipeManager.startDrawing = (type) => {
             originalStart(type);
-            menuManager.setDrawingMode(true);
         };
 
         const originalStop = pipeManager.stopDrawing.bind(pipeManager);
         pipeManager.stopDrawing = () => {
             originalStop();
-            menuManager.setDrawingMode(false);
         };
 
         pipeDrawingManagerRef.current = pipeManager;
         modifyManagerRef.current = modManager;
-        contextMenuManagerRef.current = menuManager;
         vertexLayerManagerRef.current = vertexManager;
 
         return () => {
             pipeManager.cleanup();
             modManager.cleanup();
-            menuManager.cleanup();
             vertexManager.cleanup();
         };
     }, [map, vectorSource]);
@@ -173,11 +164,9 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
             case 'draw-valve':
                 // If you want "Draw Line" behavior for these:
                 pipeDrawingManagerRef.current.startDrawing(activeTool.replace('draw-', '') as any);
+                break;
 
-            // BUT commonly pumps/valves are placed as points. 
-            // If you treat them as points, fall through to the Node logic below.
-            // For now, let's assume they are Points placed on pipes or canvas.
-            // Fallthrough...
+            // Point Components (Junctions, Tanks, Reservoirs)
             case 'draw-junction':
             case 'draw-tank':
             case 'draw-reservoir':
@@ -209,6 +198,5 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
 
     return {
         pipeDrawingManager: pipeDrawingManagerRef.current,
-        // startComponentPlacement: placeComponent,
     };
 }

@@ -19,53 +19,37 @@ export function useMapFeatureSync() {
         const source = networkLayer.getSource();
         if (!source) return;
 
-        // 2. Index Current Canvas Features (Lookup Map)
-        const sourceFeaturesById = new Map<string, Feature>();
-        source.getFeatures().forEach((f) => {
-            const id = f.getId();
-            if (id) sourceFeaturesById.set(id.toString(), f);
-        });
+        // 1. Sync Store -> Map (Additions & Updates)
+        const activeIds = new Set<string>();
 
-        const featuresToAdd: Feature[] = [];
-        const featuresToRemove: Feature[] = [];
-
-        // 3. Diff: Compare Store vs Canvas
         features.forEach((storeFeature, id) => {
-            const sourceFeature = sourceFeaturesById.get(id);
+            activeIds.add(id);
+            const existingFeature = source.getFeatureById(id);
 
-            if (!sourceFeature) {
-                // Case A: New in Store -> Add to Canvas
-                featuresToAdd.push(storeFeature);
-            } else {
-                // Case B: Exists -> Check if updated
-                // If the object reference changed (e.g. from Restore), replace it.
-                if (sourceFeature !== storeFeature) {
-                    featuresToRemove.push(sourceFeature);
-                    featuresToAdd.push(storeFeature);
-                }
-                // Mark as valid (don't delete)
-                sourceFeaturesById.delete(id);
+            if (!existingFeature) {
+                // New feature
+                source.addFeature(storeFeature);
+            } else if (existingFeature !== storeFeature) {
+                // Feature reference changed (e.g. undo/redo)
+                // We update the geometry/props by replacing the feature
+                source.removeFeature(existingFeature);
+                source.addFeature(storeFeature);
             }
         });
 
-        // 4. Identify Deletes
-        // Anything left in sourceFeaturesById is on the Canvas but NOT in the Store
-        sourceFeaturesById.forEach((f) => {
-            featuresToRemove.push(f);
+        // 2. Sync Map -> Store (Deletions)
+        // Efficiently remove features present on Map but not in Store
+        // We iterate source features once.
+        const featuresToRemove: any[] = [];
+        source.forEachFeature((feature) => {
+            const id = feature.getId();
+            if (id && !activeIds.has(id.toString())) {
+                featuresToRemove.push(feature);
+            }
         });
 
-        // 5. Batch Updates (Performance)
         if (featuresToRemove.length > 0) {
             featuresToRemove.forEach(f => source.removeFeature(f));
-        }
-
-        if (featuresToAdd.length > 0) {
-            source.addFeatures(featuresToAdd);
-        }
-
-        // Optional Debug
-        if (featuresToAdd.length > 0 || featuresToRemove.length > 0) {
-            console.debug(`Map Sync: +${featuresToAdd.length} / -${featuresToRemove.length}`);
         }
 
     }, [map, features]);

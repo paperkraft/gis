@@ -192,8 +192,8 @@ const DEFAULT_STATE = {
         pump: true,
     },
 
-    showLabels: true,
-    showPipeArrows: true,
+    showLabels: false,
+    showPipeArrows: false,
 
     isSnappingEnabled: true,
     styleSettingsModalOpen: false,

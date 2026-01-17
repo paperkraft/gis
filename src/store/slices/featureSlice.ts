@@ -77,7 +77,8 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
             features: newFeatures,
             hasUnsavedChanges: true,
             modifiedIds: newModified,
-            deletedIds: newDeleted
+            deletedIds: newDeleted,
+            version: state.version + 1
         };
     }),
 
@@ -88,14 +89,14 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
             feature.setProperties({ ...oldProps, ...updates });
             feature.changed(); // Trigger OL redraw
 
-            // Force React update by creating new Map reference
+            // Mutate tracking only, keep Map reference
             set((state) => {
-                const newFeatures = new Map(state.features);
-                newFeatures.set(id, feature);
+                // const newFeatures = new Map(state.features);
+                // newFeatures.set(id, feature);
                 const newModified = new Set(state.modifiedIds).add(id);
 
                 return {
-                    features: newFeatures,
+                    // features: newFeatures,
                     hasUnsavedChanges: true,
                     modifiedIds: newModified,
                     version: state.version + 1
@@ -118,7 +119,8 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
             hasUnsavedChanges: true,
             selectedFeatureId: state.selectedFeatureId === id ? null : state.selectedFeatureId,
             deletedIds: newDeleted,
-            modifiedIds: newModified
+            modifiedIds: newModified,
+            version: state.version + 1
         };
     }),
 
@@ -151,19 +153,22 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
                 features: newFeatures,
                 hasUnsavedChanges: true,
                 modifiedIds: newModified,
-                deletedIds: newDeleted
+                deletedIds: newDeleted,
+                version: state.version + 1
             };
         });
     },
 
     updateFeatures: (updates) => {
         set((state) => {
-            const newFeatures = new Map(state.features);
+            // const newFeatures = new Map(state.features);
             const newModified = new Set(state.modifiedIds);
             let hasChanges = false;
 
+            // Direct Mutation of OL Features
             Object.entries(updates).forEach(([id, props]) => {
-                const feature = newFeatures.get(id);
+                // const feature = newFeatures.get(id);
+                const feature = state.features.get(id);
                 if (feature) {
                     feature.setProperties({ ...feature.getProperties(), ...props });
                     newModified.add(id);
@@ -172,7 +177,13 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
                 }
             });
 
-            return hasChanges ? { features: newFeatures, hasUnsavedChanges: true, modifiedIds: newModified, version: state.version + 1 } : {};
+            if (!hasChanges) return {};
+
+            return {
+                hasUnsavedChanges: true,
+                modifiedIds: newModified,
+                version: state.version + 1
+            };
         });
     },
 
@@ -193,7 +204,8 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
         deletedIds: new Set(),
         selectedFeature: null,
         selectedFeatureId: null,
-        selectedFeatureIds: []
+        selectedFeatureIds: [],
+        version: 0
     }),
 
     // Stuff: Nodes and connections
@@ -232,16 +244,26 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
 
     // Modified
     markModified: (ids) => set((state) => {
-        const newModified = new Set(state.modifiedIds);
+
         const idArray = Array.isArray(ids) ? ids : [ids];
+        const needsUpdate = idArray.some(id => !state.modifiedIds.has(id));
 
-        idArray.forEach(id => newModified.add(id));
+        if (!needsUpdate) return {};
 
-        // Ensure we don't track deleted items as modified
+        const newModified = new Set(state.modifiedIds);
         const newDeleted = new Set(state.deletedIds);
-        idArray.forEach(id => newDeleted.delete(id));
 
-        return { modifiedIds: newModified, hasUnsavedChanges: true, deletedIds: newDeleted };
+        idArray.forEach(id => {
+            newModified.add(id);
+            newDeleted.delete(id);
+        });
+
+        return {
+            modifiedIds: newModified,
+            hasUnsavedChanges: true,
+            deletedIds: newDeleted,
+            version: state.version + 1
+        };
     }),
 
 });

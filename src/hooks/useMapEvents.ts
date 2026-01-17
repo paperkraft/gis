@@ -1,10 +1,8 @@
-import { Feature } from 'ol';
 import Map from 'ol/Map';
 import { toLonLat } from 'ol/proj';
 import { useEffect, useRef } from 'react';
 
 import { handleZoomToExtent } from '@/lib/interactions/map-controls';
-import { isJunctionConnectedToLink } from '@/lib/styles/featureStyles';
 import { useMapStore } from '@/store/mapStore';
 
 interface UseMapEventsProps {
@@ -13,12 +11,11 @@ interface UseMapEventsProps {
 
 export function useMapEvents({ map }: UseMapEventsProps) {
     const setCoordinates = useMapStore((state) => state.setCoordinates);
-    const setZoom = useMapStore((state) => state.setZoom);
     const setProjection = useMapStore((state) => state.setProjection);
+    const setZoom = useMapStore((state) => state.setZoom);
 
     // Throttle Refs
     const lastCoordUpdate = useRef(0);
-    const lastCursorUpdate = useRef(0);
 
     useEffect(() => {
         if (!map) return;
@@ -28,7 +25,7 @@ export function useMapEvents({ map }: UseMapEventsProps) {
         setZoom(view.getZoom() || 0);
         setProjection(view.getProjection().getCode());
 
-        // 1. Coordinate Tracking
+        // 2. Coordinate Tracking
         const handlePointerMove = (event: any) => {
 
             // A. Update Coordinates (Throttle ~20fps)
@@ -39,36 +36,6 @@ export function useMapEvents({ map }: UseMapEventsProps) {
                 setCoordinates(`${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`);
                 lastCoordUpdate.current = now;
             }
-
-            // B. Cursor Logic (Throttle ~30fps - heavy hit detection)
-            if (now - lastCursorUpdate.current > 32) {
-
-                const feature = map.forEachFeatureAtPixel(
-                    event.pixel,
-                    (f) => f as Feature,
-                    { hitTolerance: 5 }
-                );
-
-                if (feature && feature.get('type') === 'junction') {
-                    const isLinkJunction = isJunctionConnectedToLink(feature);
-                    if (isLinkJunction) {
-                        map.getViewport().style.cursor = 'not-allowed';
-                        map.getViewport().title = 'This junction is part of a pump/valve. Move the pump/valve to reposition.';
-                    } else {
-                        map.getViewport().style.cursor = 'pointer';
-                        map.getViewport().title = '';
-                    }
-                } else {
-                    // Reset cursor if not drawing/modifying
-                    if (map.getViewport().style.cursor === 'not-allowed') {
-                        map.getViewport().style.cursor = 'default';
-                        map.getViewport().title = '';
-                    }
-                }
-
-                lastCursorUpdate.current = now;
-            }
-
         };
 
         const handleMoveEnd = () => {
