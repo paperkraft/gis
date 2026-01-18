@@ -12,7 +12,6 @@ import { useLayerManager } from "@/hooks/useLayerManager";
 import { useFeatureSelection } from "@/hooks/useFeatureSelection";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useDeleteHandler } from "@/hooks/useDeleteHandler";
-import { useNetworkExport } from "@/hooks/useNetworkExport";
 import { useHistoryManager } from "@/hooks/useHistoryManager";
 import { useMeasurement } from "@/hooks/useMeasurement";
 import { useMapFeatureSync } from "@/hooks/useMapFeatureSync";
@@ -161,7 +160,7 @@ export function MapContainer() {
     }
   }, [selectedFeature, activeTool, activeModal, setActiveModal]);
 
-  // Handle Map Events (Coordinates, Fit)
+  // Handle Map Events (Coordinates)
   useMapEvents({ map });
 
   // Manage Layers & Styling
@@ -172,9 +171,6 @@ export function MapContainer() {
 
   // Delete Handling
   const { cascadeInfo, deleteCount, handleDeleteConfirm } = useDeleteHandler();
-
-  // Export Handling
-  useNetworkExport();
 
   // History Manager (Undo/Redo)
   useHistoryManager();
