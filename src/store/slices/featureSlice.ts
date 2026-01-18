@@ -253,19 +253,32 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
     },
 
     updateNodeConnections: (nodeId, linkId, action) => {
-        const node = get().getFeatureById(nodeId);
-        if (!node) return;
+        set((state) => {
+            const node = state.features.get(nodeId);
+            if (!node) return {};
 
-        const connections = node.get("connectedLinks") || [];
-        if (action === "add" && !connections.includes(linkId)) {
-            connections.push(linkId);
-        } else if (action === "remove") {
-            const index = connections.indexOf(linkId);
-            if (index > -1) connections.splice(index, 1);
-        }
-        node.set("connectedLinks", connections);
-        // Topology updates count as modifications!
-        get().markModified(nodeId);
+            const props = node.getProperties();
+            let links = props.connectedLinks || [];
+
+            if (action === 'add') {
+                if (!links.includes(linkId)) links = [...links, linkId];
+            } else if (action === 'remove') {
+                links = links.filter((id: string) => id !== linkId);
+            }
+
+            // 1. Update the OpenLayers Feature
+            node.set('connectedLinks', links);
+
+            // 2. Mark as Modified so it gets Saved
+            const newModified = new Set(state.modifiedIds);
+            newModified.add(nodeId);
+
+            return {
+                hasUnsavedChanges: true, // Trigger "Unsaved Changes" UI
+                modifiedIds: newModified,
+                version: state.version + 1
+            };
+        });
     },
 
     // Modified

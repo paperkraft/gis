@@ -455,39 +455,96 @@ export class ModifyManager {
             const nodeCoord = (node.getGeometry() as Point).getCoordinates();
 
             const originalProps = { ...pipe.getProperties() };
+            // Cleanup props
             delete originalProps.geometry; delete originalProps.id;
             delete originalProps.startNodeId; delete originalProps.endNodeId;
             delete originalProps.length; delete originalProps.label;
 
+            // 1. Calculate Split Point
             let splitIndex = 0;
             let minDistance = Infinity;
             for (let i = 0; i < coords.length - 1; i++) {
                 const seg = new LineString([coords[i], coords[i + 1]]);
-                // const dist = this.distance(seg.getClosestPoint(nodeCoord), nodeCoord);
-                const dist = Math.sqrt(Math.pow(seg.getClosestPoint(nodeCoord)[0] - nodeCoord[0], 2));
-                // Simplified distance check for brevity, use real logic
+                const closest = seg.getClosestPoint(nodeCoord);
+                const dist = Math.sqrt(Math.pow(closest[0] - nodeCoord[0], 2) + Math.pow(closest[1] - nodeCoord[1], 2));
                 if (dist < minDistance) { minDistance = dist; splitIndex = i; }
             }
 
+            // 2. Generate IDs
             const pipe1Id = store.generateUniqueId('pipe');
             const pipe2Id = store.generateUniqueId('pipe');
             const startId = pipe.get('startNodeId');
             const endId = pipe.get('endNodeId');
             const nodeId = node.getId() as string;
+            const oldPipeId = pipe.getId() as string;
 
+            // 3. Create New Geometries
             const coords1 = [...coords.slice(0, splitIndex + 1), nodeCoord];
             const coords2 = [nodeCoord, ...coords.slice(splitIndex + 1)];
 
             const p1 = new Feature({ geometry: new LineString(coords1) });
-            p1.setId(pipe1Id); p1.setProperties({ ...originalProps, type: 'pipe', isNew: true, id: pipe1Id, startNodeId: startId, endNodeId: nodeId, label: `${pipe1Id}`, length: Math.round(new LineString(coords1).getLength()) });
+            p1.setId(pipe1Id);
+            p1.setProperties({
+                ...originalProps,
+                type: 'pipe',
+                id: pipe1Id,
+                startNodeId: startId,
+                endNodeId: nodeId,
+                label: `${pipe1Id}`,
+                length: Math.round(new LineString(coords1).getLength())
+            });
 
             const p2 = new Feature({ geometry: new LineString(coords2) });
-            p2.setId(pipe2Id); p2.setProperties({ ...originalProps, type: 'pipe', isNew: true, id: pipe2Id, startNodeId: nodeId, endNodeId: endId, label: `${pipe2Id}`, length: Math.round(new LineString(coords2).getLength()) });
+            p2.setId(pipe2Id);
+            p2.setProperties({
+                ...originalProps,
+                type: 'pipe',
+                id: pipe2Id,
+                startNodeId: nodeId,
+                endNodeId: endId,
+                label: `${pipe2Id}`,
+                length: Math.round(new LineString(coords2).getLength())
+            });
 
+            // 4. UPDATE MAP (Remove Old, Add New)
             this.vectorSource.removeFeature(pipe);
-            store.removeFeature(pipe.getId() as string);
-
             this.vectorSource.addFeatures([p1, p2]);
+
+            // Manually Update Feature 'connectedLinks'
+            const updateFeatureConnections = (targetNodeId: string, removeId: string | null, addId: string) => {
+                const targetNode = this.vectorSource.getFeatureById(targetNodeId);
+                if (targetNode) {
+                    let links = targetNode.get('connectedLinks') as string[] || [];
+
+                    // Remove Old Pipe ID
+                    if (removeId) {
+                        links = links.filter(id => id !== removeId);
+                    }
+
+                    // Add New Pipe ID (prevent duplicates)
+                    if (!links.includes(addId)) {
+                        links.push(addId);
+                    }
+
+                    targetNode.set('connectedLinks', [...links]); // Spread to trigger change detection if needed
+                }
+            };
+
+            // Update Start Node (Remove Old, Add P1)
+            updateFeatureConnections(startId, oldPipeId, pipe1Id);
+
+            // Update End Node (Remove Old, Add P2)
+            updateFeatureConnections(endId, oldPipeId, pipe2Id);
+
+            // Update the New Split Node (Add P1, Add P2)
+            // (This node is usually fresh or moved, so it shouldn't have the old pipe ID)
+            updateFeatureConnections(nodeId, null, pipe1Id);
+            updateFeatureConnections(nodeId, null, pipe2Id);
+
+            // =========================================================
+
+            // 5. UPDATE STORE
+            store.removeFeature(pipe.getId() as string);
             store.addFeature(p1);
             store.addFeature(p2);
 
