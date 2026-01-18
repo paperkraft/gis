@@ -5,6 +5,8 @@ import { StateCreator } from 'zustand';
 import { FeatureType, NetworkFeatureProperties } from '@/types/network';
 
 import { NetworkState } from '../networkStore';
+import { useMapStore } from '../mapStore';
+import { LineString, Point } from 'ol/geom';
 
 export interface FeatureSlice {
     features: Map<string, Feature>;
@@ -83,26 +85,67 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
     }),
 
     updateFeature: (id, updates) => {
-        const feature = get().features.get(id);
+        let feature = get().features.get(id);
+
+        // Safety: Rescue logic
+        if (feature && !(feature instanceof Feature)) {
+            const source = useMapStore.getState().vectorSource;
+            feature = source?.getFeatureById(id) as Feature;
+        }
+
         if (feature) {
-            const oldProps = feature.getProperties();
-            feature.setProperties({ ...oldProps, ...updates });
-            feature.changed(); // Trigger OL redraw
+            const { geometry, ...propUpdates } = updates;
 
-            // Mutate tracking only, keep Map reference
+            if (geometry) {
+                if (Array.isArray(geometry)) {
+                    const type = feature.getGeometry()?.getType();
+
+                    if (type === 'LineString') {
+                        feature.setGeometry(new LineString(geometry as any[]));
+                    } else if (type === 'Point') {
+                        feature.setGeometry(new Point(geometry as number[]));
+                    }
+                }
+            }
+
+            // Handle Properties (Exclude geometry)
+            if (Object.keys(propUpdates).length > 0) {
+                const oldProps = feature.getProperties();
+                delete oldProps.geometry; // Don't save array to props
+                feature.setProperties({ ...oldProps, ...propUpdates });
+            }
+
+            feature.changed();
+
             set((state) => {
-                // const newFeatures = new Map(state.features);
-                // newFeatures.set(id, feature);
                 const newModified = new Set(state.modifiedIds).add(id);
-
                 return {
-                    // features: newFeatures,
                     hasUnsavedChanges: true,
                     modifiedIds: newModified,
                     version: state.version + 1
-                }
+                };
             });
         }
+
+        // if (feature) {
+        //     const oldProps = feature.getProperties();
+        //     feature.setProperties({ ...oldProps, ...updates });
+        //     feature.changed(); // Trigger OL redraw
+
+        //     // Mutate tracking only, keep Map reference
+        //     set((state) => {
+        //         // const newFeatures = new Map(state.features);
+        //         // newFeatures.set(id, feature);
+        //         const newModified = new Set(state.modifiedIds).add(id);
+
+        //         return {
+        //             // features: newFeatures,
+        //             hasUnsavedChanges: true,
+        //             modifiedIds: newModified,
+        //             version: state.version + 1
+        //         }
+        //     });
+        // }
     },
 
     removeFeature: (id) => set((state) => {
@@ -165,14 +208,44 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
             const newModified = new Set(state.modifiedIds);
             let hasChanges = false;
 
-            // Direct Mutation of OL Features
+            const source = useMapStore.getState().vectorSource;
+
             Object.entries(updates).forEach(([id, props]) => {
-                // const feature = newFeatures.get(id);
-                const feature = state.features.get(id);
+                let feature = state.features.get(id);
+
+                if (feature && !(feature instanceof Feature)) {
+                    feature = source?.getFeatureById(id) as Feature;
+                }
+
                 if (feature) {
-                    feature.setProperties({ ...feature.getProperties(), ...props });
+                    const { geometry, ...otherProps } = props;
+
+                    // 1. Handle Geometry Class Update
+                    if (geometry && Array.isArray(geometry)) {
+                        if (Array.isArray(geometry)) {
+                            const type = feature.getGeometry()?.getType();
+
+                            if (type === 'LineString') {
+                                // Re-create the Class Instance
+                                feature.setGeometry(new LineString(geometry as any[]));
+                            } else if (type === 'Point') {
+                                feature.setGeometry(new Point(geometry as number[]));
+                            }
+                        }
+                    }
+
+                    // 2. Handle Properties (CLEANLY)
+                    if (Object.keys(otherProps).length > 0) {
+                        const currentProps = feature.getProperties();
+
+                        // CRITICAL: Ensure we don't merge 'geometry' into the props bag
+                        delete currentProps.geometry;
+
+                        feature.setProperties({ ...currentProps, ...otherProps });
+                    }
+
+                    feature.changed(); // Force Redraw
                     newModified.add(id);
-                    feature.changed();
                     hasChanges = true;
                 }
             });

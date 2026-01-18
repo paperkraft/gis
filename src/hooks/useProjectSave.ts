@@ -47,15 +47,28 @@ export function useProjectSave(projectId: string) {
                         const tNode = features.get(targetId);
 
                         if (sNode && tNode) {
-                            // Found both nodes! Rebuild geometry from scratch.
                             const sGeom = (sNode.getGeometry() as Point).getCoordinates();
                             const tGeom = (tNode.getGeometry() as Point).getCoordinates();
 
-                            // Clone the feature so we don't mess up the live map during save
                             const clone = f.clone();
-                            // Force a straight line between the two nodes
-                            clone.setGeometry(new LineString([sGeom, tGeom]));
-                            clone.setId(f.getId()); // Clone often drops ID
+
+                            // 1. GET CURRENT SHAPE (Start + Vertices + End)
+                            const currentGeom = f.getGeometry() as LineString;
+                            const coords = currentGeom.getCoordinates();
+
+                            // 2. SNAP ENDPOINTS ONLY (Preserve Middle Vertices)
+                            if (coords.length >= 2) {
+                                coords[0] = sGeom;                 // Snap Start
+                                coords[coords.length - 1] = tGeom; // Snap End
+
+                                // 3. APPLY FULL GEOMETRY
+                                clone.setGeometry(new LineString(coords));
+                            } else {
+                                // Fallback (should rarely happen)
+                                clone.setGeometry(new LineString([sGeom, tGeom]));
+                            }
+
+                            clone.setId(f.getId());
                             return clone;
                         }
                     }

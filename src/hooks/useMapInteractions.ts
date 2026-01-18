@@ -33,7 +33,7 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
         if (!map || !vectorSource) return;
 
         const pipeManager = new PipeDrawingManager(map, vectorSource);
-        const modManager = new ModifyManager(map, vectorSource);
+        const modifyManager = new ModifyManager(map, vectorSource);
         const vertexManager = new VertexLayerManager(map, vectorSource);
 
 
@@ -48,12 +48,12 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
         };
 
         pipeDrawingManagerRef.current = pipeManager;
-        modifyManagerRef.current = modManager;
+        modifyManagerRef.current = modifyManager;
         vertexLayerManagerRef.current = vertexManager;
 
         return () => {
             pipeManager.cleanup();
-            modManager.cleanup();
+            modifyManager.cleanup();
             vertexManager.cleanup();
         };
     }, [map, vectorSource]);

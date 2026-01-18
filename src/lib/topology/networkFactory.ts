@@ -3,6 +3,7 @@ import { Point, LineString } from 'ol/geom';
 import { COMPONENT_TYPES } from '@/constants/networkComponents';
 import { useNetworkStore } from '@/store/networkStore';
 import { FeatureType } from '@/types/network';
+import { transform } from 'ol/proj';
 
 export class NetworkFactory {
 
@@ -30,25 +31,52 @@ export class NetworkFactory {
     }
 
     /**
-     * Create a Link (Pipe)
-     */
+       * Create a Link (Pipe)
+       * @param coordinates - Fallback coordinates (usually just [start, end])
+       * @param startNode - The start node feature
+       * @param endNode - The end node feature
+       * @param existingId - ID from database
+       * @param props - Properties from database (contains 'geometry' array)
+       */
     static createPipe(coordinates: number[][], startNode: Feature, endNode: Feature, existingId?: string, props: any = {}): Feature {
-        const feature = new Feature({ geometry: new LineString(coordinates) });
+
+        let finalCoordinates = coordinates;
+
+        // 1. CHECK FOR SAVED VERTICES
+        // The saver sends 'geometry' inside the properties or root object. 
+        // We prioritize this over the simple [start, end] line.
+        if (props.geometry && Array.isArray(props.geometry) && props.geometry.length > 1) {
+
+            // 2. PROJECTION FIX (EPSG:4326 -> EPSG:3857)
+            // Your saver converts to Lat/Lon (4326). We must convert back to Map Units (3857).
+            finalCoordinates = props.geometry.map((coord: number[]) => {
+                return transform(coord, 'EPSG:4326', 'EPSG:3857');
+            });
+        }
+
+        // 3. CREATE FEATURE
+        const feature = new Feature({
+            geometry: new LineString(finalCoordinates)
+        });
 
         const store = useNetworkStore.getState();
         const id = existingId || store.generateUniqueId('pipe');
 
-        // Calculate length automatically if not provided
+        // 4. CLEANUP PROPERTIES
+        // Remove the raw geometry array so it doesn't clutter the properties bag
+        const { geometry, ...cleanProps } = props;
+
+        // Calculate length from the actual projected geometry
         const geom = feature.getGeometry() as LineString;
         const length = props.length || Math.round(geom.getLength());
 
         feature.setId(id);
         feature.setProperties({
             ...COMPONENT_TYPES.pipe.defaultProperties,
-            ...props,
+            ...cleanProps,
             type: 'pipe',
             id,
-            label: id,
+            label: cleanProps.label || id,
             startNodeId: startNode.getId(),
             endNodeId: endNode.getId(),
             length

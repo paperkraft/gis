@@ -1,6 +1,8 @@
 "use client";
 import "ol/ol.css";
 import React, { useEffect, useRef } from "react";
+import { useParams } from "next/navigation";
+import { isEmpty } from "ol/extent";
 
 // Hooks
 import { useMapInitialization } from "@/hooks/useMapInitialization";
@@ -13,28 +15,24 @@ import { useDeleteHandler } from "@/hooks/useDeleteHandler";
 import { useNetworkExport } from "@/hooks/useNetworkExport";
 import { useHistoryManager } from "@/hooks/useHistoryManager";
 import { useMeasurement } from "@/hooks/useMeasurement";
-import { useSnapping } from "@/hooks/useSnapping";
 import { useMapFeatureSync } from "@/hooks/useMapFeatureSync";
+import { useMapContextMenu } from "@/hooks/useMapContextMenu";
 
 // Stores & Types
 import { useMapStore } from "@/store/mapStore";
 import { useNetworkStore } from "@/store/networkStore";
 import { useUIStore } from "@/store/uiStore";
+import { useSimulationStore } from "@/store/simulationStore";
 import { WorkbenchModalType } from "../workbench/modal_registry";
-
-import { handleZoomToExtent } from "@/lib/interactions/map-controls";
 
 // Components
 import { Legend } from "./Legend";
 import { StatusBar } from "./StatusBar";
 import { MapToolbar } from "./MapToolbar";
 import { MapControls } from "./MapControls";
-import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 import { MapLayers } from "./MapLayers";
-import { useSimulationStore } from "@/store/simulationStore";
-import { useParams } from "next/navigation";
-import { useMapContextMenu } from "@/hooks/useMapContextMenu";
 import { MapContextMenu } from "./MapContextMenu";
+import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 
 export function MapContainer() {
   const params = useParams();
@@ -42,6 +40,7 @@ export function MapContainer() {
 
   const mapRef = useRef<HTMLDivElement>(null);
   const lastSelectedIdRef = useRef<string | null>(null);
+  const hasZoomedRef = useRef(false);
 
   // Initialize Map & Layers
   const map = useMapStore((state) => state.map);
@@ -61,32 +60,36 @@ export function MapContainer() {
     setDeleteModalOpen,
   } = useUIStore();
 
-  // --- Optimized Sync: Only add missing features ---
   useEffect(() => {
-    if (!vectorSource || features.size === 0) return;
+    hasZoomedRef.current = false;
+  }, [projectId]);
 
-    // 1. Initial Load: If map is empty but store has data
-    if (vectorSource.getFeatures().length === 0) {
-      vectorSource.addFeatures(Array.from(features.values()));
-      if (map) {
-        setTimeout(() => handleZoomToExtent(map), 200);
-      }
-      return;
-    }
+  useEffect(() => {
+    // Wait until Map, Source, and Data are ready
+    if (!map || !vectorSource || features.size === 0) return;
 
-    // 2. Incremental Sync: Add newly created features that aren't in the map yet
-    // This assumes the Store is the source of truth
-    const featuresToAdd = [];
-    for (const [id, feature] of features) {
-      if (!vectorSource.getFeatureById(id)) {
-        featuresToAdd.push(feature);
-      }
-    }
+    // Only run if we haven't zoomed yet for this project
+    if (!hasZoomedRef.current) {
+      const timer = setTimeout(() => {
+        // Ensure source actually has features to measure
+        if (vectorSource.getFeatures().length > 0) {
+          const extent = vectorSource.getExtent();
 
-    if (featuresToAdd.length > 0) {
-      vectorSource.addFeatures(featuresToAdd);
+          // Validate extent (prevents zooming to infinity on empty maps)
+          if (!isEmpty(extent)) {
+            map.getView().fit(extent, {
+              padding: [200, 200, 200, 200], // Keep items away from edges
+              duration: 1000, // Smooth animation
+              maxZoom: 22, // Prevent zooming in too close on single points
+            });
+            hasZoomedRef.current = true; // Mark done
+          }
+        }
+      }, 100);
+
+      return () => clearTimeout(timer);
     }
-  }, [vectorSource, features, map]);
+  }, [map, vectorSource, features.size, projectId]);
 
   // Setup Interactions
   useMapInteractions({ map, vectorSource });

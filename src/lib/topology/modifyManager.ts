@@ -75,6 +75,7 @@ export class ModifyManager {
             this.modifyStartCoordinates = {};
 
             event.features.forEach((feature) => {
+                feature.set('isModifying', true);
                 const geom = feature.getGeometry();
                 if (geom instanceof Point) {
                     this.modifyStartCoordinates[feature.getId() as string] = [...geom.getCoordinates()];
@@ -105,7 +106,11 @@ export class ModifyManager {
             const store = useNetworkStore.getState();
             const modifiedIds: string[] = [];
 
+            // We will store all geometry updates here before sending to Zustand
+            const updatesAccumulator: Record<string, any> = {};
+
             event.features.forEach((feature) => {
+                feature.unset('isModifying');
                 // Cleanup Listener
                 const key = feature.get('_modifyListenerKey');
                 if (key) {
@@ -119,16 +124,22 @@ export class ModifyManager {
 
                 // Strategy Pattern for Updates
                 if (['junction', 'tank', 'reservoir'].includes(type)) {
-                    this.rubberBandNode(feature as Feature, modifiedIds);
+                    // Pass accumulator to capture connected pipe changes
+                    // this.rubberBandNode(feature as Feature, modifiedIds);
+                    this.rubberBandNode(feature as Feature, modifiedIds, updatesAccumulator);
                     this.checkForPipeSplit(feature as Feature);
                 } else if (type === 'pump' || type === 'valve') {
                     this.rubberBandLink(feature as Feature, modifiedIds);
                 } else if (type === 'pipe') {
-                    // this.handlePipeMove(feature as Feature, modifiedIds);
-                    const geom = feature.getGeometry() as LineString;
-                    feature.set('length', Math.round(geom.getLength()));
+                    // 3. Handle Pipe Move Explicitly
+                    this.handlePipeMove(feature as Feature, updatesAccumulator);
                 }
             });
+
+            // This ensures the new vertex coordinates are saved to the State/DB
+            if (Object.keys(updatesAccumulator).length > 0) {
+                store.updateFeatures(updatesAccumulator);
+            }
 
             store.markModified(modifiedIds);
             this.modifyStartCoordinates = {};
@@ -146,11 +157,33 @@ export class ModifyManager {
         this.map.getViewport().style.cursor = 'move';
     }
 
+    // Removed 'modifiedIds' from arguments since the parent loop handles it
+    private handlePipeMove(pipe: Feature, updatesAccumulator: Record<string, any>) {
+        const id = pipe.getId() as string;
+        const geom = pipe.getGeometry();
+
+        // Safety Check
+        if (!geom || !(geom instanceof LineString)) return;
+
+        // 1. Get NEW Coordinates (Vertices)
+        const newCoords = geom.getCoordinates();
+
+        // 2. Update Length
+        const newLength = Math.round(geom.getLength());
+        pipe.set('length', newLength);
+
+        // 3. Add to Batch for Store Update
+        updatesAccumulator[id] = {
+            geometry: newCoords,
+            length: newLength
+        };
+    }
+
     // =========================================================
     // 🔗 RUBBER BANDING LOGIC (Real-time)
     // =========================================================
 
-    private rubberBandNode(node: Feature, modifiedIds?: string[]) {
+    private rubberBandNode(node: Feature, modifiedIds?: string[], updatesAccumulator?: Record<string, any>) {
         const nodeId = node.getId() as string;
         const newCoord = (node.getGeometry() as Point).getCoordinates();
         const connectedLinks = node.get('connectedLinks') as string[] || [];
@@ -167,6 +200,7 @@ export class ModifyManager {
                 const coords = geom.getCoordinates();
                 let updated = false;
 
+                // Update start or end coordinate of the pipe
                 if (link.get('startNodeId') === nodeId) {
                     coords[0] = newCoord;
                     updated = true;
@@ -177,8 +211,17 @@ export class ModifyManager {
 
                 if (updated) {
                     geom.setCoordinates(coords); // Visual Update
-                    link.set('length', Math.round(geom.getLength()));
+                    const newLen = Math.round(geom.getLength());
+                    link.set('length', newLen);
                     if (modifiedIds) modifiedIds.push(linkId);
+
+                    // 🚀 SYNC TO STORE ACCUMULATOR
+                    if (updatesAccumulator) {
+                        updatesAccumulator[linkId] = {
+                            geometry: coords,
+                            length: newLen
+                        };
+                    }
                 }
             }
             // Stretch Pump/Valve Visuals
@@ -278,6 +321,9 @@ export class ModifyManager {
                 } else if (geom instanceof LineString) {
                     const ext = geom.getExtent();
                     this.spatialIndex.add(ext[0], ext[1], ext[2], ext[3]);
+                } else {
+                    // FALLBACK: Prevents crash if geometry is missing/corrupt
+                    this.spatialIndex.add(0, 0, 0, 0);
                 }
             }
             this.spatialIndex.finish();
@@ -402,27 +448,6 @@ export class ModifyManager {
                 this.splitPipeByNode(bestPipe, node);
             }
         }
-
-        // const pixel = this.map.getPixelFromCoordinate(nodeCoord);
-        // if (!pixel) return;
-
-        // Use standard hit detection for this (precise)
-        // const pipeFeature = this.map.forEachFeatureAtPixel(
-        //     pixel,
-        //     (feature) => {
-        //         if (feature.getId() === nodeId) return null;
-        //         return feature as Feature;
-        //     },
-        //     { hitTolerance: 10, layerFilter: (l) => l.get('name') === 'network' }
-        // );
-
-        // if (pipeFeature && pipeFeature.get('type') === 'pipe') {
-        //     const startId = pipeFeature.get('startNodeId');
-        //     const endId = pipeFeature.get('endNodeId');
-        //     if (startId !== nodeId && endId !== nodeId) {
-        //         this.splitPipeByNode(pipeFeature, node);
-        //     }
-        // }
     }
 
     private splitPipeByNode(pipe: Feature, node: Feature) {
@@ -476,10 +501,6 @@ export class ModifyManager {
             store.updateNodeConnections(nodeId, pipe2Id, 'add');
             store.updateNodeConnections(endId, pipe2Id, 'add');
         });
-    }
-
-    private distance(p1: number[], p2: number[]) {
-        return Math.sqrt(Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2));
     }
 
     public cleanup() {

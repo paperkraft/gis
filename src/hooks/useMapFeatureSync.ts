@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Vector as VectorLayer } from 'ol/layer';
 import { Vector as VectorSource } from 'ol/source';
-import Feature from 'ol/Feature';
+import { Feature } from 'ol';
 import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
 
@@ -12,45 +12,52 @@ export function useMapFeatureSync() {
     useEffect(() => {
         if (!map) return;
 
-        // 1. Find the Network Layer
         const networkLayer = map.getLayers().getArray().find(l => l.get('name') === 'network') as VectorLayer<VectorSource>;
         if (!networkLayer) return;
 
         const source = networkLayer.getSource();
         if (!source) return;
 
-        // 1. Sync Store -> Map (Additions & Updates)
         const activeIds = new Set<string>();
 
+        // 1. Sync Store -> Map
         features.forEach((storeFeature, id) => {
             activeIds.add(id);
-            const existingFeature = source.getFeatureById(id);
+            const mapFeature = source.getFeatureById(id);
 
-            if (!existingFeature) {
-                // New feature
+            if (!mapFeature) {
+                // CASE A: New Feature -> Add it
                 source.addFeature(storeFeature);
-            } else if (existingFeature !== storeFeature) {
-                // Feature reference changed (e.g. undo/redo)
-                // We update the geometry/props by replacing the feature
-                source.removeFeature(existingFeature);
-                source.addFeature(storeFeature);
+            }
+            else if (mapFeature !== storeFeature) {
+                // CASE B: Feature exists but reference changed (e.g. Redo/Reload)
+                const newGeom = storeFeature.getGeometry();
+                const newProps = storeFeature.getProperties();
+
+                // 1. Update Geometry (This restores vertices!)
+                if (newGeom) {
+                    mapFeature.setGeometry(newGeom.clone());
+                }
+
+                // 2. Update Properties
+                mapFeature.setProperties(newProps);
+
+                // 3. Force Redraw
+                mapFeature.changed();
             }
         });
 
         // 2. Sync Map -> Store (Deletions)
-        // Efficiently remove features present on Map but not in Store
-        // We iterate source features once.
-        const featuresToRemove: any[] = [];
+        const featuresToRemove: Feature[] = [];
         source.forEachFeature((feature) => {
             const id = feature.getId();
             if (id && !activeIds.has(id.toString())) {
-                featuresToRemove.push(feature);
+                // If it's on the map but not in the store, delete it
+                featuresToRemove.push(feature as Feature);
             }
         });
 
-        if (featuresToRemove.length > 0) {
-            featuresToRemove.forEach(f => source.removeFeature(f));
-        }
+        featuresToRemove.forEach(f => source.removeFeature(f));
 
     }, [map, features]);
 }

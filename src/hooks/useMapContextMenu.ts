@@ -1,17 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Feature } from 'ol';
-import { LineString } from 'ol/geom';
+import { LineString, Point } from 'ol/geom';
 import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
 import { useUIStore } from '@/store/uiStore';
 import { PipeDrawingManager } from '@/lib/topology/pipeDrawingManager';
 import { NetworkFactory } from '@/lib/topology/networkFactory';
+import Flatbush from 'flatbush';
 
 export function useMapContextMenu() {
     const map = useMapStore((state) => state.map);
     const vectorSource = useMapStore((state) => state.vectorSource);
+
     const { setActiveModal, setDeleteModalOpen } = useUIStore();
-    const { setSelectedFeature, selectFeature, addFeature } = useNetworkStore();
+    const { setSelectedFeature, selectFeature, addFeature, selectedFeatureIds, selectFeatures } = useNetworkStore();
 
     const [state, setState] = useState<{
         isVisible: boolean;
@@ -29,21 +31,89 @@ export function useMapContextMenu() {
         vertexIndex: null,
     });
 
+    // =========================================================
+    // 🚀 ROBUST HIT DETECTION
+    // =========================================================
+    const findFeatureAtCoordinate = (coordinate: number[]) => {
+        if (!vectorSource || !map) return null;
+
+        const allFeatures = vectorSource.getFeatures();
+        if (allFeatures.length === 0) return null;
+
+        // 1. Build Index (Include EVERYTHING to be safe)
+        const index = new Flatbush(allFeatures.length);
+        for (const f of allFeatures) {
+            const geom = f.getGeometry();
+            if (geom instanceof Point) {
+                const c = geom.getCoordinates();
+                index.add(c[0], c[1], c[0], c[1]);
+            } else if (geom instanceof LineString) {
+                const ext = geom.getExtent();
+                index.add(ext[0], ext[1], ext[2], ext[3]);
+            } else {
+                // Fallback for empty/unknown geometry
+                index.add(0, 0, 0, 0);
+            }
+        }
+        index.finish();
+
+        // 2. Define Tolerance (10px buffer)
+        const resolution = map.getView().getResolution() || 1;
+        const tolerance = 10 * resolution;
+
+        // 3. Query Closest 20 items (No max distance filter to prevent false negatives)
+        const results = index.neighbors(coordinate[0], coordinate[1], 20);
+
+        let bestFeature: Feature | null = null;
+        let minDistance = Infinity;
+
+        // 4. Detailed Geometry Check
+        for (const i of results) {
+            const feature = allFeatures[i];
+            const type = feature.get('type');
+
+            // Skip helper objects if necessary
+            if (feature.get('isPreview') || feature.get('isVertexMarker')) continue;
+
+            const geom = feature.getGeometry();
+            let dist = Infinity;
+
+            if (geom instanceof Point) {
+                const c = geom.getCoordinates();
+                dist = Math.sqrt(Math.pow(c[0] - coordinate[0], 2) + Math.pow(c[1] - coordinate[1], 2));
+
+                // Priority: If we hit a Node/Icon within tolerance, return immediately
+                if (dist <= tolerance) return feature;
+            }
+            else if (geom instanceof LineString) {
+                const closest = geom.getClosestPoint(coordinate);
+                dist = Math.sqrt(Math.pow(closest[0] - coordinate[0], 2) + Math.pow(closest[1] - coordinate[1], 2));
+
+                if (dist <= tolerance && dist < minDistance) {
+                    minDistance = dist;
+                    bestFeature = feature;
+                }
+            }
+        }
+
+        return bestFeature;
+    };
+
     useEffect(() => {
         if (!map) return;
 
         const handleContextMenu = (event: MouseEvent) => {
             event.preventDefault();
-
             const pixel = map.getEventPixel(event);
             const coordinate = map.getCoordinateFromPixel(pixel);
 
-            // Hit Detection
-            // We prioritize points (Icons) over lines (Visual/Pipes) if they overlap
-            let feature = map.forEachFeatureAtPixel(pixel, (f) => f, {
-                hitTolerance: 8, // Slightly larger tolerance
-                layerFilter: (l) => l.get('name') === 'network',
-            }) as Feature | undefined;
+            // 1. HIT DETECTION: Find the Feature (Node or Pipe)
+            let feature = findFeatureAtCoordinate(coordinate);
+
+            // let feature = map.forEachFeatureAtPixel(pixel, (f) => f, {
+            //     hitTolerance: 8, // Slightly larger tolerance
+            //     layerFilter: (l) => l.get('name') === 'network',
+            // }) as Feature | undefined;
 
             let type: 'CANVAS' | 'NODE' | 'PIPE' | 'VERTEX' | 'PUMP' | 'VALVE' = 'CANVAS';
             let vertexIndex: number | null = null;
@@ -51,53 +121,73 @@ export function useMapContextMenu() {
             if (feature) {
                 const featureType = feature.get('type');
 
-                // 1. Handle Visual Lines (Dashed lines for Pump/Valve)
-                // If we clicked the line, switch 'feature' to the actual Pump/Valve component
+                // Handle Visual Links (Clicking dashed line -> Select Parent Pump/Valve)
                 if (featureType === 'visual') {
                     const parentId = feature.get('parentLinkId');
-                    const linkType = feature.get('linkType'); // 'pump' or 'valve'
-
-                    // Try to find the actual component feature
+                    const linkType = feature.get('linkType');
                     const source = useMapStore.getState().vectorSource;
                     const parentFeature = source?.getFeatureById(parentId);
 
                     if (parentFeature) {
-                        feature = parentFeature; // SWAP feature
+                        feature = parentFeature;
                         if (linkType === 'pump') type = 'PUMP';
                         else if (linkType === 'valve') type = 'VALVE';
                     }
                 }
-                // 2. Standard Feature Detection
-                else if (['junction', 'tank', 'reservoir'].includes(featureType)) {
+
+                // Auto-Select Logic
+                // const id = feature.getId() as string;
+                // if (id && !selectedFeatureIds.includes(id)) {
+                //     selectFeature(id);
+                //     setSelectedFeature(feature);
+                // }
+
+                // Determine Type
+                if (['junction', 'tank', 'reservoir'].includes(featureType)) {
                     type = 'NODE';
                 } else if (featureType === 'pump') {
                     type = 'PUMP';
                 } else if (featureType === 'valve') {
                     type = 'VALVE';
                 } else if (featureType === 'pipe') {
-                    // Vertex Detection logic
+                    // ----------------------------------------------------
+                    // 🔍 PHASE 2: MATHEMATICAL VERTEX CHECK
+                    // Since vertices aren't features, we check the pipe's array manually.
+                    // ----------------------------------------------------
+
+                    // Vertex Detection Logic
                     const geometry = feature.getGeometry() as LineString;
                     const coords = geometry.getCoordinates();
                     const resolution = map.getView().getResolution() || 1;
+
+                    // Tolerance: 10 pixels (converted to map units)
                     const tolerance = resolution * 10;
 
+                    type = 'PIPE'; // Default to PIPE
+
+                    // Iterate through valid vertices (excluding start/end nodes)
                     for (let i = 1; i < coords.length - 1; i++) {
                         const vertex = coords[i];
-                        const dx = vertex[0] - coordinate[0];
-                        const dy = vertex[1] - coordinate[1];
-                        const dist = Math.sqrt(dx * dx + dy * dy);
+
+                        // Calculate Distance: Click vs Vertex
+                        const dist = Math.sqrt(
+                            Math.pow(vertex[0] - coordinate[0], 2) +
+                            Math.pow(vertex[1] - coordinate[1], 2)
+                        );
 
                         if (dist <= tolerance) {
+                            // WE FOUND A VERTEX!
                             type = 'VERTEX';
-                            vertexIndex = i;
-                            break;
+                            vertexIndex = i; // Save the index so we know which one to delete
+                            break; // Stop looking
                         }
                     }
-
-                    if (type !== 'VERTEX') {
-                        type = 'PIPE';
-                    }
                 }
+            } else {
+                // Clicked Empty Space
+                selectFeature(null);
+                selectFeatures([]);
+                setSelectedFeature(null);
             }
 
             setState({
@@ -116,7 +206,7 @@ export function useMapContextMenu() {
         return () => {
             viewport.removeEventListener('contextmenu', handleContextMenu);
         };
-    }, [map]);
+    }, [map, vectorSource]);
 
     const handleAction = useCallback((action: string, feature: Feature | null) => {
         if (!map || !vectorSource || !state.coordinate) return;
@@ -125,31 +215,18 @@ export function useMapContextMenu() {
         const coordinate = state.coordinate;
 
         switch (action) {
-            // --- CANVAS ACTIONS ---
-            case 'ADD_JUNCTION':
-                createNode('junction', coordinate);
-                break;
-            case 'ADD_TANK':
-                createNode('tank', coordinate);
-                break;
-            case 'ADD_RESERVOIR':
-                createNode('reservoir', coordinate);
-                break;
+            case 'ADD_JUNCTION': createNode('junction', coordinate); break;
+            case 'ADD_TANK': createNode('tank', coordinate); break;
+            case 'ADD_RESERVOIR': createNode('reservoir', coordinate); break;
 
-            // --- COMMON ACTIONS (Props/Delete) ---
             case 'PROPERTIES':
                 if (feature) {
                     const id = feature.getId()?.toString();
                     if (id) selectFeature(id);
                     setSelectedFeature(feature);
-
                     const modalMap: Record<string, any> = {
-                        junction: 'JUNCTION_PROP',
-                        tank: 'TANK_PROP',
-                        reservoir: 'RESERVOIR_PROP',
-                        pipe: 'PIPE_PROP',
-                        pump: 'PUMP_PROP',
-                        valve: 'VALVE_PROP'
+                        junction: 'JUNCTION_PROP', tank: 'TANK_PROP', reservoir: 'RESERVOIR_PROP',
+                        pipe: 'PIPE_PROP', pump: 'PUMP_PROP', valve: 'VALVE_PROP'
                     };
                     const modal = modalMap[feature.get('type')];
                     if (modal) setActiveModal(modal);
@@ -157,36 +234,31 @@ export function useMapContextMenu() {
                 break;
 
             case 'REVERSE_DIRECTION':
-                if (feature) {
-                    drawingManager.reversePipeDirection(feature);
-                }
+                if (feature) drawingManager.reversePipeDirection(feature);
                 break;
 
             case 'DELETE':
                 if (feature) {
                     const id = feature.getId()?.toString();
-                    if (id) selectFeature(id); // Ensure ID is selected for DeleteHandler
-
+                    if (id) selectFeature(id);
                     setSelectedFeature(feature);
                     setDeleteModalOpen(true);
                 }
                 break;
 
-            // --- VERTEX ACTIONS ---
             case 'DELETE_VERTEX':
                 if (feature && state.vertexIndex !== null) {
                     const geometry = feature.getGeometry() as LineString;
                     const coords = geometry.getCoordinates();
-
                     if (state.vertexIndex > 0 && state.vertexIndex < coords.length - 1) {
                         coords.splice(state.vertexIndex, 1);
                         geometry.setCoordinates(coords);
                         useNetworkStore.getState().updateFeature(feature.getId() as string, coords);
+                        feature.changed();
                     }
                 }
                 break;
 
-            // --- PIPE ACTIONS ---
             case 'ADD_VERTEX':
                 if (feature) addVertexToPipe(feature, coordinate);
                 break;
@@ -210,24 +282,49 @@ export function useMapContextMenu() {
     };
 
     const addVertexToPipe = (pipe: Feature, clickCoord: number[]) => {
-        const geom = pipe.getGeometry() as LineString;
+        const geom = pipe.getGeometry();
+        // Safety Check
+        if (!geom || !(geom instanceof LineString)) return;
+
         const coords = geom.getCoordinates();
 
+        // 1. Find the best segment to insert the vertex
         let bestIndex = 1;
         let minDist = Infinity;
+
         for (let i = 0; i < coords.length - 1; i++) {
             const p1 = coords[i];
             const p2 = coords[i + 1];
+
+            // Distance from point to line segment
             const dist = Math.abs((p2[1] - p1[1]) * clickCoord[0] - (p2[0] - p1[0]) * clickCoord[1] + p2[0] * p1[1] - p2[1] * p1[0]) /
                 Math.sqrt(Math.pow(p2[1] - p1[1], 2) + Math.pow(p2[0] - p1[0], 2));
+
             if (dist < minDist) {
                 minDist = dist;
                 bestIndex = i + 1;
             }
         }
+
+        // 2. Modify Array
         coords.splice(bestIndex, 0, clickCoord);
+
+        // 3. Update Map (Visuals)
         geom.setCoordinates(coords);
-        useNetworkStore.getState().updateFeature(pipe.getId() as string, coords);
+        const newLength = Math.round(geom.getLength());
+        pipe.set('length', newLength);
+
+        console.log('New Vertex', coords);
+
+        // 4. Update Store (Persistence)
+        // We pass the raw array; the Store must handle the conversion.
+        // useNetworkStore.getState().updateFeature(pipe.getId() as string, coords);
+        useNetworkStore.getState().updateFeature(pipe.getId() as string, {
+            geometry: coords,
+            length: newLength
+        });
+
+        pipe.changed();
     }
 
     const closeMenu = () => setState(s => ({ ...s, isVisible: false }));
