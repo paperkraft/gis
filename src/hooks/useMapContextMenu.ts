@@ -13,7 +13,7 @@ export function useMapContextMenu() {
     const vectorSource = useMapStore((state) => state.vectorSource);
 
     const { setActiveModal, setDeleteModalOpen } = useUIStore();
-    const { setSelectedFeature, selectFeature, addFeature, selectedFeatureIds, selectFeatures } = useNetworkStore();
+    const { setSelectedFeature, selectFeature, addFeature, selectFeatures } = useNetworkStore();
 
     const [state, setState] = useState<{
         isVisible: boolean;
@@ -110,11 +110,6 @@ export function useMapContextMenu() {
             // 1. HIT DETECTION: Find the Feature (Node or Pipe)
             let feature = findFeatureAtCoordinate(coordinate);
 
-            // let feature = map.forEachFeatureAtPixel(pixel, (f) => f, {
-            //     hitTolerance: 8, // Slightly larger tolerance
-            //     layerFilter: (l) => l.get('name') === 'network',
-            // }) as Feature | undefined;
-
             let type: 'CANVAS' | 'NODE' | 'PIPE' | 'VERTEX' | 'PUMP' | 'VALVE' = 'CANVAS';
             let vertexIndex: number | null = null;
 
@@ -150,11 +145,6 @@ export function useMapContextMenu() {
                 } else if (featureType === 'valve') {
                     type = 'VALVE';
                 } else if (featureType === 'pipe') {
-                    // ----------------------------------------------------
-                    // 🔍 PHASE 2: MATHEMATICAL VERTEX CHECK
-                    // Since vertices aren't features, we check the pipe's array manually.
-                    // ----------------------------------------------------
-
                     // Vertex Detection Logic
                     const geometry = feature.getGeometry() as LineString;
                     const coords = geometry.getCoordinates();
@@ -206,7 +196,7 @@ export function useMapContextMenu() {
         return () => {
             viewport.removeEventListener('contextmenu', handleContextMenu);
         };
-    }, [map, vectorSource]);
+    }, [map, vectorSource, selectFeature, selectFeatures, setSelectedFeature]);
 
     const handleAction = useCallback((action: string, feature: Feature | null) => {
         if (!map || !vectorSource || !state.coordinate) return;
@@ -327,7 +317,12 @@ export function useMapContextMenu() {
         pipe.changed();
     }
 
-    const closeMenu = () => setState(s => ({ ...s, isVisible: false }));
+    const closeMenu = useCallback(() => {
+        setState(prev => ({ ...prev, isVisible: false }));
+
+        // This removes the Halo if the user clicks empty space
+        setSelectedFeature(null);
+    }, [setSelectedFeature]);
 
     return { ...state, onClose: closeMenu, onAction: handleAction };
 }

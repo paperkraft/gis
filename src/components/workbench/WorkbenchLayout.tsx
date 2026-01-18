@@ -27,6 +27,11 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
   } = useUIStore();
 
   const settings = useNetworkStore((state) => state.settings);
+  const selectFeature = useNetworkStore((state) => state.selectFeature);
+  const selectFeatures = useNetworkStore((state) => state.selectFeatures);
+  const setSelectedFeature = useNetworkStore(
+    (state) => state.setSelectedFeature
+  );
 
   // --- DYNAMIC COMPONENT RESOLUTION ---
   const SidebarComponent =
@@ -66,6 +71,13 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
       window.removeEventListener("mouseup", stopResizing);
     };
   }, [resize, stopResizing]);
+
+  const closeModal = useCallback(() => {
+    setActiveModal("NONE");
+    selectFeature(null);
+    selectFeatures([]);
+    setSelectedFeature(null);
+  }, []);
 
   return (
     <div className="h-screen w-screen bg-slate-50 overflow-hidden flex flex-col font-sans text-slate-700">
@@ -123,7 +135,7 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
           <WorkbenchModal
             key={activeModal}
             type={activeModal}
-            onClose={() => setActiveModal("NONE")}
+            onClose={closeModal}
             sidebarWidth={isCollapsed ? 0 : sidebarWidth}
           />
         )}

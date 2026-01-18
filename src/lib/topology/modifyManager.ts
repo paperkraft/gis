@@ -124,8 +124,6 @@ export class ModifyManager {
 
                 // Strategy Pattern for Updates
                 if (['junction', 'tank', 'reservoir'].includes(type)) {
-                    // Pass accumulator to capture connected pipe changes
-                    // this.rubberBandNode(feature as Feature, modifiedIds);
                     this.rubberBandNode(feature as Feature, modifiedIds, updatesAccumulator);
                     this.checkForPipeSplit(feature as Feature);
                 } else if (type === 'pump' || type === 'valve') {
@@ -157,7 +155,6 @@ export class ModifyManager {
         this.map.getViewport().style.cursor = 'move';
     }
 
-    // Removed 'modifiedIds' from arguments since the parent loop handles it
     private handlePipeMove(pipe: Feature, updatesAccumulator: Record<string, any>) {
         const id = pipe.getId() as string;
         const geom = pipe.getGeometry();
