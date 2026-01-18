@@ -1,12 +1,10 @@
 import { Feature } from 'ol';
-import GeoJSON from 'ol/format/GeoJSON';
+import { LineString, Point } from 'ol/geom';
 import { StateCreator } from 'zustand';
 
 import { FeatureType, NetworkFeatureProperties } from '@/types/network';
 
 import { NetworkState } from '../networkStore';
-import { useMapStore } from '../mapStore';
-import { LineString, Point } from 'ol/geom';
 
 export interface FeatureSlice {
     features: Map<string, Feature>;
@@ -85,67 +83,39 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
     }),
 
     updateFeature: (id, updates) => {
-        let feature = get().features.get(id);
+        const feature = get().features.get(id);
+        if (!feature) return;
 
-        // Safety: Rescue logic
-        if (feature && !(feature instanceof Feature)) {
-            const source = useMapStore.getState().vectorSource;
-            feature = source?.getFeatureById(id) as Feature;
-        }
+        const { geometry, ...rawProps } = updates;
 
-        if (feature) {
-            const { geometry, ...propUpdates } = updates;
+        // 1. Apply Geometry
+        if (geometry) applyGeometryUpdate(feature, geometry);
 
-            if (geometry) {
-                if (Array.isArray(geometry)) {
-                    const type = feature.getGeometry()?.getType();
+        // 2. Sanitize & Apply Properties
+        const cleanProps = sanitizeProperties(rawProps);
 
-                    if (type === 'LineString') {
-                        feature.setGeometry(new LineString(geometry as any[]));
-                    } else if (type === 'Point') {
-                        feature.setGeometry(new Point(geometry as number[]));
-                    }
-                }
-            }
+        if (Object.keys(cleanProps).length > 0) {
+            const currentProps = feature.getProperties();
+            // Sanitize current props too (in case DB is already dirty)
+            const safeCurrent = sanitizeProperties(currentProps);
 
-            // Handle Properties (Exclude geometry)
-            if (Object.keys(propUpdates).length > 0) {
-                const oldProps = feature.getProperties();
-                delete oldProps.geometry; // Don't save array to props
-                feature.setProperties({ ...oldProps, ...propUpdates });
-            }
-
-            feature.changed();
-
-            set((state) => {
-                const newModified = new Set(state.modifiedIds).add(id);
-                return {
-                    hasUnsavedChanges: true,
-                    modifiedIds: newModified,
-                    version: state.version + 1
-                };
+            feature.setProperties({
+                ...safeCurrent,
+                ...cleanProps
             });
         }
 
-        // if (feature) {
-        //     const oldProps = feature.getProperties();
-        //     feature.setProperties({ ...oldProps, ...updates });
-        //     feature.changed(); // Trigger OL redraw
+        feature.changed(); // Trigger OpenLayers redraw
 
-        //     // Mutate tracking only, keep Map reference
-        //     set((state) => {
-        //         // const newFeatures = new Map(state.features);
-        //         // newFeatures.set(id, feature);
-        //         const newModified = new Set(state.modifiedIds).add(id);
-
-        //         return {
-        //             // features: newFeatures,
-        //             hasUnsavedChanges: true,
-        //             modifiedIds: newModified,
-        //             version: state.version + 1
-        //         }
-        //     });
-        // }
+        // C. Mark as Modified
+        set((state) => {
+            const newModified = new Set(state.modifiedIds).add(id);
+            return {
+                hasUnsavedChanges: true,
+                modifiedIds: newModified,
+                version: state.version + 1
+            };
+        });
     },
 
     removeFeature: (id) => set((state) => {
@@ -202,62 +172,45 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
         });
     },
 
-    updateFeatures: (updates) => {
-        set((state) => {
-            // const newFeatures = new Map(state.features);
-            const newModified = new Set(state.modifiedIds);
-            let hasChanges = false;
+    updateFeatures: (updatesMap) => {
+        const modifiedIds = new Set(get().modifiedIds);
+        let hasChanges = false;
 
-            const source = useMapStore.getState().vectorSource;
+        Object.entries(updatesMap).forEach(([id, updates]) => {
+            const feature = get().features.get(id);
+            if (!feature) return;
 
-            Object.entries(updates).forEach(([id, props]) => {
-                let feature = state.features.get(id);
+            const { geometry, ...rawProps } = updates;
 
-                if (feature && !(feature instanceof Feature)) {
-                    feature = source?.getFeatureById(id) as Feature;
-                }
+            if (geometry) {
+                applyGeometryUpdate(feature, geometry);
+                hasChanges = true;
+            }
 
-                if (feature) {
-                    const { geometry, ...otherProps } = props;
+            const cleanProps = sanitizeProperties(rawProps);
 
-                    // 1. Handle Geometry Class Update
-                    if (geometry && Array.isArray(geometry)) {
-                        if (Array.isArray(geometry)) {
-                            const type = feature.getGeometry()?.getType();
+            if (Object.keys(cleanProps).length > 0) {
+                const currentProps = feature.getProperties();
+                const safeCurrent = sanitizeProperties(currentProps);
 
-                            if (type === 'LineString') {
-                                // Re-create the Class Instance
-                                feature.setGeometry(new LineString(geometry as any[]));
-                            } else if (type === 'Point') {
-                                feature.setGeometry(new Point(geometry as number[]));
-                            }
-                        }
-                    }
+                feature.setProperties({
+                    ...safeCurrent,
+                    ...cleanProps
+                });
+                hasChanges = true;
+            }
 
-                    // 2. Handle Properties (CLEANLY)
-                    if (Object.keys(otherProps).length > 0) {
-                        const currentProps = feature.getProperties();
-
-                        // CRITICAL: Ensure we don't merge 'geometry' into the props bag
-                        delete currentProps.geometry;
-
-                        feature.setProperties({ ...currentProps, ...otherProps });
-                    }
-
-                    feature.changed(); // Force Redraw
-                    newModified.add(id);
-                    hasChanges = true;
-                }
-            });
-
-            if (!hasChanges) return {};
-
-            return {
-                hasUnsavedChanges: true,
-                modifiedIds: newModified,
-                version: state.version + 1
-            };
+            feature.changed();
+            modifiedIds.add(id);
         });
+
+        if (hasChanges) {
+            set((state) => ({
+                hasUnsavedChanges: true,
+                modifiedIds: modifiedIds,
+                version: state.version + 1
+            }));
+        }
     },
 
     selectFeatures: (ids) => {
@@ -340,3 +293,43 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
     }),
 
 });
+
+
+// Helper: Scrub garbage coordinate keys ("0", "1", "2"...)
+const sanitizeProperties = (props: Record<string, any>) => {
+    const clean = { ...props };
+
+    // Remove "geometry" if it snuck in
+    delete clean.geometry;
+
+    // Remove numeric keys that result from array spreading
+    // e.g. { "0": [x,y], "1": [x,y] }
+    Object.keys(clean).forEach(key => {
+        // Check if key is a number (e.g. "0", "15")
+        if (!isNaN(Number(key))) {
+            delete clean[key];
+        }
+    });
+
+    return clean;
+};
+
+// Helper to safely apply geometry updates
+const applyGeometryUpdate = (feature: Feature, geometryData: any) => {
+    if (!geometryData) return;
+
+    // 1. Handle Array Updates (from Serializer/Loader/Tools)
+    if (Array.isArray(geometryData)) {
+        const currentType = feature.getGeometry()?.getType();
+
+        if (currentType === 'LineString') {
+            feature.setGeometry(new LineString(geometryData));
+        } else if (currentType === 'Point') {
+            feature.setGeometry(new Point(geometryData as number[]));
+        }
+    }
+    // 2. Handle Raw Geometry Objects (Edge case)
+    else if (typeof geometryData === 'object' && geometryData.getCoordinates) {
+        feature.setGeometry(geometryData);
+    }
+};
