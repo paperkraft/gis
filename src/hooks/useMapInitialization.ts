@@ -1,6 +1,11 @@
 'use client';
 
+import { Feature } from 'ol';
 import { defaults as defaultControls, ScaleLine } from 'ol/control';
+import { Geometry } from 'ol/geom';
+import { defaults as defaultInteractions } from 'ol/interaction/defaults.js';
+import DragPan from 'ol/interaction/DragPan';
+import Kinetic from 'ol/Kinetic';
 import VectorLayer from 'ol/layer/Vector';
 import Map from 'ol/Map';
 import { fromLonLat } from 'ol/proj';
@@ -8,9 +13,13 @@ import VectorSource from 'ol/source/Vector';
 import View from 'ol/View';
 import { useEffect, useRef, useState } from 'react';
 
-import { createBaseLayers, indiaBoundaryLayer } from '@/lib/map/baseLayers';
+import { BoundaryLayer } from '@/lib/map/baseLayers';
 import { getFeatureStyle } from '@/lib/styles/featureStyles';
 import { useMapStore } from '@/store/mapStore';
+import TileLayer from 'ol/layer/Tile';
+import { OSM, XYZ } from 'ol/source';
+
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElement | null>) {
 
@@ -22,40 +31,74 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
     useEffect(() => {
         if (!mapTargetRef.current || initializedRef.current) return;
 
-        // 1. Create Vector Source & Layer
-        const vectorSource = new VectorSource();
+        // Create Vector Source & Layer
+        const source = new VectorSource();
 
-        const vecLayer = new VectorLayer({
-            source: vectorSource,
-            style: (feature) => getFeatureStyle(feature as any),
+        const networkLayer = new VectorLayer({
+            source: source,
+            style: (feature) => getFeatureStyle(feature as Feature<Geometry>),
             properties: { name: 'network' },
             updateWhileAnimating: true,
             updateWhileInteracting: true,
-            zIndex: 100,
+            zIndex: 10,
         });
 
-        // 2. Initialize Base Layers
-        const baseLayers = createBaseLayers();
+        const baseLayer = new TileLayer({
+            source: new XYZ({
+                url: `https://api.mapbox.com/styles/v1/mapbox/light-v11/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
+                attributions: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a>',
+                tileSize: 512, // Important for High-DPI (Retina) screens
+            }),
+            properties: {
+                isBaseLayer: true,
+                baseType: 'light'
+            }
+        });
 
-        // 3. Create Map
+        const layer = baseLayer || new TileLayer({
+            source: new OSM(),
+            zIndex: 0,
+            properties: {
+                isBaseLayer: true,
+                baseType: 'osm'
+            }
+        });
+
+        // Create Map
         const map = new Map({
             target: mapTargetRef.current,
-            layers: [...baseLayers, vecLayer, indiaBoundaryLayer],
+
+            layers: [
+                layer,
+                networkLayer,
+                BoundaryLayer
+            ],
+
             view: new View({
                 center: fromLonLat([78.6677, 22.3511]),
-                zoom: 5,
+                zoom: 4.5,
             }),
+
             controls: defaultControls({ zoom: false, attribution: true }).extend([
                 new ScaleLine({ units: 'metric' }),
             ]),
+
+            interactions: defaultInteractions({ dragPan: false, }).extend([
+                new DragPan({
+                    kinetic: new Kinetic(
+                        0.005,   // decay: Friction (lower = slides longer)
+                        1 / 10,  // minVelocity: Must flick faster than 0.1 px/ms to trigger
+                        100      // delay: Time window to calculate flick speed
+                    ),
+                }),
+            ]),
         });
 
-        // 4. Update Stores & State
+        // Update Stores & State
         setMap(map);
-        setVectorSource(vectorSource);
-        setVectorLayer(vecLayer);
+        setVectorSource(source);
+        setVectorLayer(networkLayer);
         initializedRef.current = true;
-
 
         return () => {
             map.setTarget(undefined);

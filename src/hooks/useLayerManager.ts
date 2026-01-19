@@ -21,18 +21,22 @@ export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
         showLabels,
         isFlowAnimating,
         flowAnimationSpeed,
-        flowAnimationStyle
+        flowAnimationStyle,
     } = useUIStore();
 
     // 2. Get Simulation & Style State
     const { results: simulationResults } = useSimulationStore();
     const {
-        colorMode,
+        nodeColorMode,
+        linkColorMode,
+        nodeGradient,
+        linkGradient,
+
         labelMode,
         minMax,
-        gradientStops,
         styleType,
-        classCount
+        classCount,
+        layerStyles
     } = useStyleStore();
 
     // Local State for Animation
@@ -132,11 +136,16 @@ export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
         flowAnimationStyle,
 
         simulationResults,
-        colorMode,
+
+        nodeColorMode,
+        linkColorMode,
+        nodeGradient,
+        linkGradient,
+
         labelMode,
         minMax,
-        gradientStops,
         styleType,
-        classCount
+        classCount,
+        layerStyles
     ]);
 }

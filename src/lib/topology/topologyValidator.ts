@@ -23,7 +23,7 @@ export class TopologyValidator {
 
         const isolatedNodeIds: string[] = [];
         disconnectedComponents.forEach(component => {
-             const hasSource = component.some(nodeId => {
+            const hasSource = component.some(nodeId => {
                 const node = this.findNodeById(nodeId);
                 return node && ['tank', 'reservoir'].includes(node.get('type'));
             });
@@ -90,9 +90,9 @@ export class TopologyValidator {
                 message: `Network is split into ${disconnectedComponents.length} disconnected sub-networks`,
             });
         }
-        
+
         if (isolatedNodeIds.length > 0) {
-             warnings.push({
+            warnings.push({
                 type: "isolated_subnetwork",
                 message: `${isolatedNodeIds.length} nodes are in sub-networks without a Tank or Reservoir (Hydraulically Isolated)`,
                 featureId: isolatedNodeIds.join(", "),

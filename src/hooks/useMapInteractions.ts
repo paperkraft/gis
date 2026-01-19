@@ -6,7 +6,6 @@ import { useCallback, useEffect, useRef } from 'react';
 import { Draw, DragBox } from 'ol/interaction';
 
 import { COMPONENT_TYPES } from '@/constants/networkComponents';
-import { ContextMenuManager } from '@/lib/topology/contextMenuManager';
 import { ModifyManager } from '@/lib/topology/modifyManager';
 import { PipeDrawingManager } from '@/lib/topology/pipeDrawingManager';
 import { VertexLayerManager } from '@/lib/topology/vertexManager';
@@ -25,7 +24,6 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
 
     const pipeDrawingManagerRef = useRef<PipeDrawingManager | null>(null);
     const modifyManagerRef = useRef<ModifyManager | null>(null);
-    const contextMenuManagerRef = useRef<ContextMenuManager | null>(null);
     const vertexLayerManagerRef = useRef<VertexLayerManager | null>(null);
     const drawInteractionRef = useRef<Draw | null>(null);
     const zoomBoxRef = useRef<DragBox | null>(null);
@@ -35,34 +33,27 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
         if (!map || !vectorSource) return;
 
         const pipeManager = new PipeDrawingManager(map, vectorSource);
-        const modManager = new ModifyManager(map, vectorSource);
-        const menuManager = new ContextMenuManager(map, vectorSource);
+        const modifyManager = new ModifyManager(map, vectorSource);
         const vertexManager = new VertexLayerManager(map, vectorSource);
 
-        pipeManager.registerWithContextMenu(menuManager);
-        menuManager.setPipeDrawingManager(pipeManager);
 
         const originalStart = pipeManager.startDrawing.bind(pipeManager);
         pipeManager.startDrawing = (type) => {
             originalStart(type);
-            menuManager.setDrawingMode(true);
         };
 
         const originalStop = pipeManager.stopDrawing.bind(pipeManager);
         pipeManager.stopDrawing = () => {
             originalStop();
-            menuManager.setDrawingMode(false);
         };
 
         pipeDrawingManagerRef.current = pipeManager;
-        modifyManagerRef.current = modManager;
-        contextMenuManagerRef.current = menuManager;
+        modifyManagerRef.current = modifyManager;
         vertexLayerManagerRef.current = vertexManager;
 
         return () => {
             pipeManager.cleanup();
-            modManager.cleanup();
-            menuManager.cleanup();
+            modifyManager.cleanup();
             vertexManager.cleanup();
         };
     }, [map, vectorSource]);
@@ -108,8 +99,8 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
     // Click handler for simple components (Nodes)
     const handlePlacementClick = useCallback((event: any) => {
         const { activeTool } = useUIStore.getState();
-        if (!activeTool || !activeTool.startsWith('add-')) return;
-        const componentType = activeTool.replace('add-', '') as FeatureType;
+        if (!activeTool || !activeTool.startsWith('draw-')) return;
+        const componentType = activeTool.replace('draw-', '') as FeatureType;
 
         // Skip links, they are handled by PipeDrawingManager
         if (componentType === 'pump' || componentType === 'valve') return;
@@ -160,42 +151,52 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
                 zoomBoxRef.current = dragBox;
                 break;
 
-            case 'draw':
+            // --- DRAWING TOOLS ---
+            // 1. Links (Pipes, Pumps, Valves drawn as lines)
             case 'draw-pipe':
                 pipeDrawingManagerRef.current.startDrawing('pipe');
                 break;
 
-            case 'add-junction':
-            case 'add-reservoir':
-            case 'add-tank':
-            case 'add-pump':
-            case 'add-valve':
-                // Pumps/Valves can be placed two ways: 
-                // 1. On Pipe (Click handler above catches this)
-                // 2. Between Nodes (PipeDrawingManager handles this)
+            // NOTE: Pumps/Valves can technically be drawn as lines connecting two nodes 
+            // OR placed as points on an existing pipe.
+            // If the user wants to draw a "Pump Link" from Node A to Node B:
+            case 'draw-pump':
+            case 'draw-valve':
+                // If you want "Draw Line" behavior for these:
+                pipeDrawingManagerRef.current.startDrawing(activeTool.replace('draw-', '') as any);
+                break;
 
-                if (activeTool === 'add-pump' || activeTool === 'add-valve') {
-                    const type = activeTool === 'add-pump' ? 'pump' : 'valve';
-                    pipeDrawingManagerRef.current.startDrawing(type);
+            // Point Components (Junctions, Tanks, Reservoirs)
+            case 'draw-junction':
+            case 'draw-tank':
+            case 'draw-reservoir':
+                // Extract type: 'draw-junction' -> 'junction'
+                const typeStr = activeTool.replace('draw-', '') as FeatureType;
 
-                } else {
-                    // Nodes: Standard single click
-                    const componentType = activeTool.replace('add-', '') as FeatureType;
-                    const draw = new Draw({ type: 'Point', source: undefined, stopClick: true });
-                    draw.on('drawend', (e) => {
-                        const geom = e.feature.getGeometry() as Point;
-                        placeComponent(componentType, geom.getCoordinates());
-                    });
-                    map.addInteraction(draw);
-                    drawInteractionRef.current = draw;
-                    map.getViewport().style.cursor = 'crosshair';
-                }
+                // Use OL Draw Interaction for "Point" placement
+                // This gives us the crosshair and prevents map panning while drawing
+                const draw = new Draw({
+                    type: 'Point',
+                    source: undefined, // We handle adding manually in placeComponent
+                    stopClick: true    // Stop click bubbling to map
+                });
+
+                draw.on('drawend', (e) => {
+                    const geom = e.feature.getGeometry() as Point;
+                    // We use timeout to ensure the click doesn't trigger selection immediately after
+                    setTimeout(() => {
+                        placeComponent(typeStr, geom.getCoordinates());
+                    }, 0);
+                });
+
+                map.addInteraction(draw);
+                drawInteractionRef.current = draw;
+                map.getViewport().style.cursor = 'crosshair';
                 break;
         }
     }, [activeTool, map, placeComponent, setActiveTool]);
 
     return {
         pipeDrawingManager: pipeDrawingManagerRef.current,
-        startComponentPlacement: placeComponent,
     };
 }

@@ -52,9 +52,8 @@ export const handleZoomToExtent = (map: Map | null) => {
         console.warn("⚠️ No features to fit");
         // Fallback to default view
         map.getView().animate({
-            // center: fromLonLat([74.2381, 16.7012]),
             center: fromLonLat([78.5974, 23.9908]),
-            zoom: 4.7,
+            zoom: 4.5,
             duration: 500,
         });
         return;
@@ -87,9 +86,9 @@ export const handleZoomToExtent = (map: Map | null) => {
 
     // Fit the view to the extent with padding
     map.getView().fit(extent, {
-        padding: [50, 50, 50, 50], // top, right, bottom, left padding
-        duration: 500,
-        maxZoom: 18, // Don't zoom in too much
+        padding: [200, 200, 200, 200], // top, right, bottom, left padding
+        duration: 1000,
+        maxZoom: 22, // Don't zoom in too much
     });
 };
 
@@ -154,4 +153,21 @@ export const handlePrint = (map: Map | null) => {
     });
 
     map.renderSync();
+};
+
+export const handleResetNorth = (map: Map | null) => {
+    if (!map) return;
+    map.getView().animate({ rotation: 0, duration: 500 });
+};
+
+export const handleRotateLeft = (map: Map | null) => {
+    if (!map) return;
+    const current = map.getView().getRotation();
+    map.getView().animate({ rotation: current - Math.PI / 4, duration: 250 });
+};
+
+export const handleRotateRight = (map: Map | null) => {
+    if (!map) return;
+    const current = map.getView().getRotation();
+    map.getView().animate({ rotation: current + Math.PI / 4, duration: 250 });
 };

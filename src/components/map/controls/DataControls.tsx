@@ -1,7 +1,9 @@
 "use client";
-import { Database, FileUp, Filter, Table2 } from "lucide-react";
+import { Database, Filter, Table2 } from "lucide-react";
+
 import { useUIStore } from "@/store/uiStore";
-import { ControlGroup, StandaloneControl, ToolBtn } from "./Shared";
+
+import { ControlGroup, ToolBtn } from "./Shared";
 
 interface DataControlsProps {
   activeGroup: string | null;
@@ -10,10 +12,13 @@ interface DataControlsProps {
 
 export function DataControls({ activeGroup, onToggle }: DataControlsProps) {
   const {
+    activeModal,
     showAttributeTable,
     setShowAttributeTable,
-    setQueryBuilderModalOpen,
+    setActiveModal,
   } = useUIStore();
+
+  const isActiveGroup = showAttributeTable || activeModal === "QUERY_BUILDER";
 
   return (
     <>
@@ -21,7 +26,7 @@ export function DataControls({ activeGroup, onToggle }: DataControlsProps) {
         id="data"
         icon={Database}
         label="Data Tools"
-        isActiveGroup={showAttributeTable}
+        isActiveGroup={isActiveGroup}
         activeGroup={activeGroup}
         onToggle={onToggle}
       >
@@ -33,21 +38,13 @@ export function DataControls({ activeGroup, onToggle }: DataControlsProps) {
           label="Table"
         />
 
-        {/* NEW: Query Builder Button */}
         <ToolBtn
-          onClick={() => setQueryBuilderModalOpen(true)}
+          onClick={() => setActiveModal("QUERY_BUILDER")}
           icon={Filter}
           title="Select by Attribute"
           label="Query"
         />
       </ControlGroup>
-
-      {/* <StandaloneControl
-        onClick={() => setShowAttributeTable(!showAttributeTable)}
-        isActive={showAttributeTable}
-        icon={Table2}
-        title="Attribute Table"
-      /> */}
     </>
   );
 }

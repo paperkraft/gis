@@ -1,14 +1,17 @@
 "use client";
-import { useEffect, useCallback, useRef } from "react";
-import { Feature } from "ol";
-import { Select, DragBox, Draw } from "ol/interaction";
-import { click, pointerMove, shiftKeyOnly, platformModifierKeyOnly, always, never } from "ol/events/condition";
-import Map from "ol/Map";
-import VectorLayer from "ol/layer/Vector";
-import VectorSource from "ol/source/Vector";
-import { useNetworkStore } from "@/store/networkStore";
-import { useUIStore } from "@/store/uiStore";
-import { getSelectedStyle } from "@/lib/styles/featureStyles";
+import { Feature } from 'ol';
+import {
+    always, click, platformModifierKeyOnly, pointerMove, shiftKeyOnly
+} from 'ol/events/condition';
+import { DragBox, Draw, Select } from 'ol/interaction';
+import VectorLayer from 'ol/layer/Vector';
+import Map from 'ol/Map';
+import VectorSource from 'ol/source/Vector';
+import { useCallback, useEffect, useRef } from 'react';
+
+import { getSelectedStyle } from '@/lib/styles/featureStyles';
+import { useNetworkStore } from '@/store/networkStore';
+import { useUIStore } from '@/store/uiStore';
 
 interface UseFeatureSelectionOptions {
     map: Map | null;
@@ -23,7 +26,7 @@ export function useFeatureSelection({
     vectorLayer,
     onFeatureSelect,
     onFeatureHover,
-    enableHover = true,
+    enableHover,
 }: UseFeatureSelectionOptions) {
 
     // Subscribe to the store's selected IDs
@@ -51,7 +54,7 @@ export function useFeatureSelection({
             if (featureId) {
                 const feature = vectorLayer.getSource()?.getFeatures().find((f: any) => f.getId() === featureId);
                 if (feature) {
-                    // Avoid clearing if already selected (preserves multi-select state if needed)
+                    // Enforce Single Selection Logic (consistent with behavior)
                     if (!features.getArray().includes(feature)) {
                         features.clear();
                         features.push(feature);
@@ -91,56 +94,46 @@ export function useFeatureSelection({
 
         if (!isSelectionMode) {
             selectInteractionRef.current = null;
-            return;
+            // return;
         }
 
         // --- Standard Click Selection ---
         const selectInteraction = new Select({
             layers: [vectorLayer],
-            // Disable click selection while drawing polygon to prevent conflicts
-            condition: activeTool === 'select-polygon' ? never : (e) => click(e) || (click(e) && (shiftKeyOnly(e) || platformModifierKeyOnly(e))),
+            // Only handle clicks if we are in a selection tool. 
+            // In 'pan' mode, this returns false, so the interaction exists but ignores mouse events.
+            condition: (e) => {
+                const isSelectTool = ['select', 'select-box', 'select-polygon'].includes(activeTool || '');
+                if (!isSelectTool) return false; // Block selection events if Panning/Drawing
+
+                // Standard click handling
+                return click(e) || (click(e) && (shiftKeyOnly(e) || platformModifierKeyOnly(e)));
+            },
 
             // Use the new Multi-Style function
             style: (feature) => getSelectedStyle(feature as Feature),
-
             filter: (feature) => !feature.get("isPreview") && !feature.get("isVertexMarker") && !feature.get("isVisualLink"),
             multi: true,
-
-            // Add Hit Tolerance (makes selecting small nodes easier)
-            hitTolerance: 5,
+            hitTolerance: 5, // makes selecting small nodes easier
         });
 
         selectInteraction.on("select", (event) => {
             const collection = event.target.getFeatures();
             const selectedFeatures = collection.getArray();
 
-            // 1. Check for High Priority Features (Pumps/Valves)
-            const hasDevice = selectedFeatures.some((f: Feature) =>
-                ['pump', 'valve'].includes(f.get('type'))
-            );
+            // 1. Priority Logic (Pump/Valve > Node > Pipe)
+            const hasDevice = selectedFeatures.some((f: Feature) => ['pump', 'valve'].includes(f.get('type')));
 
             if (hasDevice) {
-                // If a device is clicked, prioritize it over everything else (Nodes/Pipes)
                 // Remove anything that is NOT a pump or valve
-                const toRemove = selectedFeatures.filter((f: Feature) =>
-                    !['pump', 'valve'].includes(f.get('type'))
-                );
+                const toRemove = selectedFeatures.filter((f: Feature) => !['pump', 'valve'].includes(f.get('type')));
                 toRemove.forEach((f: Feature) => collection.remove(f));
             } else {
-                // 2. If no device, check for Nodes
-                const hasNode = selectedFeatures.some((f: Feature) =>
-                    ['junction', 'tank', 'reservoir'].includes(f.get('type'))
-                );
-
+                // Check for Nodes
+                const hasNode = selectedFeatures.some((f: Feature) => ['junction', 'tank', 'reservoir'].includes(f.get('type')));
                 if (hasNode) {
-                    // If a Node is clicked, prioritize it over Pipes
-                    // Remove only Pipes
-                    const linksToRemove = selectedFeatures.filter((f: Feature) =>
-                        f.get('type') === 'pipe'
-                    );
-                    linksToRemove.forEach((link: Feature) => {
-                        collection.remove(link);
-                    });
+                    const linksToRemove = selectedFeatures.filter((f: Feature) => f.get('type') === 'pipe');
+                    linksToRemove.forEach((link: Feature) => collection.remove(link));
                 }
             }
 
@@ -280,20 +273,19 @@ export function useFeatureSelection({
         return () => {
             if (hoverInteraction) map.removeInteraction(hoverInteraction);
         };
+
     }, [map, vectorLayer, enableHover, activeTool, onFeatureHover]);
 
-    // 3. EXTERNAL SYNC
+    // 3. EXTERNAL SYNC (Single ID)
     useEffect(() => {
         if (selectedFeatureId && selectedFeatureId !== selectedFeatureRef.current?.getId()) {
             selectFeatureById(selectedFeatureId);
         } else if (!selectedFeatureId && selectedFeatureRef.current) {
-            // Check if store is truly empty before clearing
-            if (useNetworkStore.getState().selectedFeatureIds.length === 0) {
-                clearSelection();
-            }
+            clearSelection();
         }
     }, [selectedFeatureId, selectFeatureById, clearSelection]);
 
+    // 4. EXTERNAL SYNC (Plural IDs)
     useEffect(() => {
         const select = selectInteractionRef.current;
         if (!select || !vectorLayer) return;
@@ -302,14 +294,10 @@ export function useFeatureSelection({
         if (!source) return;
 
         const selectedCollection = select.getFeatures();
-
-        // Create a set of IDs currently highlighted on the map
         const currentMapIds = new Set(selectedCollection.getArray().map(f => f.getId()));
-
-        // Create a set of IDs that SHOULD be highlighted (from Store)
         const targetIds = new Set(selectedFeatureIds);
 
-        // A. Remove features that are no longer selected
+        // Sync Map -> Store State
         const toRemove: Feature[] = [];
         selectedCollection.forEach((f) => {
             if (!targetIds.has(f.getId() as string)) {
@@ -318,7 +306,6 @@ export function useFeatureSelection({
         });
         toRemove.forEach((f) => selectedCollection.remove(f));
 
-        // B. Add features that are new selections
         selectedFeatureIds.forEach((id) => {
             if (!currentMapIds.has(id)) {
                 const feature = source.getFeatureById(id);
@@ -328,7 +315,7 @@ export function useFeatureSelection({
             }
         });
 
-    }, [selectedFeatureIds, vectorLayer]);
+    }, [selectedFeatureIds, vectorLayer, activeTool]);
 
     return {
         selectedFeature: selectedFeatureRef.current,

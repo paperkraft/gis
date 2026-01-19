@@ -8,9 +8,11 @@ import { useSimulationStore } from '@/store/simulationStore';
 
 export function StatusBar() {
   const { coordinates, zoom, projection } = useMapStore();
-  const { selectedFeatureId, features, hasUnsavedChanges } = useNetworkStore();
+  const { selectedFeatureId, selectedFeatureIds, features, hasUnsavedChanges } = useNetworkStore();
   const { status: simStatus } = useSimulationStore();
 
+  const selectedIds = selectedFeatureIds || (selectedFeatureId ? [selectedFeatureId] : []);
+  
   return (
     <div className="absolute bottom-0 left-0 right-0 h-7 bg-white/95 dark:bg-gray-900/95 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between px-3 text-[10px] font-medium text-gray-600 dark:text-gray-400 backdrop-blur-sm z-20 select-none">
       {/* LEFT: System Status */}
@@ -59,7 +61,7 @@ export function StatusBar() {
           <div className="flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-100 dark:border-blue-900/50 text-blue-600 dark:text-blue-400">
             <MousePointer2 className="w-3 h-3" />
             <span>
-              Selected: <span className="font-bold">{selectedFeatureId}</span>
+              Selected: <span className="font-bold">{selectedIds.join(', ')}</span>
             </span>
           </div>
         ) : (
@@ -70,10 +72,10 @@ export function StatusBar() {
       {/* RIGHT: Map Info */}
       <div className="flex items-center gap-4 font-mono">
         <div className="flex items-center gap-1">
-          <span className="text-gray-400">Z:</span>
+          <span className="text-gray-400">Zoom:</span>
           <span>{zoom.toFixed(1)}</span>
         </div>
-        <div className="flex items-center gap-1 min-w-[120px] justify-end">
+        <div className="flex items-center gap-1 min-w-30 justify-end">
           <span className="text-gray-800 dark:text-gray-200">
             {coordinates}
           </span>

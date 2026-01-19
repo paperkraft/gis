@@ -35,7 +35,7 @@ export function buildINPFromDB(
     lines.push(`Headloss           ${settings.headloss || 'H-W'}`);
     lines.push(`Specific Gravity   ${settings.specificGravity || 1.0}`);
     lines.push(`Viscosity          ${settings.viscosity || 1.0}`);
-    lines.push(`Trials             ${settings.trials || 40}`);
+    lines.push(`Trials             ${settings.maxTrials || 40}`);
     lines.push(`Accuracy           ${settings.accuracy || 0.001}`);
     lines.push('CHECKFREQ          2');
     lines.push('MAXCHECK           10');

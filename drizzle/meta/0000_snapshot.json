@@ -1,5 +1,5 @@
 {
-  "id": "064fed96-0d9d-4039-acdb-3114cdabe99b",
+  "id": "863ec0fa-a237-4cd2-a85b-779999d68812",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -8,15 +8,15 @@
       "name": "links",
       "schema": "",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "project_id": {
           "name": "project_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -73,27 +73,6 @@
         }
       },
       "indexes": {
-        "link_pk": {
-          "name": "link_pk",
-          "columns": [
-            {
-              "expression": "project_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "link_geo_idx": {
           "name": "link_geo_idx",
           "columns": [
@@ -123,9 +102,47 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "links_project_id_source_node_id_nodes_project_id_id_fk": {
+          "name": "links_project_id_source_node_id_nodes_project_id_id_fk",
+          "tableFrom": "links",
+          "tableTo": "nodes",
+          "columnsFrom": [
+            "project_id",
+            "source_node_id"
+          ],
+          "columnsTo": [
+            "project_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "links_project_id_target_node_id_nodes_project_id_id_fk": {
+          "name": "links_project_id_target_node_id_nodes_project_id_id_fk",
+          "tableFrom": "links",
+          "tableTo": "nodes",
+          "columnsFrom": [
+            "project_id",
+            "target_node_id"
+          ],
+          "columnsTo": [
+            "project_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "links_project_id_id_pk": {
+          "name": "links_project_id_id_pk",
+          "columns": [
+            "project_id",
+            "id"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -135,15 +152,15 @@
       "name": "nodes",
       "schema": "",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "project_id": {
           "name": "project_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -181,27 +198,6 @@
         }
       },
       "indexes": {
-        "node_pk": {
-          "name": "node_pk",
-          "columns": [
-            {
-              "expression": "project_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "node_geo_idx": {
           "name": "node_geo_idx",
           "columns": [
@@ -233,7 +229,15 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "nodes_project_id_id_pk": {
+          "name": "nodes_project_id_id_pk",
+          "columns": [
+            "project_id",
+            "id"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -268,38 +272,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "patterns": {
-          "name": "patterns",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "curves": {
-          "name": "curves",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "controls": {
-          "name": "controls",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "node_count": {
-          "name": "node_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "default": 0
-        },
-        "link_count": {
-          "name": "link_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "default": 0
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -317,6 +289,104 @@
       },
       "indexes": {},
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.simulation_results": {
+      "name": "simulation_results",
+      "schema": "",
+      "columns": {
+        "run_id": {
+          "name": "run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "feature_id": {
+          "name": "feature_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "time_series": {
+          "name": "time_series",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "simulation_results_run_id_simulation_runs_id_fk": {
+          "name": "simulation_results_run_id_simulation_runs_id_fk",
+          "tableFrom": "simulation_results",
+          "tableTo": "simulation_runs",
+          "columnsFrom": [
+            "run_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.simulation_runs": {
+      "name": "simulation_runs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "executed_at": {
+          "name": "executed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "simulation_runs_project_id_projects_id_fk": {
+          "name": "simulation_runs_project_id_projects_id_fk",
+          "tableFrom": "simulation_runs",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},

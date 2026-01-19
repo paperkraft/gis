@@ -31,12 +31,21 @@ export function ProjectSettingsForm({
         </h3>
 
         {mode === "edit" && (
-          <Input
-            type="text"
-            label="Project Title"
-            value={settings.title}
-            onChange={(v) => onChange("title", v as string)}
-          />
+          <>
+            <Input
+              type="text"
+              label="Project Title"
+              value={settings.title}
+              onChange={(v) => onChange("title", v as string)}
+            />
+
+            <Input
+              type="text"
+              label="Description"
+              value={settings.description || ""}
+              onChange={(v) => onChange("description", v as string)}
+            />
+          </>
         )}
 
         <div className="space-y-1">
@@ -104,8 +113,8 @@ export function ProjectSettingsForm({
             type="number"
             step={1}
             label="Trials"
-            value={settings.trials}
-            onChange={(v) => onChange("trials", parseFloat(v as string))}
+            value={settings.maxTrials}
+            onChange={(v) => onChange("maxTrials", parseFloat(v as string))}
           />
 
           <Input

@@ -41,26 +41,25 @@ export const ControlGroup = ({
   const isOpen = activeGroup === id;
 
   return (
-    <div className="relative flex flex-row-reverse items-center gap-2">
-      {/* Main Group Button - Updated to match MapControls/DrawingToolbar style */}
+    <div className="relative flex flex-row-reverse items-center gap-1">
+      {/* Main Group Button */}
       <button
         onClick={() => onToggle(id)}
         className={cn(
-          "relative group w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 active:scale-95",
+          "relative group size-8 flex items-center justify-center rounded transition-all duration-200 active:scale-95",
           isOpen || isActiveGroup
-            ? "bg-blue-600 text-white shadow-md shadow-blue-500/30"
-            : "text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400"
+            ? "bg-blue-100 dark:bg-blue-900/40 text-primary dark:text-blue-400"
+            : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-blue-400"
         )}
-        // title={label}
       >
-        <Icon className="w-5 h-5" strokeWidth={2.5} />
+        <Icon className="size-4" />
         {!isOpen && <LeftTooltip text={label} />}
       </button>
 
-      {/* Expanded Horizontal Bar - Glassmorphism applied */}
+      {/* Expanded Horizontal Bar */}
       <div
         className={cn(
-          "absolute right-11 flex items-center gap-1 p-1.5 rounded-xl shadow-xl border border-white/20 dark:border-gray-700/50 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md transition-all duration-200 origin-right z-20",
+          "absolute right-11.5 flex items-center rounded gap-1 p-1 shadow-xl border border-white/20 dark:border-gray-700/50 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md transition-all duration-200 origin-right z-20",
           isOpen
             ? "opacity-100 scale-100 translate-x-0"
             : "opacity-0 scale-95 translate-x-4 pointer-events-none"
@@ -78,9 +77,10 @@ export const ToolBtn = ({
   icon: Icon,
   title,
   label,
-  colorClass = "text-gray-500 dark:text-gray-400",
   className,
   disabled = false,
+  colorClass,
+  colorStyle,
 }: {
   onClick: () => void;
   isActive?: boolean;
@@ -89,16 +89,17 @@ export const ToolBtn = ({
   label?: string;
   colorClass?: string;
   className?: string;
+  colorStyle?: string;
   disabled?: boolean;
 }) => (
   <button
     onClick={onClick}
     className={cn(
-      "relative group flex items-center justify-center rounded-lg transition-all duration-200 active:scale-95",
-      label ? "px-2 gap-2 h-8" : "w-8 h-8",
+      "relative group flex items-center justify-center rounded transition-all duration-200 active:scale-95",
+      label ? "px-1.5 gap-1 h-6" : "size-6",
       isActive
-        ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400"
-        : "hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200",
+        ? "bg-blue-100 dark:bg-blue-900/40 text-primary dark:text-blue-400"
+        : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-blue-400",
       className
     )}
     // title={title}
@@ -107,19 +108,13 @@ export const ToolBtn = ({
       title === "Location Search" || title === "Search" ? "true" : undefined
     }
   >
-    <Icon
-      className={cn(
-        "w-4 h-4",
-        isActive ? "text-blue-600 dark:text-blue-400" : colorClass
-      )}
-      strokeWidth={2.5}
-    />
+    <Icon className={cn("size-4", colorClass)} style={{ color: colorStyle }} />
     {label && (
       <span
         className={cn(
-          "text-xs font-medium",
+          "text-[10px] font-medium",
           isActive
-            ? "text-blue-600 dark:text-blue-400"
+            ? "text-primary dark:text-blue-400"
             : "text-gray-600 dark:text-gray-300"
         )}
       >
@@ -139,28 +134,29 @@ export const StandaloneControl = ({
   isActive = false,
   icon: Icon,
   title,
-  colorClass = "text-gray-500 dark:text-gray-400",
+  colorClass,
+  colorStyle,
+  className,
 }: {
   onClick: () => void;
   isActive?: boolean;
   icon: any;
   title: string;
   colorClass?: string;
+  colorStyle?: string;
+  className?: string;
 }) => (
   <button
     onClick={onClick}
     className={cn(
-      "relative group w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 active:scale-95",
+      "relative group size-8 flex items-center justify-center rounded transition-all duration-200 active:scale-95",
       isActive
-        ? "bg-blue-600 text-white shadow-md shadow-blue-500/30"
-        : "text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400"
+        ? "bg-blue-100 dark:bg-blue-900/40 text-primary dark:text-blue-400"
+        : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-blue-400",
+      className
     )}
-    // title={title}
   >
-    <Icon
-      className={cn("w-5 h-5", isActive ? "text-white" : colorClass)}
-      strokeWidth={2.5}
-    />
+    <Icon className={cn("size-4", colorClass)} style={{ color: colorStyle }} />
     <LeftTooltip text={title} />
   </button>
 );

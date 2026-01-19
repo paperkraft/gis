@@ -4,9 +4,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Search,
   Box,
-  Droplets,
-  Activity,
-  X,
   Navigation,
   Circle,
   Pentagon,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db"; // New DB import
 import { projects, nodes, links } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 // --- LOAD PROJECT ---
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -44,6 +44,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         // 4. Reconstruct "Features" Array for Frontend
         // (This matches the format your ProjectService expects)
         const features = [
+
             ...dbNodes.map(n => ({
                 id: n.id,
                 type: n.type,
@@ -52,6 +53,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                 baseDemand: n.baseDemand,
                 ...n.properties as object // Restore UI props
             })),
+
             ...dbLinks.map(l => {
                 const geo: any = l.geoJSON;
                 return {
@@ -71,12 +73,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         return NextResponse.json({
             id: projectData.id,
             title: projectData.title,
+            description: projectData.description,
             data: {
                 features,
                 settings: projectData.settings,
-                patterns: projectData.patterns,
-                curves: projectData.curves,
-                controls: projectData.controls
             },
             updatedAt: projectData.updatedAt
         });
@@ -94,88 +94,132 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         const body = await req.json();
 
         // Deconstruct the frontend payload
-        const { title, data, nodeCount, linkCount } = body;
-        const { features, settings, patterns, curves, controls } = data;
+        const { title, description, modifications, deletions, settings, patterns, curves, controls } = body;
 
         // Separate nodes and links
-        const incomingNodes = features.filter((f: any) => ['junction', 'tank', 'reservoir'].includes(f.type));
-        const incomingLinks = features.filter((f: any) => ['pipe', 'pump', 'valve'].includes(f.type));
+        const upsertNodes = modifications.filter((f: any) => ['junction', 'tank', 'reservoir'].includes(f.type));
+        const upsertLinks = modifications.filter((f: any) => ['pipe', 'pump', 'valve'].includes(f.type));
 
         await db.transaction(async (tx) => {
             // 1. Update Metadata
             await tx.update(projects)
-                .set({ title, settings, patterns, curves, controls, nodeCount, linkCount, updatedAt: new Date() })
+                .set({
+                    title,
+                    description,
+                    settings: { ...settings, patterns, curves, controls },
+                    updatedAt: new Date()
+                })
                 .where(eq(projects.id, id));
 
-            // 2. Overwrite Topology (Simplest for consistency)
-            await tx.delete(nodes).where(eq(nodes.projectId, id));
-            await tx.delete(links).where(eq(links.projectId, id));
-
-            // 3. Insert Nodes (Using Spatial SQL)
-            if (incomingNodes.length > 0) {
-                await tx.insert(nodes).values(incomingNodes.map((n: any) => ({
-                    id: n.id,
+            // 2. Process Deletions (Links first to avoid FK constraint violations)
+            if (deletions && deletions.length > 0) {
+                await tx.delete(links).where(and(eq(links.projectId, id), inArray(links.id, deletions)));
+                await tx.delete(nodes).where(and(eq(nodes.projectId, id), inArray(nodes.id, deletions)));
+            }
+            // 3. Upsert Nodes (Use ON CONFLICT DO UPDATE)
+            if (upsertNodes.length > 0) {
+                const nodeValues = upsertNodes.map((n: any) => ({
                     projectId: id,
+                    id: n.id,
                     type: n.type,
                     elevation: n.elevation || 0,
                     baseDemand: n.baseDemand || 0,
-                    properties: n, // Save full object as backup properties
-                    // Create Point Geometry
+                    properties: n,
                     geom: sql`ST_SetSRID(ST_MakePoint(${n.geometry.coordinates[0]}, ${n.geometry.coordinates[1]}), 4326)`
-                })));
+                }));
+
+                await tx.insert(nodes)
+                    .values(nodeValues)
+                    .onConflictDoUpdate({
+                        target: [nodes.projectId, nodes.id], // Requires Composite PK defined in schema
+                        set: {
+                            elevation: sql`excluded.elevation`,
+                            baseDemand: sql`excluded.base_demand`,
+                            properties: sql`excluded.properties`,
+                            geom: sql`excluded.geom`
+                        }
+                    });
             }
 
-            // 4. Insert Links (Using Spatial SQL)
-            if (incomingLinks.length > 0) {
-                await tx.insert(links).values(incomingLinks.map((l: any) => {
-                    let coords = l.geometry.coordinates;
+            // 4. TOPOLOGY CHECK & Upsert Links
+            if (upsertLinks.length > 0) {
+                // We need to ensure source/target nodes exist.
+                // They are either in the DB already OR in the 'upsertNodes' array we just processed.
 
-                    // SAFETY 1: Ensure we have an array of points
-                    if (!Array.isArray(coords) || coords.length < 2 || !Array.isArray(coords[0])) {
-                        // If we somehow got a Point (single array) or empty, default to 0,0 -> 0,0
-                        // (Or ideally, log error and skip)
-                        console.warn(`Invalid geometry for link ${l.id}. Defaulting to 0 line.`);
-                        coords = [[0, 0], [0, 0]];
+                // Get list of all Node IDs referenced by these links
+                const requiredNodes = new Set<string>();
+                upsertLinks.forEach((l: any) => {
+                    const source = l.source || l.startNodeId || l.properties?.startNodeId;
+                    const target = l.target || l.endNodeId || l.properties?.endNodeId;
+                    if (source) requiredNodes.add(source);
+                    if (target) requiredNodes.add(target);
+                });
+
+                // Check DB for these nodes
+                const existingNodes = await tx.select({ id: nodes.id })
+                    .from(nodes)
+                    .where(and(
+                        eq(nodes.projectId, id),
+                        inArray(nodes.id, Array.from(requiredNodes))
+                    ));
+
+                const existingNodeIds = new Set(existingNodes.map(n => n.id));
+
+                // Also check the nodes we JUST upserted in this transaction
+                upsertNodes.forEach((n: any) => existingNodeIds.add(n.id));
+
+                const validLinks = [];
+
+                for (const l of upsertLinks) {
+                    const source = l.source || l.startNodeId || l.properties?.startNodeId;
+                    const target = l.target || l.endNodeId || l.properties?.endNodeId;
+
+                    // STRICT CHECK
+                    if (!existingNodeIds.has(source) || !existingNodeIds.has(target)) {
+                        console.error(`Topology Error: Link ${l.id} connects to missing nodes (${source} -> ${target})`);
+                        // Option A: Skip this link
+                        continue;
+                        // Option B: Throw error to abort transaction (Recommended for data integrity)
+                        // throw new Error(`Link ${l.id} references missing node.`);
                     }
 
-                    // SAFETY 2: Ensure numbers are valid
-                    // Format: LINESTRING(x1 y1, x2 y2)
-                    const wktPoints = coords.map((c: number[]) => {
-                        const x = isNaN(c[0]) ? 0 : c[0];
-                        const y = isNaN(c[1]) ? 0 : c[1];
-                        return `${x} ${y}`;
-                    });
+                    // Prepare Link Geometry (WKT)
+                    let coords = l.geometry.coordinates;
+                    if (!Array.isArray(coords) || coords.length < 2) coords = [[0, 0], [0, 0]];
 
-                    // Format: LINESTRING(x1 y1, x2 y2)
-                    // const wkt = `LINESTRING(${coords.map((c: number[]) => `${c[0]} ${c[1]}`).join(',')})`;
+                    const wktPoints = coords.map((c: number[]) => `${c[0]} ${c[1]}`);
                     const wkt = `LINESTRING(${wktPoints.join(',')})`;
 
-                    // FALLBACK LOGIC: Check all possible keys for connectivity
-                    // 1. Top-level 'source' (from our new ProjectService)
-                    // 2. Top-level 'startNodeId' (legacy)
-                    // 3. Nested properties 'startNodeId' (OpenLayers prop)
-                    const source = l.source || l.startNodeId || l.properties?.startNodeId || l.properties?.fromNode;
-                    const target = l.target || l.endNodeId || l.properties?.endNodeId || l.properties?.toNode;
-
-                    if (!source || !target) {
-                        console.error(`Missing connection for link ${l.id} (${l.type}). Source: ${source}, Target: ${target}`);
-                        // We throw here to abort transaction rather than saving broken data
-                        throw new Error(`Link ${l.id} is missing source or target node.`);
-                    }
-
-                    return {
-                        id: l.id,
+                    validLinks.push({
                         projectId: id,
+                        id: l.id,
                         type: l.type,
                         sourceNodeId: source,
                         targetNodeId: target,
-                        length: l.length || l.properties?.length || 0,
-                        diameter: l.diameter || l.properties?.diameter || 0,
-                        roughness: l.roughness || l.properties?.roughness || 100,
+                        length: l.length || 0,
+                        diameter: l.diameter || 0,
+                        roughness: l.roughness || 100,
                         properties: l,
                         geom: sql`ST_GeomFromText(${wkt}, 4326)`
-                    };
-                }));
+                    });
+                }
+
+                if (validLinks.length > 0) {
+                    await tx.insert(links)
+                        .values(validLinks)
+                        .onConflictDoUpdate({
+                            target: [links.projectId, links.id],
+                            set: {
+                                sourceNodeId: sql`excluded.source_node_id`,
+                                targetNodeId: sql`excluded.target_node_id`,
+                                length: sql`excluded.length`,
+                                diameter: sql`excluded.diameter`,
+                                roughness: sql`excluded.roughness`,
+                                properties: sql`excluded.properties`,
+                                geom: sql`excluded.geom`
+                            }
+                        });
+                }
             }
         });
 
