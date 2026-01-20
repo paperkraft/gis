@@ -6,10 +6,12 @@ import { handleZoomToExtent } from '@/lib/interactions/map-controls';
 import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
 import { useUIStore } from '@/store/uiStore';
+import { useHistoryManager } from './useHistoryManager';
 
 export function useKeyboardShortcuts() {
     const map = useMapStore(state => state.map);
     const { selectedFeatureIds } = useNetworkStore();
+    const { undo, redo } = useHistoryManager();
     const {
         setActiveTool,
         setDeleteModalOpen,
@@ -142,13 +144,23 @@ export function useKeyboardShortcuts() {
             }
 
             // --- Undo/Redo ---
-            if (key === "z" && ctrl && !shift) {
-                window.dispatchEvent(new CustomEvent("undo"));
-                return;
-            }
-            if ((key === "y" && ctrl) || (key === "z" && ctrl && shift)) {
-                window.dispatchEvent(new CustomEvent("redo"));
-                return;
+            // if (key === "z" && ctrl && !shift) {
+            //     // window.dispatchEvent(new CustomEvent("undo"));
+            //     redo();
+            //     return;
+            // }
+            // if ((key === "y" && ctrl) || (key === "z" && ctrl && shift)) {
+            //     window.dispatchEvent(new CustomEvent("redo"));
+            //     return;
+            // }
+
+            if (ctrl && key === 'z') {
+                event.preventDefault();
+                if (event.shiftKey) {
+                    redo();
+                } else {
+                    undo();
+                }
             }
         };
 

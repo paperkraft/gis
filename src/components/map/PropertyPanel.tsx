@@ -24,6 +24,7 @@ import { useMapStore } from "@/store/mapStore";
 import { useNetworkStore } from "@/store/networkStore";
 import { useSimulationStore } from "@/store/simulationStore";
 import { NetworkFeatureProperties } from "@/types/network";
+import { useHistoryManager } from "@/hooks/useHistoryManager";
 
 interface PropertyPanelProps {
   properties: NetworkFeatureProperties;
@@ -38,6 +39,7 @@ export function PropertyPanel({
     useNetworkStore();
   const { history, results } = useSimulationStore();
   const map = useMapStore((state) => state.map);
+  const { recordChange } = useHistoryManager();
 
   const [editedProperties, setEditedProperties] =
     useState<NetworkFeatureProperties>(properties);
@@ -64,8 +66,9 @@ export function PropertyPanel({
 
   const handleSave = () => {
     if (selectedFeatureId) {
-      window.dispatchEvent(new CustomEvent("takeSnapshot"));
-      updateFeature(selectedFeatureId, editedProperties);
+      recordChange(() => {
+        updateFeature(selectedFeatureId, editedProperties);
+      });
       setHasChanges(false);
     }
   };
@@ -92,13 +95,14 @@ export function PropertyPanel({
       ["pipe", "pump", "valve"].includes(properties.type) &&
       geom instanceof LineString
     ) {
-      window.dispatchEvent(new CustomEvent("takeSnapshot"));
       const coords = geom.getCoordinates();
       geom.setCoordinates(coords.reverse());
       const newStart = editedProperties.endNodeId;
       const newEnd = editedProperties.startNodeId;
       const updates = { startNodeId: newStart, endNodeId: newEnd };
-      updateFeature(selectedFeatureId, updates);
+      recordChange(() => {
+        updateFeature(selectedFeatureId, updates);
+      });
       setEditedProperties((prev) => ({ ...prev, ...updates }));
       selectedFeature.changed();
     }
@@ -111,7 +115,7 @@ export function PropertyPanel({
       const geometry = selectedFeature.getGeometry();
       if (geometry instanceof Point) {
         const elevation = await ElevationService.getElevation(
-          geometry.getCoordinates()
+          geometry.getCoordinates(),
         );
         if (elevation !== null) handlePropertyChange("elevation", elevation);
       }
@@ -228,7 +232,7 @@ export function PropertyPanel({
             key,
             typeof value === "number"
               ? parseFloat(e.target.value) || 0
-              : e.target.value
+              : e.target.value,
           )
         }
         className={inputClass}
@@ -239,7 +243,7 @@ export function PropertyPanel({
 
   const renderPropertyGroup = (title: string, propertyKeys: string[]) => {
     const groupProperties = propertyKeys.filter((key) =>
-      editedProperties.hasOwnProperty(key)
+      editedProperties.hasOwnProperty(key),
     );
     if (groupProperties.length === 0) return null;
     return (
@@ -462,7 +466,7 @@ export function PropertyPanel({
             "flex-1 gap-2 shadow-sm transition-all",
             hasChanges
               ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20"
-              : "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+              : "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed",
           )}
         >
           <Save className="w-3.5 h-3.5" />

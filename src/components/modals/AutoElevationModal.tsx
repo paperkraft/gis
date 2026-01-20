@@ -6,6 +6,7 @@ import { useNetworkStore } from "@/store/networkStore";
 import { ElevationService } from "@/lib/services/ElevationService";
 import { Button } from "@/components/ui/button";
 import { Point } from "ol/geom";
+import { useHistoryManager } from "@/hooks/useHistoryManager";
 
 interface AutoElevationModalProps {
   isOpen: boolean;
@@ -22,6 +23,8 @@ export function AutoElevationModal({
   >("idle");
   const [message, setMessage] = useState("");
   const [stats, setStats] = useState({ total: 0, updated: 0 });
+
+  const { startTransaction, commitTransaction } = useHistoryManager();
 
   if (!isOpen) return null;
 
@@ -71,10 +74,9 @@ export function AutoElevationModal({
       });
 
       // Take snapshot before bulk update
-      window.dispatchEvent(new CustomEvent("takeSnapshot"));
-
+      startTransaction();
       updateFeatures(updates);
-
+      commitTransaction();
       setStatus("success");
       setMessage(`Successfully updated ${updatedCount} nodes.`);
       setStats({ total: nodesToUpdate.length, updated: updatedCount });
@@ -82,6 +84,7 @@ export function AutoElevationModal({
       setStatus("error");
       setMessage("Failed to fetch data from Open-Elevation API.");
       console.error(error);
+      commitTransaction();
     }
   };
 

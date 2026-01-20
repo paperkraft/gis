@@ -23,6 +23,7 @@ import { FeatureType } from "@/types/network";
 import { COMPONENT_TYPES } from "@/constants/networkComponents";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useHistoryManager } from "@/hooks/useHistoryManager";
 
 interface AttributeTableProps {
   isOpen: boolean;
@@ -53,6 +54,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
   const { features, selectFeature, updateFeature } = useNetworkStore();
   const { results, status: simStatus } = useSimulationStore();
   const { map } = useMapStore();
+  const { recordChange } = useHistoryManager();
 
   const [activeTab, setActiveTab] = useState<FeatureType | "all">("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -75,7 +77,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
 
     // Filter logic: If 'all', take everything, otherwise filter by type
     const featureList = Array.from(features.values()).filter(
-      (f) => activeTab === "all" || f.get("type") === activeTab
+      (f) => activeTab === "all" || f.get("type") === activeTab,
     );
 
     featureList.forEach((feature) => {
@@ -112,7 +114,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
 
     if (!searchTerm) return data;
     return data.filter((row) =>
-      row.id.toLowerCase().includes(searchTerm.toLowerCase())
+      row.id.toLowerCase().includes(searchTerm.toLowerCase()),
     );
   }, [features, activeTab, results, simStatus, searchTerm]);
 
@@ -259,7 +261,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
     key: string,
     initialValue: any,
     isReadOnly?: boolean,
-    isResult?: boolean
+    isResult?: boolean,
   ) => {
     if (isReadOnly || isResult) return;
     const val =
@@ -275,8 +277,10 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
       if (!isNaN(Number(editValue)) && editValue.trim() !== "") {
         finalValue = Number(editValue);
       }
-      window.dispatchEvent(new CustomEvent("takeSnapshot"));
-      updateFeature(id, { [key]: finalValue });
+
+      recordChange(() => {
+        updateFeature(id, { [key]: finalValue });
+      });
       setEditingCell(null);
     }
   };
@@ -299,7 +303,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
     <div
       className={cn(
         "absolute left-4 right-4 z-30 flex flex-col animate-in slide-in-from-bottom-10 fade-in duration-300 transition-all ease-in-out",
-        isFullScreen ? "top-20 bottom-8 h-auto" : "bottom-8 h-87.5"
+        isFullScreen ? "top-20 bottom-8 h-auto" : "bottom-8 h-87.5",
       )}
     >
       {/* HEADER */}
@@ -326,7 +330,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
                     "flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all whitespace-nowrap",
                     isActive
                       ? "bg-white dark:bg-gray-700 text-blue-600 shadow-sm"
-                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200",
                   )}
                 >
                   <Icon
@@ -406,7 +410,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
                 "px-4 py-2.5 text-xs font-semibold text-gray-600 dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-1 select-none shrink-0",
                 col.width,
                 col.isResult &&
-                  "text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10"
+                  "text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10",
               )}
             >
               {col.label}
@@ -441,7 +445,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
                           col.key,
                           row[col.key],
                           col.isReadOnly,
-                          col.isResult
+                          col.isResult,
                         )
                       }
                       className={cn(
@@ -451,7 +455,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
                           "font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50/20 dark:bg-indigo-900/5 group-hover:bg-transparent",
                         !col.isResult &&
                           !col.isReadOnly &&
-                          "hover:bg-white dark:hover:bg-gray-800 hover:shadow-inner"
+                          "hover:bg-white dark:hover:bg-gray-800 hover:shadow-inner",
                       )}
                     >
                       {isEditing ? (

@@ -72,28 +72,39 @@ export class DeleteManager {
     }
 
     public executeDelete(feature: Feature) {
-        window.dispatchEvent(new CustomEvent('takeSnapshot'));
+        const store = useNetworkStore.getState();
+
+        // 1. Start Transaction
+        store.startTransaction();
+
         const type = feature.get("type");
 
-        // 1. Special Case: Pump/Valve Merge
-        if (type === 'pump' || type === 'valve') {
-            this.handlePumpValveMerge(feature);
-            return;
+        try {
+            // 1. Special Case: Pump/Valve Merge
+            if (type === 'pump' || type === 'valve') {
+                this.handlePumpValveMerge(feature);
+                return;
+            }
+
+            // 2. Special Case: Junction Merge (Pipe Join)
+            if (type === 'junction') {
+                const wasMerged = this.handleJunctionDelete(feature);
+                if (wasMerged) return;
+            }
+
+            // 3. Standard Delete
+            this.performStandardDelete(feature);
+
+            // 4. Post-Delete Cleanup (Orphans)
+            if (type === 'pipe') {
+                this.cleanupOrphanNodes(feature);
+            }
+            store.commitTransaction();
+        } catch (error) {
+            console.error("Delete Failed", error);
+            store.commitTransaction();
         }
 
-        // 2. Special Case: Junction Merge (Pipe Join)
-        if (type === 'junction') {
-            const wasMerged = this.handleJunctionDelete(feature);
-            if (wasMerged) return;
-        }
-
-        // 3. Standard Delete
-        this.performStandardDelete(feature);
-
-        // 4. Post-Delete Cleanup (Orphans)
-        if (type === 'pipe') {
-            this.cleanupOrphanNodes(feature);
-        }
     }
 
     // =========================================================================

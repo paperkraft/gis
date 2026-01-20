@@ -1,51 +1,47 @@
-// src/hooks/useHistoryManager.ts
-import { useEffect } from 'react';
+import { useCallback } from 'react';
 import { useNetworkStore } from '@/store/networkStore';
 import { useMapStore } from '@/store/mapStore';
-import { Feature } from 'ol';
 
 export function useHistoryManager() {
-    const { undo, redo, snapshot } = useNetworkStore();
-    const { vectorSource } = useMapStore();
+    // 1. Get Actions from Store
+    const undo = useNetworkStore((state) => state.undo);
+    const redo = useNetworkStore((state) => state.redo);
+    const snapshot = useNetworkStore((state) => state.snapshot);
+    const { startTransaction, commitTransaction } = useNetworkStore();
 
-    // Sync function: Update OpenLayers source to match the feature list
-    const syncMapSource = (features: Feature[]) => {
+    // 2. Get Map Source
+    const vectorSource = useMapStore((state) => state.vectorSource);
+
+    // 3. Synchronization Helper
+    const syncMapWithStore = useCallback(() => {
         if (!vectorSource) return;
-
+        const currentFeatures = Array.from(useNetworkStore.getState().features.values());
         vectorSource.clear();
-        vectorSource.addFeatures(features);
+        vectorSource.addFeatures(currentFeatures);
+    }, [vectorSource]);
 
-        // Re-attach styles if necessary, though 'addFeatures' usually preserves them 
-        // if they are set on the feature itself. 
-        // If styles are on the layer based on properties, we are good.
+    // 4. Wrapper Actions
+    const handleUndo = useCallback(() => {
+        undo();
+        syncMapWithStore();
+    }, [undo, syncMapWithStore]);
+
+    const handleRedo = useCallback(() => {
+        redo();
+        syncMapWithStore();
+    }, [redo, syncMapWithStore]);
+
+    const recordChange = useCallback((action: () => void) => {
+        snapshot();
+        action();
+    }, [snapshot]);
+
+    return {
+        undo: handleUndo,
+        redo: handleRedo,
+        recordChange,
+        snapshot,
+        startTransaction,
+        commitTransaction
     };
-
-    useEffect(() => {
-        const handleUndo = () => {
-            const restoredFeatures = undo();
-            if (restoredFeatures) {
-                syncMapSource(restoredFeatures);
-            }
-        };
-
-        const handleRedo = () => {
-            const restoredFeatures = redo();
-            if (restoredFeatures) {
-                syncMapSource(restoredFeatures);
-            }
-        };
-
-        // Listen for custom events
-        window.addEventListener('undo', handleUndo);
-        window.addEventListener('redo', handleRedo);
-        window.addEventListener('takeSnapshot', snapshot); // Allow other components to trigger snapshot easily
-
-        return () => {
-            window.removeEventListener('undo', handleUndo);
-            window.removeEventListener('redo', handleRedo);
-            window.removeEventListener('takeSnapshot', snapshot);
-        };
-    }, [undo, redo, snapshot, vectorSource]);
-
-    return { snapshot };
 }

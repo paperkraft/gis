@@ -256,7 +256,6 @@ export class PipeDrawingManager {
         this.spatialIndex = null; // Invalidate
     }
 
-
     // ============================================
     // VISUAL SNAPPING LOGIC
     // ============================================
@@ -588,161 +587,190 @@ export class PipeDrawingManager {
 
     public insertLinkOnPipe(pipe: Feature, coordinate: number[], type: 'pump' | 'valve') {
         const store = useNetworkStore.getState();
-        window.dispatchEvent(new CustomEvent('takeSnapshot'));
+        // 1. Start Transaction
+        store.startTransaction();
 
-        const geometry = pipe.getGeometry() as LineString;
-        const coords = geometry.getCoordinates();
-        const startNodeId = pipe.get('startNodeId');
-        const endNodeId = pipe.get('endNodeId');
-        const originalId = pipe.getId() as string;
+        try {
+            const geometry = pipe.getGeometry() as LineString;
+            const coords = geometry.getCoordinates();
+            const startNodeId = pipe.get('startNodeId');
+            const endNodeId = pipe.get('endNodeId');
+            const originalId = pipe.getId() as string;
 
-        const pipeProps = { ...pipe.getProperties() };
-        // Clean up props to avoid carrying over old ID/topology
-        delete pipeProps.geometry; delete pipeProps.id; delete pipeProps.length;
-        delete pipeProps.startNodeId; delete pipeProps.endNodeId;
-        delete pipeProps.source; delete pipeProps.target;
-        delete pipeProps.fromNode; delete pipeProps.toNode; delete pipeProps.label;
+            const pipeProps = { ...pipe.getProperties() };
+            // Clean up props to avoid carrying over old ID/topology
+            delete pipeProps.geometry; delete pipeProps.id; delete pipeProps.length;
+            delete pipeProps.startNodeId; delete pipeProps.endNodeId;
+            delete pipeProps.source; delete pipeProps.target;
+            delete pipeProps.fromNode; delete pipeProps.toNode; delete pipeProps.label;
 
-        const point1 = geometry.getClosestPoint(coordinate);
-        let splitIndex = 0;
+            const point1 = geometry.getClosestPoint(coordinate);
+            let splitIndex = 0;
 
-        for (let i = 0; i < coords.length - 1; i++) {
-            const dist = this.distance(coords[i], point1) + this.distance(point1, coords[i + 1]);
-            const segLen = this.distance(coords[i], coords[i + 1]);
-            if (Math.abs(dist - segLen) < 0.01) { splitIndex = i; break; }
+            for (let i = 0; i < coords.length - 1; i++) {
+                const dist = this.distance(coords[i], point1) + this.distance(point1, coords[i + 1]);
+                const segLen = this.distance(coords[i], coords[i + 1]);
+                if (Math.abs(dist - segLen) < 0.01) { splitIndex = i; break; }
+            }
+
+            const pStart = coords[splitIndex];
+            const pEnd = coords[splitIndex + 1];
+            const dx = pEnd[0] - pStart[0];
+            const dy = pEnd[1] - pStart[1];
+            const len = Math.sqrt(dx * dx + dy * dy);
+
+            const GAP = this.MIN_PIPE_LENGTH;
+            const safeOffset = (len > 0) ? Math.min(GAP, len * 0.4) : 0.1;
+            const offsetX = (len > 0) ? (dx / len) * safeOffset : 0.1;
+            const offsetY = (len > 0) ? (dy / len) * safeOffset : 0;
+            const point2 = [point1[0] + offsetX, point1[1] + offsetY];
+
+            const j1 = this.createNode(point1, 'junction');
+            const j2 = this.createNode(point2, 'junction');
+            const j1Id = j1.getId() as string;
+            const j2Id = j2.getId() as string;
+
+            const coords1 = [...coords.slice(0, splitIndex + 1), point1];
+            const p1Id = store.generateUniqueId('pipe');
+            const p1 = new Feature({ geometry: new LineString(coords1) });
+            p1.setId(p1Id);
+            p1.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p1Id, startNodeId: startNodeId, endNodeId: j1Id, source: startNodeId, target: j1Id, label: p1Id, length: this.calculatePipeLength(p1.getGeometry() as LineString) });
+
+            const coords2 = [point2, ...coords.slice(splitIndex + 1)];
+            const p2Id = store.generateUniqueId('pipe');
+            const p2 = new Feature({ geometry: new LineString(coords2) });
+            p2.setId(p2Id);
+            p2.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p2Id, startNodeId: j2Id, endNodeId: endNodeId, source: j2Id, target: endNodeId, label: p2Id, length: this.calculatePipeLength(p2.getGeometry() as LineString) });
+
+            this.createLinkBetweenNodes(j1, j2, type);
+
+            this.vectorSource.removeFeature(pipe);
+            store.removeFeature(originalId);
+
+            this.vectorSource.addFeatures([p1, p2]);
+            store.addFeature(p1);
+            store.addFeature(p2);
+
+            store.updateNodeConnections(startNodeId, originalId, "remove");
+            store.updateNodeConnections(endNodeId, originalId, "remove");
+
+            store.updateNodeConnections(startNodeId, p1Id, "add");
+            store.updateNodeConnections(j1Id, p1Id, "add");
+
+            store.updateNodeConnections(j2Id, p2Id, "add");
+            store.updateNodeConnections(endNodeId, p2Id, "add");
+
+            this.vectorSource.changed();
+            this.spatialIndex = null;
+
+            // 2. Commit Transaction
+            store.commitTransaction();
+
+            return { link: null, startJunction: j1, endJunction: j2 };
+        } catch (e) {
+            console.error("Split Failed", e);
+            store.commitTransaction();
+            return { link: null, startJunction: null, endJunction: null };
         }
-
-        const pStart = coords[splitIndex];
-        const pEnd = coords[splitIndex + 1];
-        const dx = pEnd[0] - pStart[0];
-        const dy = pEnd[1] - pStart[1];
-        const len = Math.sqrt(dx * dx + dy * dy);
-
-        const GAP = this.MIN_PIPE_LENGTH;
-        const safeOffset = (len > 0) ? Math.min(GAP, len * 0.4) : 0.1;
-        const offsetX = (len > 0) ? (dx / len) * safeOffset : 0.1;
-        const offsetY = (len > 0) ? (dy / len) * safeOffset : 0;
-        const point2 = [point1[0] + offsetX, point1[1] + offsetY];
-
-        const j1 = this.createNode(point1, 'junction');
-        const j2 = this.createNode(point2, 'junction');
-        const j1Id = j1.getId() as string;
-        const j2Id = j2.getId() as string;
-
-        const coords1 = [...coords.slice(0, splitIndex + 1), point1];
-        const p1Id = store.generateUniqueId('pipe');
-        const p1 = new Feature({ geometry: new LineString(coords1) });
-        p1.setId(p1Id);
-        p1.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p1Id, startNodeId: startNodeId, endNodeId: j1Id, source: startNodeId, target: j1Id, label: p1Id, length: this.calculatePipeLength(p1.getGeometry() as LineString) });
-
-        const coords2 = [point2, ...coords.slice(splitIndex + 1)];
-        const p2Id = store.generateUniqueId('pipe');
-        const p2 = new Feature({ geometry: new LineString(coords2) });
-        p2.setId(p2Id);
-        p2.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p2Id, startNodeId: j2Id, endNodeId: endNodeId, source: j2Id, target: endNodeId, label: p2Id, length: this.calculatePipeLength(p2.getGeometry() as LineString) });
-
-        this.createLinkBetweenNodes(j1, j2, type);
-
-        this.vectorSource.removeFeature(pipe);
-        store.removeFeature(originalId);
-
-        this.vectorSource.addFeatures([p1, p2]);
-        store.addFeature(p1);
-        store.addFeature(p2);
-
-        store.updateNodeConnections(startNodeId, originalId, "remove");
-        store.updateNodeConnections(endNodeId, originalId, "remove");
-
-        store.updateNodeConnections(startNodeId, p1Id, "add");
-        store.updateNodeConnections(j1Id, p1Id, "add");
-
-        store.updateNodeConnections(j2Id, p2Id, "add");
-        store.updateNodeConnections(endNodeId, p2Id, "add");
-
-        this.vectorSource.changed();
-        this.spatialIndex = null;
-
-        return { link: null, startJunction: j1, endJunction: j2 };
     }
 
     public insertNodeOnPipe(pipe: Feature, coordinate: number[], type: FeatureType): Feature {
         const store = useNetworkStore.getState();
-        window.dispatchEvent(new CustomEvent('takeSnapshot'));
 
-        const geometry = pipe.getGeometry() as LineString;
-        const coords = geometry.getCoordinates();
-        const startNodeId = pipe.get('startNodeId');
-        const endNodeId = pipe.get('endNodeId');
-        const originalId = pipe.getId() as string;
+        // 1. Start Transaction
+        store.startTransaction();
+        try {
+            const geometry = pipe.getGeometry() as LineString;
+            const coords = geometry.getCoordinates();
+            const startNodeId = pipe.get('startNodeId');
+            const endNodeId = pipe.get('endNodeId');
+            const originalId = pipe.getId() as string;
 
-        const pipeProps = { ...pipe.getProperties() };
-        delete pipeProps.geometry; delete pipeProps.id; delete pipeProps.length;
-        delete pipeProps.startNodeId; delete pipeProps.endNodeId;
-        delete pipeProps.source; delete pipeProps.target;
-        delete pipeProps.fromNode; delete pipeProps.toNode; delete pipeProps.label;
+            const pipeProps = { ...pipe.getProperties() };
+            delete pipeProps.geometry; delete pipeProps.id; delete pipeProps.length;
+            delete pipeProps.startNodeId; delete pipeProps.endNodeId;
+            delete pipeProps.source; delete pipeProps.target;
+            delete pipeProps.fromNode; delete pipeProps.toNode; delete pipeProps.label;
 
-        const closestPoint = geometry.getClosestPoint(coordinate);
-        let splitIndex = 0;
-        for (let i = 0; i < coords.length - 1; i++) {
-            const dist = this.distance(coords[i], closestPoint) + this.distance(closestPoint, coords[i + 1]);
-            const segLen = this.distance(coords[i], coords[i + 1]);
-            if (Math.abs(dist - segLen) < 0.01) { splitIndex = i; break; }
+            const closestPoint = geometry.getClosestPoint(coordinate);
+            let splitIndex = 0;
+            for (let i = 0; i < coords.length - 1; i++) {
+                const dist = this.distance(coords[i], closestPoint) + this.distance(closestPoint, coords[i + 1]);
+                const segLen = this.distance(coords[i], coords[i + 1]);
+                if (Math.abs(dist - segLen) < 0.01) { splitIndex = i; break; }
+            }
+
+            const newNode = this.createNode(closestPoint, type);
+            const newNodeId = newNode.getId() as string;
+
+            const coords1 = [...coords.slice(0, splitIndex + 1), closestPoint];
+            const p1Id = store.generateUniqueId('pipe');
+            const p1 = new Feature({ geometry: new LineString(coords1) });
+            p1.setId(p1Id);
+            p1.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p1Id, startNodeId: startNodeId, endNodeId: newNodeId, source: startNodeId, target: newNodeId, label: `${p1Id}`, length: this.calculatePipeLength(p1.getGeometry() as LineString) });
+
+            const coords2 = [closestPoint, ...coords.slice(splitIndex + 1)];
+            const p2Id = store.generateUniqueId('pipe');
+            const p2 = new Feature({ geometry: new LineString(coords2) });
+            p2.setId(p2Id);
+            p2.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p2Id, startNodeId: newNodeId, endNodeId: endNodeId, source: newNodeId, target: endNodeId, label: `${p2Id}`, length: this.calculatePipeLength(p2.getGeometry() as LineString) });
+
+            this.vectorSource.removeFeature(pipe);
+            store.removeFeature(originalId);
+
+            this.vectorSource.addFeatures([p1, p2]);
+            store.addFeature(p1);
+            store.addFeature(p2);
+
+            store.updateNodeConnections(startNodeId, originalId, "remove");
+            store.updateNodeConnections(endNodeId, originalId, "remove");
+
+            store.updateNodeConnections(startNodeId, p1Id, "add");
+            store.updateNodeConnections(newNodeId, p1Id, "add");
+
+            store.updateNodeConnections(newNodeId, p2Id, "add");
+            store.updateNodeConnections(endNodeId, p2Id, "add");
+
+            this.spatialIndex = null;
+
+            // 2. Commit Transaction
+            store.commitTransaction();
+
+            return newNode;
+
+        } catch (e) {
+            console.error("Node Split Failed", e);
+            store.commitTransaction();
+            throw e;
         }
-
-        const newNode = this.createNode(closestPoint, type);
-        const newNodeId = newNode.getId() as string;
-
-        const coords1 = [...coords.slice(0, splitIndex + 1), closestPoint];
-        const p1Id = store.generateUniqueId('pipe');
-        const p1 = new Feature({ geometry: new LineString(coords1) });
-        p1.setId(p1Id);
-        p1.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p1Id, startNodeId: startNodeId, endNodeId: newNodeId, source: startNodeId, target: newNodeId, label: `${p1Id}`, length: this.calculatePipeLength(p1.getGeometry() as LineString) });
-
-        const coords2 = [closestPoint, ...coords.slice(splitIndex + 1)];
-        const p2Id = store.generateUniqueId('pipe');
-        const p2 = new Feature({ geometry: new LineString(coords2) });
-        p2.setId(p2Id);
-        p2.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p2Id, startNodeId: newNodeId, endNodeId: endNodeId, source: newNodeId, target: endNodeId, label: `${p2Id}`, length: this.calculatePipeLength(p2.getGeometry() as LineString) });
-
-        this.vectorSource.removeFeature(pipe);
-        store.removeFeature(originalId);
-
-        this.vectorSource.addFeatures([p1, p2]);
-        store.addFeature(p1);
-        store.addFeature(p2);
-
-        store.updateNodeConnections(startNodeId, originalId, "remove");
-        store.updateNodeConnections(endNodeId, originalId, "remove");
-
-        store.updateNodeConnections(startNodeId, p1Id, "add");
-        store.updateNodeConnections(newNodeId, p1Id, "add");
-
-        store.updateNodeConnections(newNodeId, p2Id, "add");
-        store.updateNodeConnections(endNodeId, p2Id, "add");
-
-        this.spatialIndex = null;
-        return newNode;
     }
 
     public reversePipeDirection(pipe: Feature) {
         const store = useNetworkStore.getState();
-        const geometry = pipe.getGeometry() as LineString;
-        const coords = geometry.getCoordinates();
+        store.startTransaction();
 
-        // 1. Reverse Coordinates
-        const reversedCoords = coords.reverse();
-        geometry.setCoordinates(reversedCoords);
+        try {
+            const geometry = pipe.getGeometry() as LineString;
+            const coords = geometry.getCoordinates();
 
-        // 2. Swap Start/End Node IDs in Properties
-        const startNodeId = pipe.get('startNodeId');
-        const endNodeId = pipe.get('endNodeId');
-        pipe.set('startNodeId', endNodeId);
-        pipe.set('endNodeId', startNodeId);
+            // 1. Reverse Coordinates
+            const reversedCoords = coords.reverse();
+            geometry.setCoordinates(reversedCoords);
 
-        // 3. Update Store State
-        const id = pipe.getId() as string;
-        store.markModified([id]);
-        store.markUnSaved();
+            // 2. Swap Start/End Node IDs in Properties
+            const startNodeId = pipe.get('startNodeId');
+            const endNodeId = pipe.get('endNodeId');
+            pipe.set('startNodeId', endNodeId);
+            pipe.set('endNodeId', startNodeId);
+
+            // 3. Update Store State
+            const id = pipe.getId() as string;
+            store.markModified([id]);
+            store.markUnSaved();
+            store.commitTransaction();
+        } catch (error) {
+            store.commitTransaction();
+        }
     }
 
 }
