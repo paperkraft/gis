@@ -32,7 +32,7 @@ export function useMapContextMenu() {
     });
 
     // =========================================================
-    // 🚀 ROBUST HIT DETECTION
+    // HIT DETECTION
     // =========================================================
     const findFeatureAtCoordinate = (coordinate: number[]) => {
         if (!vectorSource || !map) return null;
@@ -104,6 +104,11 @@ export function useMapContextMenu() {
 
         const handleContextMenu = (event: MouseEvent) => {
             event.preventDefault();
+
+            if (useMapStore.getState().isDrawingPipe) {
+                return;
+            }
+
             const pixel = map.getEventPixel(event);
             const coordinate = map.getCoordinateFromPixel(pixel);
 
@@ -303,8 +308,6 @@ export function useMapContextMenu() {
         geom.setCoordinates(coords);
         const newLength = Math.round(geom.getLength());
         pipe.set('length', newLength);
-
-        console.log('New Vertex', coords);
 
         // 4. Update Store (Persistence)
         // We pass the raw array; the Store must handle the conversion.
