@@ -1,6 +1,8 @@
+import Flatbush from 'flatbush';
 import { Feature, MapBrowserEvent } from 'ol';
 import { LineString, Point } from 'ol/geom';
 import { Draw, Snap } from 'ol/interaction';
+import VectorLayer from 'ol/layer/Vector';
 import Map from 'ol/Map';
 import VectorSource from 'ol/source/Vector';
 import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style';
@@ -10,13 +12,18 @@ import { useNetworkStore } from '@/store/networkStore';
 import { FeatureType } from '@/types/network';
 
 import { NetworkFactory } from './networkFactory';
-import Flatbush from 'flatbush';
 
 export class PipeDrawingManager {
     private map: Map;
     private vectorSource: VectorSource;
     private drawInteraction: Draw | null = null;
     private snapInteraction: Snap | null = null;
+
+    // Visual Snapping State
+    private highlightLayer: VectorLayer<VectorSource> | null = null;
+    private highlightSource: VectorSource | null = null;
+    private highlightListener: ((e: MapBrowserEvent<any>) => void) | null = null;
+
     private _isDrawingMode: boolean = false;
 
     public get isDrawingMode(): boolean {
@@ -65,6 +72,8 @@ export class PipeDrawingManager {
 
         useMapStore.getState().setIsDrawingPipe(true);
         this.map.getViewport().style.cursor = "crosshair";
+
+        this.setupHighlightLayer();
 
         // Initialize Draw Interaction (For Standalone Line Drawing)
         this.drawInteraction = new Draw({
@@ -141,6 +150,8 @@ export class PipeDrawingManager {
 
     public stopDrawing(fullReset: boolean = true) {
         if (!this._isDrawingMode) return;
+
+        this.removeHighlightLayer();
 
         this.spatialIndex = null;
         this.indexedFeatures = [];
@@ -243,6 +254,120 @@ export class PipeDrawingManager {
         this.drawingCoordinates = [coord];
         this.addVertexMarker(coord);
         this.spatialIndex = null; // Invalidate
+    }
+
+
+    // ============================================
+    // VISUAL SNAPPING LOGIC
+    // ============================================
+
+    private setupHighlightLayer() {
+        if (this.highlightLayer) return;
+        this.highlightSource = new VectorSource();
+
+        // 1. Node Snap Style (Glow + Target)
+        const nodeHighlightStyle = [
+            // Outer Glow (Soft Halo)
+            new Style({
+                image: new CircleStyle({
+                    radius: 14,
+                    fill: new Fill({ color: 'rgba(6, 182, 212, 0.2)' }) // Cyan-500 low opacity
+                }),
+                zIndex: 999
+            }),
+            // Inner Target (Sharp Ring)
+            new Style({
+                image: new CircleStyle({
+                    radius: 6,
+                    stroke: new Stroke({ color: '#06b6d4', width: 3 }), // Cyan-500 Solid
+                    fill: new Fill({ color: 'rgba(255, 255, 255, 0.9)' }) // White center for precision focus
+                }),
+                zIndex: 1000
+            })
+        ];
+
+        // 2. Pipe Split Style (Glow + Dashed Core)
+        const pipeHighlightStyle = [
+            // Wide Glow Path
+            new Style({
+                stroke: new Stroke({
+                    color: 'rgba(6, 182, 212, 0.25)', // Cyan Glow
+                    width: 14,
+                    lineCap: 'round'
+                }),
+                zIndex: 999
+            }),
+            // Core Action Line
+            new Style({
+                stroke: new Stroke({
+                    color: '#06b6d4', // Cyan Solid
+                    width: 3,
+                    lineDash: [10, 10] // Dashed to indicate "Modification/Split"
+                }),
+                zIndex: 1000
+            })
+        ];
+
+        this.highlightLayer = new VectorLayer({
+            source: this.highlightSource,
+            zIndex: 10000, // Ensure it's on top of everything
+            style: (feature) => {
+                const type = feature.get('type');
+                if (['junction', 'tank', 'reservoir'].includes(type)) return nodeHighlightStyle;
+                if (type === 'pipe') return pipeHighlightStyle;
+                return undefined;
+            }
+        });
+
+        this.map.addLayer(this.highlightLayer);
+
+        // Listen to mouse moves
+        this.highlightListener = (evt: MapBrowserEvent<any>) => {
+            if (!this._isDrawingMode || !this.highlightSource) return;
+
+            // 1. Clear previous highlight
+            this.highlightSource.clear();
+            const coordinate = evt.coordinate;
+
+            // 2. Check for Nodes (Priority)
+            const node = this.findNodeAtCoordinate(coordinate);
+            if (node) {
+                // Show "Connect" feedback
+                const clone = node.clone();
+                clone.setId(`highlight-${node.getId()}`); // Avoid ID conflict
+                this.highlightSource.addFeature(clone);
+                this.map.getViewport().style.cursor = 'copy'; // Cursor: Copy (aka Connect)
+                return;
+            }
+
+            // 3. Check for Pipes
+            const pipe = this.findPipeAtCoordinate(coordinate);
+            if (pipe) {
+                // Show "Split" feedback
+                const clone = pipe.clone();
+                clone.setId(`highlight-${pipe.getId()}`);
+                this.highlightSource.addFeature(clone);
+                this.map.getViewport().style.cursor = 'crosshair'; // Cursor: Cell (aka Split)
+                return;
+            }
+
+            // 4. Nothing nearby
+            this.map.getViewport().style.cursor = 'crosshair';
+        };
+
+        this.map.on('pointermove', this.highlightListener);
+    }
+
+    private removeHighlightLayer() {
+        if (this.highlightListener) {
+            this.map.un('pointermove', this.highlightListener);
+            this.highlightListener = null;
+        }
+        if (this.highlightLayer) {
+            this.map.removeLayer(this.highlightLayer);
+            this.highlightLayer = null;
+            this.highlightSource = null;
+        }
     }
 
     // ============================================

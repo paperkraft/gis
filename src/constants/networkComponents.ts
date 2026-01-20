@@ -76,7 +76,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
         name: "Pipe",
         prefix: "P",
         icon: Minus,
-        color: "#0066cc",
+        color: "#312e81", //"#0066cc",
         description: "Water transmission line",
         defaultProperties: {
             diameter: 150,
