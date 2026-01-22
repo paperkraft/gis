@@ -12,6 +12,8 @@ import { VertexLayerManager } from '@/lib/topology/vertexManager';
 import { useNetworkStore } from '@/store/networkStore';
 import { useUIStore } from '@/store/uiStore';
 import { FeatureType } from '@/types/network';
+import { DeleteManager } from '@/lib/topology/deleteManager';
+// import { ValidationManager } from '@/lib/topology/validationManager';
 
 interface UseMapInteractionsProps {
     map: Map | null;
@@ -27,6 +29,8 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
     const vertexLayerManagerRef = useRef<VertexLayerManager | null>(null);
     const drawInteractionRef = useRef<Draw | null>(null);
     const zoomBoxRef = useRef<DragBox | null>(null);
+    const deleteManagerRef = useRef<DeleteManager | null>(null);
+    // const validationManagerRef = useRef<ValidationManager | null>(null);
 
     // Initialize Managers
     useEffect(() => {
@@ -35,26 +39,30 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
         const pipeManager = new PipeDrawingManager(map, vectorSource);
         const modifyManager = new ModifyManager(map, vectorSource);
         const vertexManager = new VertexLayerManager(map, vectorSource);
-
-
-        const originalStart = pipeManager.startDrawing.bind(pipeManager);
-        pipeManager.startDrawing = (type) => {
-            originalStart(type);
-        };
-
-        const originalStop = pipeManager.stopDrawing.bind(pipeManager);
-        pipeManager.stopDrawing = () => {
-            originalStop();
-        };
+        const deleteManager = new DeleteManager(vectorSource);
+        // const validationManager = new ValidationManager(map);
 
         pipeDrawingManagerRef.current = pipeManager;
         modifyManagerRef.current = modifyManager;
         vertexLayerManagerRef.current = vertexManager;
+        deleteManagerRef.current = deleteManager;
+        // validationManagerRef.current = validationManager;
+
+        // const unsubscribe = useNetworkStore.subscribe((state, prevState) => {
+        //     // If the feature count changed or version updated, run validation
+        //     if (state.features !== prevState.features) {
+        //         // Debounce slightly if needed, or run immediately
+        //         validationManager.runValidation();
+        //     }
+        // });
 
         return () => {
             pipeManager.cleanup();
             modifyManager.cleanup();
             vertexManager.cleanup();
+            deleteManager.cleanup();
+            // unsubscribe();
+            // validationManager.clear();
         };
     }, [map, vectorSource]);
 
@@ -198,5 +206,6 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
 
     return {
         pipeDrawingManager: pipeDrawingManagerRef.current,
+        deleteManager: deleteManagerRef.current
     };
 }

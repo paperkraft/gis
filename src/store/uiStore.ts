@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import { layerType } from '@/constants/map';
 import { WorkbenchModalType } from '@/components/workbench/modal_registry';
+import { Feature } from 'ol';
 export type FlowAnimationStyle = 'dashes' | 'particles' | 'glow' | 'combined';
 
 export type ToolType =
@@ -29,6 +30,27 @@ export interface ContextMenuState {
     y: number;
     type: 'layer' | 'feature';
     id: string; // layerKey or featureId
+}
+
+export interface MergeContext {
+    node: Feature;
+    pipeA: Feature;
+    pipeB: Feature;
+    onResolve: (chosenPipe: Feature) => void;
+    onCancel: () => void;
+}
+
+interface DeleteContext {
+    features: Feature[];
+    impact: {
+        totalCount: number;      // Total items to be removed
+        cascadeCount: number;    // Items NOT selected but deleted automatically
+        orphanCount: number;     // Nodes deleted because Pipe was deleted
+        isMerge: boolean;        // Pump/Valve delete -> Merge Nodes?
+        primaryType: string;     // e.g. "Junction", "Pipe", or "Mixed"
+    };
+    onConfirm: () => void;
+    onCancel: () => void;
 }
 
 interface UIState {
@@ -83,7 +105,11 @@ interface UIState {
 
     // Context Menu & Styling State
     contextMenu: ContextMenuState | null;
+    mergeContext: MergeContext | null;
+    deleteContext: DeleteContext | null;
+
     activeStyleLayer: string | null;
+
 
     // project refresh utility
     refreshProjects: () => void;
@@ -136,6 +162,8 @@ interface UIState {
 
     // Actions - Tab navigation
     setContextMenu: (menu: ContextMenuState | null) => void;
+    setMergeContext: (context: MergeContext | null) => void;
+    setDeleteContext: (context: DeleteContext | null) => void;
     setActiveStyleLayer: (layer: string | null) => void;
 
     // Utility - Reset all tools
@@ -199,6 +227,8 @@ const DEFAULT_STATE = {
     styleSettingsModalOpen: false,
 
     contextMenu: null,
+    mergeContext: null,
+    deleteContext: null,
     activeStyleLayer: null,
 
 };
@@ -212,7 +242,10 @@ export const useUIStore = create<UIState>((set, get) => ({
 
     setSidebarWidth: (width) => set({ sidebarWidth: width }),
 
+    // Context
     setContextMenu: (menu) => set({ contextMenu: menu }),
+    setMergeContext: (context) => set({ mergeContext: context }),
+    setDeleteContext: (context) => set({ deleteContext: context }),
     setActiveStyleLayer: (layer) => set({ activeStyleLayer: layer }),
 
     // Modal actions

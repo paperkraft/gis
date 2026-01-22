@@ -91,7 +91,12 @@ export function MapContainer() {
   }, [map, vectorSource, features.size, projectId]);
 
   // Setup Interactions
-  useMapInteractions({ map, vectorSource });
+  const { deleteManager, pipeDrawingManager } = useMapInteractions({
+    map,
+    vectorSource,
+  });
+
+  const contextMenu = useMapContextMenu(pipeDrawingManager, deleteManager);
 
   // Handle Feature Selection
   useFeatureSelection({
@@ -170,7 +175,7 @@ export function MapContainer() {
   useKeyboardShortcuts();
 
   // Delete Handling
-  const { cascadeInfo, deleteCount, handleDeleteConfirm } = useDeleteHandler();
+  // const { cascadeInfo, deleteCount, handleDeleteConfirm } = useDeleteHandler();
 
   // History Manager (Undo/Redo)
   useHistoryManager();
@@ -189,8 +194,6 @@ export function MapContainer() {
       loadResults(projectId);
     }
   }, [projectId, loadResults]);
-
-  const contextMenu = useMapContextMenu();
 
   return (
     <div className="relative w-full h-full bg-gray-100 dark:bg-gray-900 flex flex-col">
@@ -212,7 +215,7 @@ export function MapContainer() {
           onAction={contextMenu.onAction}
         />
 
-        <DeleteConfirmationModal
+        {/* <DeleteConfirmationModal
           isOpen={deleteModalOpen}
           onClose={() => setDeleteModalOpen(false)}
           onConfirm={handleDeleteConfirm}
@@ -221,7 +224,7 @@ export function MapContainer() {
           featureType={selectedFeature?.get("type") || "Feature"}
           featureId={selectedFeature?.getId()?.toString() || "Unknown"}
           cascadeInfo={cascadeInfo}
-        />
+        /> */}
       </div>
 
       {/* Status bar */}

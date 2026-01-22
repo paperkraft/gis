@@ -773,4 +773,77 @@ export class PipeDrawingManager {
         }
     }
 
+    public convertNode(node: Feature, newType: 'tank' | 'reservoir' | 'junction') {
+        const store = useNetworkStore.getState();
+        const vectorSource = this.vectorSource;
+
+        // 1. Validation
+        if (!node) return;
+        const oldId = node.getId() as string;
+        const oldType = node.get('type');
+
+        if (oldType === newType) return; // No change needed
+
+        // 2. Start Transaction
+        store.startTransaction();
+
+        try {
+            // Create New Node at same location
+            const coords = (node.getGeometry() as Point).getCoordinates();
+            const newNode = NetworkFactory.createNode(newType, coords);
+            const newId = newNode.getId() as string;
+
+            // Transfer Properties? 
+            // Usually we DON'T transfer props between different types (e.g. Tank level vs Junction demand).
+            // But we MUST transfer topology.
+
+            // ADD TO STORE & MAP FIRST
+            // We must do this before updating connections so the store can find 'newId'
+            vectorSource.addFeature(newNode);
+            store.addFeature(newNode);
+
+            // Update Connected Links
+            // We need to look at the store to find who connects to us
+            const storeNode = store.features.get(oldId);
+            const connectedLinks = storeNode?.get('connectedLinks') || [];
+
+            connectedLinks.forEach((linkId: string) => {
+                const link = vectorSource.getFeatureById(linkId) || store.features.get(linkId);
+                if (link) {
+                    // A. Update Link Endpoints (Point to new Node ID)
+                    let modified = false;
+                    if (link.get('startNodeId') === oldId) {
+                        link.set('startNodeId', newId);
+                        store.updateFeature(linkId, { startNodeId: newId });
+                        modified = true;
+                    }
+                    if (link.get('endNodeId') === oldId) {
+                        link.set('endNodeId', newId);
+                        store.updateFeature(linkId, { endNodeId: newId });
+                        modified = true;
+                    }
+
+                    // B. Update Topology Arrays (if link was actually connected)
+                    if (modified) {
+                        store.updateNodeConnections(oldId, linkId, 'remove');
+                        store.updateNodeConnections(newId, linkId, 'add');
+                    }
+                }
+            });
+
+            // Delete Old Node
+            vectorSource.removeFeature(node);
+            store.removeFeature(oldId);
+
+            // Select New Node
+            store.selectFeature(newId);
+
+            store.commitTransaction();
+
+        } catch (e) {
+            console.error("Conversion failed", e);
+            store.commitTransaction();
+        }
+    }
+
 }
