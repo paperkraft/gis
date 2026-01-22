@@ -7,6 +7,7 @@ import { useUIStore } from '@/store/uiStore';
 import { PipeDrawingManager } from '@/lib/topology/pipeDrawingManager';
 import { DeleteManager } from '@/lib/topology/deleteManager';
 import { NetworkFactory } from '@/lib/topology/networkFactory';
+import { toast } from 'sonner';
 
 export function useMapContextMenu(
     pipeDrawingManager?: PipeDrawingManager | null,
@@ -232,6 +233,30 @@ export function useMapContextMenu(
                     pipeDrawingManager.convertNode(feature, 'junction');
                 }
                 break;
+
+            case 'MERGE_PIPES_AT_NODE':
+                if (feature && pipeDrawingManager) {
+                    const store = useNetworkStore.getState();
+                    const storeNode = store.features.get(feature.getId() as string);
+                    const conns = storeNode?.get('connectedLinks') || [];
+
+                    // Safety check: Ensure we have exactly 2 connections
+                    if (conns.length === 2) {
+                        const id1 = conns[0];
+                        const id2 = conns[1];
+
+                        // Try Map Source first (best for visuals), Fallback to Store
+                        const pipeA = vectorSource?.getFeatureById(id1) || store.features.get(id1);
+                        const pipeB = vectorSource?.getFeatureById(id2) || store.features.get(id2);
+
+                        if (pipeA && pipeB) {
+                            pipeDrawingManager.mergePipes(pipeA, pipeB, feature);
+                        } else {
+                            toast.error("Merge failed: Could not find connected pipes in memory.");
+                        }
+                    }
+                }
+                break;
         }
 
         // Close menu
@@ -295,11 +320,28 @@ export function useMapContextMenu(
         pipe.changed();
     };
 
+    const canMergeNode = (feature: Feature | null) => {
+        if (!feature || feature.get('type') !== 'junction') return false;
+
+        // We need to check the store for connections
+        const storeNode = useNetworkStore.getState().features.get(feature.getId() as string);
+        const connections = storeNode?.get('connectedLinks') || [];
+
+        // Only allow if exactly 2 pipes are connected
+        if (connections.length !== 2) return false;
+
+        const store = useNetworkStore.getState();
+        const link1 = store.features.get(connections[0]);
+        const link2 = store.features.get(connections[1]);
+
+        return link1?.get('type') === 'pipe' && link2?.get('type') === 'pipe';
+    };
+
     const closeMenu = useCallback(() => {
         setState(prev => ({ ...prev, isVisible: false }));
         // Optional: clear selection on background click if desired, 
         // but often context menu dismissal shouldn't deselect.
     }, []);
 
-    return { ...state, onClose: closeMenu, onAction: handleAction };
+    return { ...state, onClose: closeMenu, onAction: handleAction, canMergeNode };
 }

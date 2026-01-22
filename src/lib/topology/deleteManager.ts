@@ -4,13 +4,16 @@ import VectorSource from 'ol/source/Vector';
 import { NetworkFactory } from '@/lib/topology/networkFactory';
 import { useNetworkStore } from '@/store/networkStore';
 import { useUIStore } from '@/store/uiStore';
+import { PipeDrawingManager } from './pipeDrawingManager';
 
 export class DeleteManager {
     private vectorSource: VectorSource;
+    private pipeDrawingManager: PipeDrawingManager | null = null;
     private keyboardHandler: ((e: KeyboardEvent) => void) | null = null;
 
-    constructor(vectorSource: VectorSource) {
+    constructor(vectorSource: VectorSource, pipeDrawingManager?: PipeDrawingManager) {
         this.vectorSource = vectorSource;
+        this.pipeDrawingManager = pipeDrawingManager || null;
         this.setupKeyboardShortcuts();
     }
 
@@ -53,38 +56,8 @@ export class DeleteManager {
 
     private initiateDelete(features: Feature[]) {
         if (features.length === 0) return;
-        const store = useNetworkStore.getState();
 
-        // SCENARIO 1 CHECK: Pipe Merge (Existing logic)
-        if (features.length === 1) {
-            const feature = features[0];
-            const type = feature.get('type');
-            if (['junction', 'tank', 'reservoir'].includes(type)) {
-                const storeNode = store.features.get(feature.getId() as string);
-                const connectedLinks = storeNode?.get('connectedLinks') || [];
-                if (connectedLinks.length === 2) {
-                    const link1 = store.features.get(connectedLinks[0]);
-                    const link2 = store.features.get(connectedLinks[1]);
-                    if (link1 && link2 && link1.get('type') === 'pipe' && link2.get('type') === 'pipe') {
-                        useUIStore.getState().setMergeContext({
-                            node: feature,
-                            pipeA: link1,
-                            pipeB: link2,
-                            onCancel: () => useUIStore.getState().setMergeContext(null),
-                            onResolve: (chosen) => {
-                                const mapPipeA = this.getFeature(link1.getId() as string);
-                                const mapPipeB = this.getFeature(link2.getId() as string);
-                                if (mapPipeA && mapPipeB) this.executeMerge(feature, mapPipeA, mapPipeB, chosen);
-                                useUIStore.getState().setMergeContext(null);
-                            }
-                        });
-                        return;
-                    }
-                }
-            }
-        }
-
-        // SCENARIO 2 & 3 & 4: Calculate Impact (Orphans, Cascades, Pump Merges)
+        // Calculate Impact (Orphans, Cascades, Pump Merges)
         const impact = this.calculateImpact(features);
 
         useUIStore.getState().setDeleteContext({
@@ -131,9 +104,13 @@ export class DeleteManager {
                 [startId, endId].forEach(nodeId => {
                     if (itemsToDelete.has(nodeId)) return; // Already deleting this node
                     const node = store.features.get(nodeId);
+                    if (!node) return;
                     const conns = node?.get('connectedLinks') || [];
                     // Check if node has ONLY this pipe (and maybe other deleted pipes)
-                    const activeConns = conns.filter((lid: string) => !itemsToDelete.has(lid) && lid !== id);
+                    const activeConns = conns.filter((lid: string) => {
+                        const strLid = String(lid);
+                        return !itemsToDelete.has(strLid) && strLid !== id;
+                    });
 
                     if (activeConns.length === 0) {
                         itemsToDelete.add(nodeId);
@@ -158,7 +135,7 @@ export class DeleteManager {
         });
 
         const totalCount = itemsToDelete.size;
-        const cascadeCount = totalCount - selectedFeatures.length - orphanCount;
+        const cascadeCount = Math.max(0, totalCount - selectedFeatures.length - orphanCount);
 
         const uniqueTypes = new Set(selectedFeatures.map(f => f.get('type')));
         let primaryType = uniqueTypes.size === 1 ? Array.from(uniqueTypes)[0] : "Mixed";
@@ -220,6 +197,9 @@ export class DeleteManager {
         const newJunction = NetworkFactory.createNode('junction', midPoint);
         const newJunctionId = newJunction.getId() as string;
 
+        this.vectorSource.addFeature(newJunction);
+        store.addFeature(newJunction);
+
         // 2. Identify Neighbors (The two pipes connecting to the pump)
         const neighborIds = [
             ...this.getConnectedLinks(startNode),
@@ -230,56 +210,64 @@ export class DeleteManager {
 
         // 3. Reconnect Neighbors to New Junction
         neighborIds.forEach(neighborId => {
-            const pipeFeature = this.getFeature(neighborId);
+            const pipeFeature = this.getFeature(neighborId) || store.features.get(neighborId);;
             if (!pipeFeature) return;
 
             neighbors.push(pipeFeature); // Track for potential merge later
 
             const pipeGeom = pipeFeature.getGeometry() as LineString;
+            // Clone coords to avoid reference issues
             const coords = pipeGeom.getCoordinates();
             const pStartId = pipeFeature.get('startNodeId');
             const pEndId = pipeFeature.get('endNodeId');
 
-            // Update Topology & Geometry
+            let modified = false;
+
+            // Update Start Point
             if (pStartId === startNodeId || pStartId === endNodeId) {
                 pipeFeature.set('startNodeId', newJunctionId);
                 store.updateFeature(neighborId, { startNodeId: newJunctionId });
                 coords[0] = midPoint;
+
+                // Update Topology
                 store.updateNodeConnections(pStartId, neighborId, 'remove');
                 store.updateNodeConnections(newJunctionId, neighborId, 'add');
+                modified = true;
+
             } else if (pEndId === startNodeId || pEndId === endNodeId) {
                 pipeFeature.set('endNodeId', newJunctionId);
                 store.updateFeature(neighborId, { endNodeId: newJunctionId });
                 coords[coords.length - 1] = midPoint;
+
                 store.updateNodeConnections(pEndId, neighborId, 'remove');
                 store.updateNodeConnections(newJunctionId, neighborId, 'add');
+                modified = true;
             }
 
-            pipeGeom.setCoordinates(coords);
-            // Recalculate length after stretch
-            const newLen = Math.round(pipeGeom.getLength());
-            pipeFeature.set('length', newLen);
-            store.updateFeature(neighborId, { geometry: coords, length: newLen });
+            if (modified) {
+                pipeGeom.setCoordinates(coords);
+                // Recalculate length after stretch
+                const newLen = Math.round(pipeGeom.getLength());
+                pipeFeature.set('length', newLen);
+                store.updateFeature(neighborId, { geometry: coords, length: newLen });
+            }
+
         });
 
-        // 4. Commit New Node to State
-        this.vectorSource.addFeature(newJunction);
-        store.addFeature(newJunction);
-
-        // 5. Delete Old Components (Pump, J_in, J_out, Visual)
+        // 4. Delete Old Components (Pump, J_in, J_out, Visual)
         const visualId = `VIS-${linkId}`;
         const visual = this.getFeature(visualId);
-        [link, startNode, endNode, visual].forEach(f => {
-            if (f) {
-                this.vectorSource.removeFeature(f);
-                store.removeFeature(f.getId() as string);
-            }
-        });
+
+        // Remove strictly
+        if (visual) { this.vectorSource.removeFeature(visual); store.removeFeature(visualId); }
+        this.vectorSource.removeFeature(link); store.removeFeature(linkId);
+        this.vectorSource.removeFeature(startNode); store.removeFeature(startNodeId);
+        this.vectorSource.removeFeature(endNode); store.removeFeature(endNodeId);
 
         // ---------------------------------------------------------
         // AUTO-HEAL LOGIC: Merge pipes if they are identical
         // ---------------------------------------------------------
-        if (neighbors.length === 2) {
+        if (neighbors.length === 2 && this.pipeDrawingManager) {
             const [pipeA, pipeB] = neighbors;
 
             // Check Compatibility (Diameter, Material, Roughness)
@@ -294,7 +282,7 @@ export class DeleteManager {
             if (isCompatible) {
                 // Perform the merge immediately using the existing logic
                 // pipeA serves as the template for the new merged pipe
-                this.executeMerge(newJunction, pipeA, pipeB, pipeA);
+                this.pipeDrawingManager.mergePipes(pipeA, pipeB, newJunction, true);
             }
         }
     }
@@ -375,50 +363,6 @@ export class DeleteManager {
         if (nodeFeature) {
             const conns = nodeFeature.get("connectedLinks") || [];
             nodeFeature.set("connectedLinks", conns.filter((id: string) => id !== linkId));
-        }
-    }
-
-    private executeMerge(node: Feature, pipeA: Feature, pipeB: Feature, sourceTemplate: Feature) {
-        const store = useNetworkStore.getState();
-        const vectorSource = this.vectorSource;
-        store.startTransaction();
-        try {
-            const nodeCoord = (node.getGeometry() as Point).getCoordinates();
-            const geomA = (pipeA.getGeometry() as LineString).getCoordinates();
-            const geomB = (pipeB.getGeometry() as LineString).getCoordinates();
-            const isAtNode = (c1: number[], c2: number[]) => Math.abs(c1[0] - c2[0]) < 0.01 && Math.abs(c1[1] - c2[1]) < 0.01;
-
-            let orderedA = [...geomA];
-            if (isAtNode(orderedA[0], nodeCoord)) orderedA.reverse();
-            let orderedB = [...geomB];
-            if (isAtNode(orderedB[orderedB.length - 1], nodeCoord)) orderedB.reverse();
-            const mergedCoords = [...orderedA, ...orderedB.slice(1)];
-            const startNodeId = isAtNode(geomA[0], nodeCoord) ? pipeA.get('endNodeId') : pipeA.get('startNodeId');
-            const endNodeId = isAtNode(geomB[0], nodeCoord) ? pipeB.get('endNodeId') : pipeB.get('startNodeId');
-            const newProps = { ...sourceTemplate.getProperties() };
-            delete newProps.id; delete newProps.geometry; delete newProps.length;
-            delete newProps.startNodeId; delete newProps.endNodeId; delete newProps.geometryName;
-            const newPipe = NetworkFactory.createPipe(mergedCoords,
-                this.getFeature(startNodeId) || store.features.get(startNodeId)!,
-                this.getFeature(endNodeId) || store.features.get(endNodeId)!,
-                undefined, newProps
-            );
-            vectorSource.removeFeature(node);
-            vectorSource.removeFeature(pipeA);
-            vectorSource.removeFeature(pipeB);
-            store.removeFeature(node.getId() as string);
-            store.removeFeature(pipeA.getId() as string);
-            store.removeFeature(pipeB.getId() as string);
-            vectorSource.addFeature(newPipe);
-            store.addFeature(newPipe);
-            store.updateNodeConnections(startNodeId, pipeA.getId() as string, 'remove');
-            store.updateNodeConnections(endNodeId, pipeB.getId() as string, 'remove');
-            store.updateNodeConnections(startNodeId, newPipe.getId() as string, 'add');
-            store.updateNodeConnections(endNodeId, newPipe.getId() as string, 'add');
-            store.updateFeature(newPipe.getId() as string, { geometry: mergedCoords });
-            store.commitTransaction();
-        } catch (e) {
-            store.commitTransaction();
         }
     }
 

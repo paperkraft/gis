@@ -8,6 +8,7 @@ import {
   XCircle,
   ArrowLeftRight,
   Circle,
+  Merge,
 } from "lucide-react";
 
 import { COMPONENT_TYPES } from "@/constants/networkComponents";
@@ -19,6 +20,7 @@ interface MapContextMenuProps {
   feature: Feature | null;
   onClose: () => void;
   onAction: (action: string, payload?: any) => void;
+  canMergeNode: (feature: Feature | null) => boolean;
 }
 
 export function MapContextMenu({
@@ -28,6 +30,7 @@ export function MapContextMenu({
   feature,
   onClose,
   onAction,
+  canMergeNode,
 }: MapContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [adjustedPos, setAdjustedPos] = useState(position);
@@ -168,6 +171,12 @@ export function MapContextMenu({
       action: "CONVERT_TO_JUNCTION",
     },
     {
+      color: COMPONENT_TYPES.pipe.color,
+      icon: Merge,
+      label: "Merge Connected Pipes",
+      action: "MERGE_PIPES_AT_NODE",
+    },
+    {
       icon: Trash2,
       label: "Delete",
       action: "DELETE",
@@ -207,13 +216,19 @@ export function MapContextMenu({
     </>
   );
 
-  const currentType = feature?.get("type"); // 'junction', 'tank', or 'reservoir'
+  const currentType = feature?.get("type");
+  
   const shouldHide = (action: string) => {
-    if (currentType === "junction" && action === "CONVERT_TO_JUNCTION")
-      return true;
+    if (currentType === "junction" && action === "CONVERT_TO_JUNCTION") return true;
     if (currentType === "tank" && action === "CONVERT_TO_TANK") return true;
     if (currentType === "reservoir" && action === "CONVERT_TO_RESERVOIR")
       return true;
+    if (action === "MERGE_PIPES_AT_NODE") {
+      // Rule A: MUST be a Junction (cannot merge across Tank/Reservoir)
+      if (currentType !== "junction") return true;
+      // Rule B: MUST be topologically valid (exactly 2 pipes)
+      if (!canMergeNode(feature)) return true;
+    }
     return false;
   };
 

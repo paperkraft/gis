@@ -39,7 +39,7 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
         const pipeManager = new PipeDrawingManager(map, vectorSource);
         const modifyManager = new ModifyManager(map, vectorSource);
         const vertexManager = new VertexLayerManager(map, vectorSource);
-        const deleteManager = new DeleteManager(vectorSource);
+        const deleteManager = new DeleteManager(vectorSource, pipeManager);
         // const validationManager = new ValidationManager(map);
 
         pipeDrawingManagerRef.current = pipeManager;

@@ -12,6 +12,7 @@ import { useNetworkStore } from '@/store/networkStore';
 import { FeatureType } from '@/types/network';
 
 import { NetworkFactory } from './networkFactory';
+import { useUIStore } from '@/store/uiStore';
 
 export class PipeDrawingManager {
     private map: Map;
@@ -581,6 +582,78 @@ export class PipeDrawingManager {
         }
     }
 
+    private executeMergeTransaction(node: Feature, pipeA: Feature, pipeB: Feature, template: Feature) {
+        const store = useNetworkStore.getState();
+        const vectorSource = this.vectorSource;
+
+        // Ensure we are in a transaction (If caller started one, this is ignored, which is fine)
+        store.startTransaction();
+
+        try {
+            // 1. Calculate Geometry
+            const nodeCoord = (node.getGeometry() as Point).getCoordinates();
+            const geomA = (pipeA.getGeometry() as LineString).getCoordinates();
+            const geomB = (pipeB.getGeometry() as LineString).getCoordinates();
+
+            // Helper to check proximity
+            const isAtNode = (c1: number[], c2: number[]) =>
+                Math.abs(c1[0] - c2[0]) < 0.01 && Math.abs(c1[1] - c2[1]) < 0.01;
+
+            // Orient Pipe A (End at Node)
+            let orderedA = [...geomA];
+            if (isAtNode(orderedA[0], nodeCoord)) orderedA.reverse();
+
+            // Orient Pipe B (Start at Node)
+            let orderedB = [...geomB];
+            if (isAtNode(orderedB[orderedB.length - 1], nodeCoord)) orderedB.reverse();
+
+            // Stitch (A + B without duplicate middle vertex)
+            const mergedCoords = [...orderedA, ...orderedB.slice(1)];
+
+            // 2. Topology Endpoints
+            const startNodeId = isAtNode(geomA[0], nodeCoord) ? pipeA.get('endNodeId') : pipeA.get('startNodeId');
+            const endNodeId = isAtNode(geomB[0], nodeCoord) ? pipeB.get('endNodeId') : pipeB.get('startNodeId');
+
+            // 3. Properties (From Template)
+            const newProps = { ...template.getProperties() };
+            delete newProps.id; delete newProps.geometry; delete newProps.length;
+            delete newProps.startNodeId; delete newProps.endNodeId; delete newProps.geometryName;
+
+            // 4. Create New Pipe
+            const newPipe = NetworkFactory.createPipe(mergedCoords,
+                vectorSource.getFeatureById(startNodeId) || store.features.get(startNodeId)!,
+                vectorSource.getFeatureById(endNodeId) || store.features.get(endNodeId)!,
+                undefined, newProps
+            );
+
+            // 5. Update Store & Map
+            // Remove Old
+            vectorSource.removeFeature(node);
+            vectorSource.removeFeature(pipeA);
+            vectorSource.removeFeature(pipeB);
+            store.removeFeature(node.getId() as string);
+            store.removeFeature(pipeA.getId() as string);
+            store.removeFeature(pipeB.getId() as string);
+
+            // Add New
+            vectorSource.addFeature(newPipe);
+            store.addFeature(newPipe);
+
+            // Update Connections
+            store.updateNodeConnections(startNodeId, pipeA.getId() as string, 'remove');
+            store.updateNodeConnections(endNodeId, pipeB.getId() as string, 'remove');
+            store.updateNodeConnections(startNodeId, newPipe.getId() as string, 'add');
+            store.updateNodeConnections(endNodeId, newPipe.getId() as string, 'add');
+
+            // Finalize
+            store.commitTransaction();
+
+        } catch (e) {
+            console.error("Merge failed", e);
+            store.commitTransaction();
+        }
+    }
+
     // ============================================
     // CONTEXT MENU / EXTERNAL ACTIONS
     // ============================================
@@ -843,6 +916,33 @@ export class PipeDrawingManager {
         } catch (e) {
             console.error("Conversion failed", e);
             store.commitTransaction();
+        }
+    }
+
+    public mergePipes(pipeA: Feature, pipeB: Feature, nodeToDelete: Feature, forceMerge: boolean = false) {
+
+        // 1. Validation Checks
+        if (!pipeA || !pipeB || !nodeToDelete) return;
+        if (pipeA.get('type') !== 'pipe' || pipeB.get('type') !== 'pipe') return;
+        if (pipeA.getId() === pipeB.getId()) return;
+
+        // 2. LOGIC FORK
+        if (forceMerge) {
+            // SILENT MODE: Merge immediately using Pipe A as the property template
+            // We assume the caller (DeleteManager) has already checked compatibility
+            this.executeMergeTransaction(nodeToDelete, pipeA, pipeB, pipeA);
+        } else {
+            // INTERACTIVE MODE: Ask user via Modal
+            useUIStore.getState().setMergeContext({
+                node: nodeToDelete,
+                pipeA: pipeA,
+                pipeB: pipeB,
+                onCancel: () => useUIStore.getState().setMergeContext(null),
+                onResolve: (chosenTemplate) => {
+                    this.executeMergeTransaction(nodeToDelete, pipeA, pipeB, chosenTemplate);
+                    useUIStore.getState().setMergeContext(null);
+                }
+            });
         }
     }
 

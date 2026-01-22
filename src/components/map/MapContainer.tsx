@@ -11,7 +11,6 @@ import { useMapInteractions } from "@/hooks/useMapInteractions";
 import { useLayerManager } from "@/hooks/useLayerManager";
 import { useFeatureSelection } from "@/hooks/useFeatureSelection";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { useDeleteHandler } from "@/hooks/useDeleteHandler";
 import { useHistoryManager } from "@/hooks/useHistoryManager";
 import { useMeasurement } from "@/hooks/useMeasurement";
 import { useMapFeatureSync } from "@/hooks/useMapFeatureSync";
@@ -31,7 +30,6 @@ import { MapToolbar } from "./MapToolbar";
 import { MapControls } from "./MapControls";
 import { MapLayers } from "./MapLayers";
 import { MapContextMenu } from "./MapContextMenu";
-import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 
 export function MapContainer() {
   const params = useParams();
@@ -51,13 +49,7 @@ export function MapContainer() {
   // Network store
   const { selectedFeature, setSelectedFeature, features } = useNetworkStore();
 
-  const {
-    activeTool,
-    deleteModalOpen,
-    activeModal,
-    setActiveModal,
-    setDeleteModalOpen,
-  } = useUIStore();
+  const { activeTool, activeModal, setActiveModal } = useUIStore();
 
   useEffect(() => {
     hasZoomedRef.current = false;
@@ -174,9 +166,6 @@ export function MapContainer() {
   // Keyboard Shortcuts
   useKeyboardShortcuts();
 
-  // Delete Handling
-  // const { cascadeInfo, deleteCount, handleDeleteConfirm } = useDeleteHandler();
-
   // History Manager (Undo/Redo)
   useHistoryManager();
 
@@ -198,7 +187,6 @@ export function MapContainer() {
   return (
     <div className="relative w-full h-full bg-gray-100 dark:bg-gray-900 flex flex-col">
       <div className="flex-1 relative overflow-hidden">
-        {/* Map Target */}
         <div ref={mapRef} className="w-full h-full" />
 
         <MapToolbar />
@@ -213,21 +201,10 @@ export function MapContainer() {
           feature={contextMenu.feature}
           onClose={contextMenu.onClose}
           onAction={contextMenu.onAction}
+          canMergeNode={contextMenu.canMergeNode}
         />
-
-        {/* <DeleteConfirmationModal
-          isOpen={deleteModalOpen}
-          onClose={() => setDeleteModalOpen(false)}
-          onConfirm={handleDeleteConfirm}
-          count={deleteCount}
-          featureName={selectedFeature?.get("label") || "Unknown"}
-          featureType={selectedFeature?.get("type") || "Feature"}
-          featureId={selectedFeature?.getId()?.toString() || "Unknown"}
-          cascadeInfo={cascadeInfo}
-        /> */}
       </div>
 
-      {/* Status bar */}
       <StatusBar />
     </div>
   );
