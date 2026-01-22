@@ -15,6 +15,7 @@ import { useHistoryManager } from "@/hooks/useHistoryManager";
 import { useMeasurement } from "@/hooks/useMeasurement";
 import { useMapFeatureSync } from "@/hooks/useMapFeatureSync";
 import { useMapContextMenu } from "@/hooks/useMapContextMenu";
+import { useDeleteHighlight } from "@/hooks/useDeleteHighlight";
 
 // Stores & Types
 import { useMapStore } from "@/store/mapStore";
@@ -174,6 +175,8 @@ export function MapContainer() {
 
   // Activate Synchronization
   useMapFeatureSync();
+
+  useDeleteHighlight();
 
   // Simulation results from database
   const { loadResults } = useSimulationStore();

@@ -48,6 +48,7 @@ interface DeleteContext {
         orphanCount: number;     // Nodes deleted because Pipe was deleted
         isMerge: boolean;        // Pump/Valve delete -> Merge Nodes?
         primaryType: string;     // e.g. "Junction", "Pipe", or "Mixed"
+        affectedIds: string[];
     };
     onConfirm: () => void;
     onCancel: () => void;

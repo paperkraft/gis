@@ -1,17 +1,27 @@
-import React from "react";
-import { useUIStore } from "@/store/uiStore";
+import {
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  Ghost,
+  Link2Off,
+  Merge,
+} from "lucide-react";
+import React, { useState } from "react";
+
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { AlertTriangle, Link2Off, Ghost, Merge } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useUIStore } from "@/store/uiStore";
 
 export function DeleteConfirmation() {
   const { deleteContext } = useUIStore();
+  const [isPeeking, setIsPeeking] = useState(false);
 
   if (!deleteContext) return null;
 
@@ -26,95 +36,102 @@ export function DeleteConfirmation() {
 
   return (
     <Dialog open={true} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="max-w-md bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-lg">
-        <DialogHeader>
+      <DialogContent
+        className={cn(
+          "max-w-md bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-lg transition-opacity duration-200",
+          isPeeking ? "opacity-10 pointer-events-none" : "opacity-100",
+        )}
+      >
+        <DialogHeader className="flex flex-row items-center justify-start">
           <DialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-500">
-            <AlertTriangle className="w-5 h-5" />
+            <AlertTriangle className="size-5" />
             Delete {primaryType}?
           </DialogTitle>
+          <button
+            className="p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors focus:outline-none"
+            onMouseEnter={() => setIsPeeking(true)}
+            onMouseLeave={() => setIsPeeking(false)}
+            // Touch support for mobile/tablet
+            onTouchStart={() => setIsPeeking(true)}
+            onTouchEnd={() => setIsPeeking(false)}
+            title="Hold to see map"
+          >
+            {isPeeking ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
         </DialogHeader>
 
         <div className="py-4 space-y-4">
-          {/* Main Question */}
           <p className="text-zinc-600 dark:text-zinc-300">
             Are you sure you want to delete
             {isSingleSelection ? (
               <span className="font-bold text-zinc-900 dark:text-white">
-                {" "}
                 {singleLabel}
               </span>
             ) : (
               <span>
-                {" "}
                 <span className="font-bold text-zinc-900 dark:text-white">
                   {features.length}
-                </span>{" "}
+                </span>
                 items
               </span>
             )}
             ?
           </p>
 
-          {/* WARNING 1: CASCADE (Connected Pipes) */}
+          {/* WARNING 1: CASCADE */}
           {cascadeCount > 0 && (
             <div className="bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 rounded-md p-3 flex gap-3 items-start">
-              <Link2Off className="w-5 h-5 text-red-500 dark:text-red-400 mt-0.5 shrink-0" />
+              <Link2Off className="size-5 text-red-500 dark:text-red-400 mt-0.5 shrink-0" />
               <div className="text-sm">
                 <p className="font-medium text-red-700 dark:text-red-400 mb-1">
                   Dependent Links
                 </p>
                 <p className="text-zinc-600 dark:text-zinc-400">
-                  Will remove{" "}
+                  Will remove&nbsp;
                   <span className="font-bold text-red-600 dark:text-red-300">
-                    {" "}
                     {cascadeCount} connected pipe{cascadeCount > 1 ? "s" : ""}
                   </span>
-                  .
                 </p>
               </div>
             </div>
           )}
 
-          {/* WARNING 2: ORPHANS (Unused Nodes) */}
+          {/* WARNING 2: ORPHANS */}
           {orphanCount > 0 && (
             <div className="bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 rounded-md p-3 flex gap-3 items-start">
-              <Ghost className="w-5 h-5 text-orange-500 dark:text-orange-400 mt-0.5 shrink-0" />
+              <Ghost className="size-5 text-orange-500 dark:text-orange-400 mt-0.5 shrink-0" />
               <div className="text-sm">
                 <p className="font-medium text-orange-700 dark:text-orange-400 mb-1">
                   Orphan Cleanup
                 </p>
                 <p className="text-zinc-600 dark:text-zinc-400">
-                  Will remove{" "}
+                  Will remove&nbsp;
                   <span className="font-bold text-orange-600 dark:text-orange-300">
-                    {" "}
                     {orphanCount} end node{orphanCount > 1 ? "s" : ""}
                   </span>
-                  .
                 </p>
               </div>
             </div>
           )}
 
-          {/* WARNING 3: MERGE (Pump/Valve) */}
+          {/* WARNING 3: MERGE */}
           {isMerge && (
             <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-md p-3 flex gap-3 items-start">
-              <Merge className="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5 shrink-0" />
+              <Merge className="size-5 text-blue-500 dark:text-blue-400 mt-0.5 shrink-0" />
               <div className="text-sm">
                 <p className="font-medium text-blue-700 dark:text-blue-400 mb-1">
                   Topology Update
                 </p>
                 <p className="text-zinc-600 dark:text-zinc-400">
-                  Inlet/Outlet nodes will be{" "}
+                  Inlet/Outlet nodes will be&nbsp;
                   <span className="font-bold text-blue-600 dark:text-blue-300">
-                    merged into a single junction
+                    merged into a single junction.
                   </span>
-                  .
                 </p>
               </div>
             </div>
           )}
 
-          {/* Generic "No Undo" Warning (Always visible if no other major warnings) */}
           {cascadeCount === 0 && orphanCount === 0 && !isMerge && (
             <p className="text-xs text-zinc-500 dark:text-zinc-500">
               This action cannot be undone unless you use the history undo.

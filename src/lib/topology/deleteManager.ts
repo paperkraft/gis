@@ -74,8 +74,8 @@ export class DeleteManager {
     // Dry run to predict Orphans and Merges
     private calculateImpact(selectedFeatures: Feature[]) {
         const store = useNetworkStore.getState();
-
         const itemsToDelete = new Set<string>();
+
         let orphanCount = 0;
         let isMerge = false;
 
@@ -141,7 +141,7 @@ export class DeleteManager {
         let primaryType = uniqueTypes.size === 1 ? Array.from(uniqueTypes)[0] : "Mixed";
         primaryType = primaryType.charAt(0).toUpperCase() + primaryType.slice(1);
 
-        return { totalCount, cascadeCount, orphanCount, isMerge, primaryType };
+        return { totalCount, cascadeCount, orphanCount, isMerge, primaryType, affectedIds: Array.from(itemsToDelete) };
     }
 
     // ==========================================
