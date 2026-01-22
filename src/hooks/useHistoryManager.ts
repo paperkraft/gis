@@ -1,22 +1,24 @@
 import { useCallback } from 'react';
-import { useNetworkStore } from '@/store/networkStore';
+
 import { useMapStore } from '@/store/mapStore';
+import { useNetworkStore } from '@/store/networkStore';
+import { useUIStore } from '@/store/uiStore';
 
 export function useHistoryManager() {
     // 1. Store Actions
     const undoAction = useNetworkStore((state) => state.undo);
     const redoAction = useNetworkStore((state) => state.redo);
     const snapshot = useNetworkStore((state) => state.snapshot);
-    const { startTransaction, commitTransaction, selectFeature, selectedFeatureId } = useNetworkStore();
+    const { startTransaction, commitTransaction, selectFeature, selectFeatures, setSelectedFeature } = useNetworkStore();
 
+    const { setDeleteContext, setMergeContext } = useUIStore();
     const vectorSource = useMapStore((state) => state.vectorSource);
-    const map = useMapStore((state) => state.map);
 
     // Updates map features in-place to prevent flicker & retain state
     const syncMapWithStore = useCallback(() => {
         if (!vectorSource) return;
 
-        const storeFeatures = useNetworkStore.getState().features; // Map<string, Feature>
+        const storeFeatures = useNetworkStore.getState().features;
         const mapFeatures = vectorSource.getFeatures();
 
         // 1. Track IDs processed to find deletions later
@@ -25,21 +27,21 @@ export function useHistoryManager() {
         // 2. Update or Add Store Features -> Map
         storeFeatures.forEach((storeFeature, id) => {
             processedIds.add(id);
-            const mapFeature = vectorSource.getFeatureById(id);
+            let mapFeature = vectorSource.getFeatureById(id);
 
             if (mapFeature) {
-                // A. Update Existing (Preserves object reference for interactions)
+                // A. Update Existing
                 const newGeom = storeFeature.getGeometry();
-                if (newGeom) {
-                    mapFeature.setGeometry(newGeom.clone()); // Update Coordinates
-                }
-                mapFeature.setProperties(storeFeature.getProperties(), true); // Update Props (silent)
+                if (newGeom) mapFeature.setGeometry(newGeom.clone());
+                mapFeature.setProperties(storeFeature.getProperties(), true);
             } else {
-                // B. Add New
-                // Clone to ensure Map gets its own instance separate from Store
-                const clone = storeFeature.clone();
-                clone.setId(id);
-                vectorSource.addFeature(clone);
+                // B. Add New (Restoring from Delete)
+                mapFeature = storeFeature.clone();
+                mapFeature.setId(id);
+                vectorSource.addFeature(mapFeature);
+            }
+            if (mapFeature) {
+                mapFeature.setStyle(undefined);
             }
         });
 
@@ -53,38 +55,46 @@ export function useHistoryManager() {
 
         // 4. Restore Selection (UX Fix)
         // If the selected item still exists after Undo, make sure it looks selected
-        if (selectedFeatureId) {
-            const feature = vectorSource.getFeatureById(selectedFeatureId);
-            if (feature) {
-                // Trigger a re-selection logic if needed, or simply let the style function handle it
-                // (Assuming your style function checks the store's selectedFeatureId)
-                feature.changed();
-            } else {
-                // If the selected item was deleted by Undo, clear selection
-                selectFeature(null);
-            }
-        }
+        // if (selectedFeatureId) {
+        //     const feature = vectorSource.getFeatureById(selectedFeatureId);
+        //     if (feature) {
+        //         feature.changed();
+        //     } else {
+        //         selectFeature(null);
+        //     }
+        // }
 
-    }, [vectorSource, selectedFeatureId, selectFeature]);
+    }, [vectorSource]);
+
+    const triggerCleanup = useCallback(() => {
+        // Clear UI contexts which might trigger hooks
+        setDeleteContext(null);
+        setMergeContext(null);
+
+        // Clear Selection state
+        selectFeature(null);
+        selectFeatures([]);
+        setSelectedFeature(null);
+    }, [setDeleteContext, setMergeContext, selectFeature, selectFeatures, setSelectedFeature]);
 
     // 1. UNDO
     const undo = useCallback(() => {
         undoAction();
         syncMapWithStore();
-    }, [undoAction, syncMapWithStore]);
+        triggerCleanup();
+    }, [undoAction, syncMapWithStore, triggerCleanup]);
 
     // 2. REDO
     const redo = useCallback(() => {
         redoAction();
         syncMapWithStore();
-    }, [redoAction, syncMapWithStore]);
+        triggerCleanup();
+    }, [redoAction, syncMapWithStore, triggerCleanup]);
 
     // 3. RECORD SINGLE CHANGE
     const recordChange = useCallback((action: () => void) => {
         snapshot(); // Snapshot BEFORE change
         action();   // Do change
-        // No need to sync here usually, as React/Zustand reactivity 
-        // usually handles forward updates. Only Undo/Redo needs forced sync.
     }, [snapshot]);
 
     return {

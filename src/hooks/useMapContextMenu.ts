@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
 import { Feature } from 'ol';
-import { LineString, Point } from 'ol/geom';
+import { LineString } from 'ol/geom';
+import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
+
+import { DeleteManager } from '@/lib/topology/deleteManager';
+import { NetworkFactory } from '@/lib/topology/networkFactory';
+import { PipeDrawingManager } from '@/lib/topology/pipeDrawingManager';
 import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
 import { useUIStore } from '@/store/uiStore';
-import { PipeDrawingManager } from '@/lib/topology/pipeDrawingManager';
-import { DeleteManager } from '@/lib/topology/deleteManager';
-import { NetworkFactory } from '@/lib/topology/networkFactory';
-import { toast } from 'sonner';
 
 export function useMapContextMenu(
     pipeDrawingManager?: PipeDrawingManager | null,
@@ -341,6 +342,8 @@ export function useMapContextMenu(
         setState(prev => ({ ...prev, isVisible: false }));
         // Optional: clear selection on background click if desired, 
         // but often context menu dismissal shouldn't deselect.
+        selectFeature(null)
+        selectFeatures([])
     }, []);
 
     return { ...state, onClose: closeMenu, onAction: handleAction, canMergeNode };
