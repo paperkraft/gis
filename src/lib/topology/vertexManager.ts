@@ -4,17 +4,21 @@ import VectorLayer from 'ol/layer/Vector';
 import { Feature } from 'ol';
 import { Point, LineString, Geometry } from 'ol/geom';
 import { getVertexStyle } from '../styles/vertexStyles';
+import { useUIStore } from '@/store/uiStore';
 
 export class VertexLayerManager {
     private map: OLMap;
     private networkSource: VectorSource;
     private vertexSource: VectorSource;
     private vertexLayer: VectorLayer<VectorSource>;
+    private unsubscribe: () => void;
 
     constructor(map: OLMap, networkSource: VectorSource) {
         this.map = map;
         this.networkSource = networkSource;
         this.vertexSource = new VectorSource(); // Dedicated Source for Blue Dots
+
+        const initialVisibility = useUIStore.getState().showVertices;
 
         this.vertexLayer = new VectorLayer({
             source: this.vertexSource,
@@ -22,6 +26,12 @@ export class VertexLayerManager {
             style: (feature) => getVertexStyle({ isEndpoint: false }),
             properties: { title: 'Vertex Layer' }
         });
+
+        this.vertexLayer.setVisible(initialVisibility);
+        // 2. Subscribe to store changes to toggle visibility
+        this.unsubscribe = useUIStore.subscribe(
+            (state) => this.vertexLayer.setVisible(state.showVertices)
+        );
 
         this.map.addLayer(this.vertexLayer);
         this.setupListeners();
@@ -129,6 +139,7 @@ export class VertexLayerManager {
     }
 
     public cleanup() {
+        if (this.unsubscribe) this.unsubscribe();
         this.map.removeLayer(this.vertexLayer);
         this.vertexSource.clear();
     }

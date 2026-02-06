@@ -66,6 +66,7 @@ interface UIState {
     // Symbology
     showLabels: boolean;
     showPipeArrows: boolean;
+    showVertices: boolean;
 
     // Snapping
     isSnappingEnabled: boolean;
@@ -122,6 +123,7 @@ interface UIState {
 
     setShowLabels: (show: boolean) => void;
     setShowPipeArrows: (show: boolean) => void;
+    setShowVertices: (show: boolean) => void;
 
     // Actions - Modals
     setKeyboardShortcutsModalOpen: (open: boolean) => void;
@@ -223,6 +225,7 @@ const DEFAULT_STATE = {
 
     showLabels: false,
     showPipeArrows: false,
+    showVertices: false,
 
     isSnappingEnabled: true,
     styleSettingsModalOpen: false,
@@ -273,6 +276,8 @@ export const useUIStore = create<UIState>((set, get) => ({
     setMeasurementType: (type) => set({ measurementType: type }),
     setShowPipeArrows: (show) => set({ showPipeArrows: show }),
     setShowLabels: (show) => set({ showLabels: show }),
+    setShowVertices: (show) => set({ showVertices: show }),
+
     setIsSnappingEnabled: (enabled) => set({ isSnappingEnabled: enabled }),
     setStyleSettingsModalOpen: (open) => set({ styleSettingsModalOpen: open }),
 

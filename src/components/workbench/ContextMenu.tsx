@@ -17,7 +17,9 @@ export function ContextMenu() {
     toggleLayerVisibility,
     layerVisibility,
     showPipeArrows,
+    showVertices,
     setShowPipeArrows,
+    setShowVertices,
     setActiveStyleLayer,
     setActiveModal,
   } = useUIStore();
@@ -51,6 +53,11 @@ export function ContextMenu() {
 
   const handleToggleVisibility = () => {
     toggleLayerVisibility(id);
+    setContextMenu(null);
+  };
+
+  const handleVertexVisibility = () => {
+    setShowVertices(!showVertices);
     setContextMenu(null);
   };
 
@@ -120,11 +127,19 @@ export function ContextMenu() {
       /> */}
 
       {id === "pipe" && (
-        <MenuItem
-          icon={showPipeArrows ? EyeOff : Eye}
-          label={showPipeArrows ? "Hide Arrows" : "Show Arrows"}
-          onClick={handleArrowVisibility}
-        />
+        <>
+          <MenuItem
+            icon={showPipeArrows ? EyeOff : Eye}
+            label={showPipeArrows ? "Hide Arrows" : "Show Arrows"}
+            onClick={handleArrowVisibility}
+          />
+
+          <MenuItem
+            icon={showVertices ? EyeOff : Eye}
+            label={showVertices ? "Hide Vertices" : "Show Vertices"}
+            onClick={handleVertexVisibility}
+          />
+        </>
       )}
 
       <MenuItem
