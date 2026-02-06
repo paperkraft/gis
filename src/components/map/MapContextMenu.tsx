@@ -7,7 +7,6 @@ import {
   Spline,
   XCircle,
   ArrowLeftRight,
-  Circle,
   Merge,
 } from "lucide-react";
 
@@ -217,7 +216,7 @@ export function MapContextMenu({
   );
 
   const currentType = feature?.get("type");
-  
+
   const shouldHide = (action: string) => {
     if (currentType === "junction" && action === "CONVERT_TO_JUNCTION") return true;
     if (currentType === "tank" && action === "CONVERT_TO_TANK") return true;

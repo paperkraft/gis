@@ -267,24 +267,24 @@ export class DeleteManager {
         // ---------------------------------------------------------
         // AUTO-HEAL LOGIC: Merge pipes if they are identical
         // ---------------------------------------------------------
-        if (neighbors.length === 2 && this.pipeDrawingManager) {
-            const [pipeA, pipeB] = neighbors;
+        // if (neighbors.length === 2 && this.pipeDrawingManager) {
+        //     const [pipeA, pipeB] = neighbors;
 
-            // Check Compatibility (Diameter, Material, Roughness)
-            const propsA = pipeA.getProperties();
-            const propsB = pipeB.getProperties();
+        //     // Check Compatibility (Diameter, Material, Roughness)
+        //     const propsA = pipeA.getProperties();
+        //     const propsB = pipeB.getProperties();
 
-            const isCompatible =
-                propsA.diameter === propsB.diameter &&
-                propsA.material === propsB.material &&
-                propsA.roughness === propsB.roughness;
+        //     const isCompatible =
+        //         propsA.diameter === propsB.diameter &&
+        //         propsA.material === propsB.material &&
+        //         propsA.roughness === propsB.roughness;
 
-            if (isCompatible) {
-                // Perform the merge immediately using the existing logic
-                // pipeA serves as the template for the new merged pipe
-                this.pipeDrawingManager.mergePipes(pipeA, pipeB, newJunction, true);
-            }
-        }
+        //     if (isCompatible) {
+        //         // Perform the merge immediately using the existing logic
+        //         // pipeA serves as the template for the new merged pipe
+        //         this.pipeDrawingManager.mergePipes(pipeA, pipeB, newJunction, true);
+        //     }
+        // }
     }
 
     // Scenario 1 & 2: Recursive Delete
