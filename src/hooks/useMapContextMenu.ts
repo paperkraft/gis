@@ -180,7 +180,7 @@ export function useMapContextMenu(
             case 'DELETE':
                 if (feature) {
                     if (deleteManager) {
-                        // ✅ Use Manager (Handles Merges/Cascades/Safety)
+                        // Use Manager (Handles Merges/Cascades/Safety)
                         deleteManager.deleteFeature(feature);
                     } else {
                         // Fallback (Simple delete)

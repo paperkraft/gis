@@ -105,6 +105,7 @@ export function MapContainer() {
       : null;
 
     const protectedModals = ["VALIDATION", "AUTO_ELEVATION", "DATA_MANAGER"];
+
     if (protectedModals.includes(activeModal)) {
       // Just update the ref so we track the selection, but DO NOT change the modal.
       lastSelectedIdRef.current = currentId;
@@ -116,6 +117,7 @@ export function MapContainer() {
       currentId !== lastSelectedIdRef.current &&
       activeTool === "select"
     ) {
+
       const type = selectedFeature?.get("type");
       let modalType: WorkbenchModalType = "NONE";
 

@@ -1,26 +1,17 @@
-import { fromLonLat } from 'ol/proj';
-import proj4 from 'proj4';
-import RBush from 'rbush';
 import shp from 'shpjs';
-
+import RBush from 'rbush';
+import { fromLonLat } from 'ol/proj';
 import { convertToLatLon } from '../gis/projections';
 
-// Define the structure for RBush indexing
 interface SpatialNode {
-    minX: number;
-    minY: number;
-    maxX: number;
-    maxY: number;
-    id: string;
-    x: number;
-    y: number;
+    minX: number; minY: number; maxX: number; maxY: number;
+    id: string; x: number; y: number; elevation: number;
 }
 
 const ctx: Worker = self as any;
 
 ctx.onmessage = async (e) => {
     const { buffer, fileName, settings, sourceEPSG } = e.data;
-
     try {
         let geojson: any;
         if (fileName.toLowerCase().endsWith('.zip')) {
@@ -31,16 +22,18 @@ ctx.onmessage = async (e) => {
             geojson = JSON.parse(text);
         }
 
-        const result = convertWithRBush(geojson, settings, sourceEPSG);
+        if (!geojson || !geojson.features) throw new Error("Invalid GeoJSON structure");
+
+        const result = convertWithElevation(geojson, settings, sourceEPSG);
         ctx.postMessage({ type: 'success', data: result });
     } catch (err: any) {
         ctx.postMessage({ type: 'error', error: err.message });
     }
 };
 
-function convertWithRBush(geojson: any, settings: any, sourceEPSG: string): string {
+function convertWithElevation(geojson: any, settings: any, sourceEPSG: string): string {
     const tree = new RBush<SpatialNode>();
-    const nodes = new Map<string, { id: string, x: number, y: number }>();
+    const nodes = new Map<string, { id: string, x: number, y: number, elevation: number }>();
     const pipes: any[] = [];
     const vertices: any[] = [];
     const pipeDupCheck = new Set<string>();
@@ -48,7 +41,6 @@ function convertWithRBush(geojson: any, settings: any, sourceEPSG: string): stri
     let nodeIdCounter = 1;
     let pipeIdCounter = 1;
 
-    // Helper: Snapping Search
     const findExistingNode = (x: number, y: number): string | null => {
         const tol = settings.tolerance;
         const neighbors = tree.search({ minX: x - tol, minY: y - tol, maxX: x + tol, maxY: y + tol });
@@ -58,49 +50,77 @@ function convertWithRBush(geojson: any, settings: any, sourceEPSG: string): stri
         return null;
     };
 
-    const getOrAddNode = (x: number, y: number): string => {
+    const getOrAddNode = (x: number, y: number, elevation: number = 0): string => {
         const existingId = findExistingNode(x, y);
         if (existingId) return existingId;
 
         const id = `J-${nodeIdCounter++}`;
-        const newNode = { minX: x, minY: y, maxX: x, maxY: y, id, x, y };
+        const newNode: SpatialNode = { minX: x, minY: y, maxX: x, maxY: y, id, x, y, elevation };
         tree.insert(newNode);
-        nodes.set(id, { id, x, y });
+        nodes.set(id, { id, x, y, elevation });
         return id;
     };
 
-    // --- PASS 1: Project and Index Endpoints ---
+    // --- PASS 1: Project and Filter ---
     const rawFeatures = Array.isArray(geojson.features) ? geojson.features : [geojson];
-    const totalFeatures = rawFeatures.length;
 
-    const featureData = rawFeatures.map((f: any) => {
-        if (!f.geometry) return null;
-        const coords = f.geometry.type === "MultiLineString" ? f.geometry.coordinates : [f.geometry.coordinates];
-        const projectedLines = coords.map((line: any[]) =>
-            line.map(pt => fromLonLat(convertToLatLon([pt[0], pt[1]], sourceEPSG)!))
-        );
+    // Safety: Filter out non-line features immediately
+    const featureData = rawFeatures
+        .map((f: any) => {
+            if (!f.geometry || !["LineString", "MultiLineString"].includes(f.geometry.type)) return null;
 
-        // Register endpoints as mandatory junctions
-        projectedLines.forEach((line: any[]) => {
-            getOrAddNode(line[0][0], line[0][1]);
-            getOrAddNode(line[line.length - 1][0], line[line.length - 1][1]);
-        });
+            const coords = f.geometry.type === "MultiLineString" ? f.geometry.coordinates : [f.geometry.coordinates];
 
-        return { properties: f.properties, projectedLines };
-    }).filter(Boolean);
+            // Case-insensitive attribute lookup
+            const props = f.properties || {};
+            const findProp = (keys: string[]) => {
+                const found = Object.keys(props).find(k => keys.includes(k.toUpperCase()));
+                return found ? props[found] : 0;
+            };
 
-    // --- PASS 2: Build Pipes with T-Junction Splitting ---
-    featureData.forEach((feat: any, index: number) => {
-        // Report progress every 100 features
-        if (index % 100 === 0) {
-            const progress = Math.round((index / totalFeatures) * 100);
-            ctx.postMessage({ type: 'progress', data: progress });
+            const elevStart = findProp(['ELEV_START', 'Z_START', 'ELEV', 'START_Z', 'FROM_ELEV']);
+            const elevEnd = findProp(['ELEV_END', 'Z_END', 'ELEV', 'END_Z', 'TO_ELEV']);
+
+            const projectedLines = coords.map((line: any[]) =>
+                line.map(pt => {
+                    const latLon = convertToLatLon([pt[0], pt[1]], sourceEPSG);
+                    if (!latLon) return [0, 0]; // Safety guard
+                    return fromLonLat(latLon);
+                })
+            );
+
+            // Register endpoints
+            projectedLines.forEach((line: any[]) => {
+                if (line.length > 0) {
+                    getOrAddNode(line[0][0], line[0][1], elevStart);
+                    getOrAddNode(line[line.length - 1][0], line[line.length - 1][1], elevEnd);
+                }
+            });
+
+            return { props, projectedLines, elevStart, elevEnd };
+        })
+        .filter((item: any) => item !== null && item.projectedLines.length > 0); // REMOVE NULLS
+
+    // --- PASS 2: Split and Interpolate ---
+    const totalItems = featureData.length;
+    featureData.forEach((feat: any, idx: number) => {
+        // Progress update
+        if (idx % 10 === 0) {
+            ctx.postMessage({ type: 'progress', data: Math.round((idx / totalItems) * 100) });
         }
 
         feat.projectedLines.forEach((line: any[]) => {
-            let startNodeId = getOrAddNode(line[0][0], line[0][1]);
+            if (line.length < 2) return; // Safety guard for corrupt geometries
+
+            let totalLength = 0;
+            for (let j = 0; j < line.length - 1; j++) {
+                totalLength += Math.sqrt((line[j + 1][0] - line[j][0]) ** 2 + (line[j + 1][1] - line[j][1]) ** 2);
+            }
+
+            let startNodeId = getOrAddNode(line[0][0], line[0][1], feat.elevStart);
             let currentPath = [line[0]];
             let currentLen = 0;
+            let accumulatedDist = 0;
 
             for (let i = 0; i < line.length - 1; i++) {
                 const p1 = line[i];
@@ -109,28 +129,30 @@ function convertWithRBush(geojson: any, settings: any, sourceEPSG: string): stri
 
                 currentPath.push(p2);
                 currentLen += segDist;
+                accumulatedDist += segDist;
 
-                // CRITICAL BUG FIX: Check if p2 is an endpoint for ANY other pipe (T-Junction)
+                // Check for T-Junction split
+                const tol = settings.tolerance;
                 const nodeAtP2 = findExistingNode(p2[0], p2[1]);
                 const isLast = i === line.length - 2;
 
-                // Split if: Max Length exceeded OR p2 is a registered junction OR end of feature
                 if (currentLen >= settings.maxPipeLength || nodeAtP2 || isLast) {
-                    const endNodeId = getOrAddNode(p2[0], p2[1]);
+                    const ratio = totalLength > 0 ? accumulatedDist / totalLength : 0;
+                    const interpElev = feat.elevStart + (feat.elevEnd - feat.elevStart) * ratio;
+
+                    const endNodeId = getOrAddNode(p2[0], p2[1], interpElev);
 
                     if (startNodeId !== endNodeId) {
                         const pairKey = [startNodeId, endNodeId].sort().join('-');
                         if (!pipeDupCheck.has(pairKey)) {
                             const pId = `P-${pipeIdCounter++}`;
-
-                            // Only add vertices if they aren't the junctions themselves
                             currentPath.slice(1, -1).forEach(v => vertices.push({ pId, x: v[0], y: v[1] }));
 
                             pipes.push({
                                 id: pId, n1: startNodeId, n2: endNodeId,
                                 len: Math.max(0.1, currentLen),
-                                diam: feat.properties?.diameter || settings.defaultDiameter,
-                                rough: feat.properties?.roughness || settings.defaultRoughness
+                                diam: feat.props?.DIAMETER || feat.props?.diam || settings.defaultDiameter,
+                                rough: feat.props?.ROUGHNESS || feat.props?.rough || settings.defaultRoughness
                             });
                             pipeDupCheck.add(pairKey);
                         }
@@ -143,13 +165,13 @@ function convertWithRBush(geojson: any, settings: any, sourceEPSG: string): stri
         });
     });
 
-    // --- Generate INP ---
+    // --- PASS 3: Generate INP Output ---
     const pad = (s: any) => String(s).padEnd(16, ' ');
-    let out = "[TITLE]\nWeb Import with RBush Topology\n\n[JUNCTIONS]\n;ID              Elev      Demand\n";
-    nodes.forEach(n => out += `${pad(n.id)} 0         0\n`);
+    let out = "[TITLE]\nWeb Project Topology Export\n\n[JUNCTIONS]\n;ID              Elev      Demand\n";
+    nodes.forEach(n => out += `${pad(n.id)} ${n.elevation.toFixed(2)}      0\n`);
 
     out += "\n[PIPES]\n;ID              Node1           Node2           Length    Diam      Roughness\n";
-    pipes.forEach(p => out += `${pad(p.id)} ${pad(p.n1)} ${pad(p.n2)} ${pad(p.len.toFixed(2))} ${pad(p.diam)} ${pad(p.rough)}\n`);
+    pipes.forEach(p => out += `${pad(p.id)} ${pad(p.n1)} ${pad(p.n2)} ${p.len.toFixed(2).padEnd(10)} ${String(p.diam).padEnd(10)} ${p.rough}\n`);
 
     out += "\n[COORDINATES]\n";
     nodes.forEach(n => out += `${pad(n.id)} ${n.x.toFixed(4)} ${n.y.toFixed(4)}\n`);
@@ -157,6 +179,5 @@ function convertWithRBush(geojson: any, settings: any, sourceEPSG: string): stri
     out += "\n[VERTICES]\n";
     vertices.forEach(v => out += `${pad(v.pId)} ${v.x.toFixed(4)} ${v.y.toFixed(4)}\n`);
 
-    ctx.postMessage({ type: 'progress', data: 100 });
     return out + "\n[END]";
 }

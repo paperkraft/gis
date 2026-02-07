@@ -34,7 +34,7 @@ export function MapContextMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const [adjustedPos, setAdjustedPos] = useState(position);
 
-  // 1. Collision Detection: Ensure menu stays inside the Viewport
+  // 1. Collision Detection: Ensure menu stays inside the Viewport.
   useLayoutEffect(() => {
     if (isVisible && menuRef.current) {
       const menu = menuRef.current.getBoundingClientRect();
