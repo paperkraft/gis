@@ -1,6 +1,6 @@
 import { Feature } from 'ol';
 import GeoJSON from 'ol/format/GeoJSON';
-import { generateINP } from './inpWriter';
+import { generateINP } from '../epanet/inpWriter';
 
 export class NetworkExporter {
     /**

@@ -1,11 +1,13 @@
 import shp from 'shpjs';
-import RBush from 'rbush';
+import Flatbush from 'flatbush';
 import { fromLonLat } from 'ol/proj';
 import { convertToLatLon } from '../gis/projections';
 
 interface SpatialNode {
-    minX: number; minY: number; maxX: number; maxY: number;
-    id: string; x: number; y: number; elevation: number;
+    id: string;
+    x: number;
+    y: number;
+    elevation: number;
 }
 
 const ctx: Worker = self as any;
@@ -32,8 +34,7 @@ ctx.onmessage = async (e) => {
 };
 
 function convertWithElevation(geojson: any, settings: any, sourceEPSG: string): string {
-    const tree = new RBush<SpatialNode>();
-    const nodes = new Map<string, { id: string, x: number, y: number, elevation: number }>();
+    const nodesMap = new Map<string, SpatialNode>();
     const pipes: any[] = [];
     const vertices: any[] = [];
     const pipeDupCheck = new Set<string>();
@@ -41,38 +42,19 @@ function convertWithElevation(geojson: any, settings: any, sourceEPSG: string): 
     let nodeIdCounter = 1;
     let pipeIdCounter = 1;
 
-    const findExistingNode = (x: number, y: number): string | null => {
-        const tol = settings.tolerance;
-        const neighbors = tree.search({ minX: x - tol, minY: y - tol, maxX: x + tol, maxY: y + tol });
-        for (const node of neighbors) {
-            if (Math.sqrt((node.x - x) ** 2 + (node.y - y) ** 2) <= tol) return node.id;
-        }
-        return null;
-    };
-
-    const getOrAddNode = (x: number, y: number, elevation: number = 0): string => {
-        const existingId = findExistingNode(x, y);
-        if (existingId) return existingId;
-
-        const id = `J-${nodeIdCounter++}`;
-        const newNode: SpatialNode = { minX: x, minY: y, maxX: x, maxY: y, id, x, y, elevation };
-        tree.insert(newNode);
-        nodes.set(id, { id, x, y, elevation });
-        return id;
-    };
-
-    // --- PASS 1: Project and Filter ---
     const rawFeatures = Array.isArray(geojson.features) ? geojson.features : [geojson];
 
-    // Safety: Filter out non-line features immediately
+    // --- PASS 1: COLLECT ONLY ENDPOINTS FOR THE INDEX ---
+    // This prevents intermediate vertices from being treated as junction candidates
+    const endpointList: { x: number; y: number; elev: number }[] = [];
+
     const featureData = rawFeatures
         .map((f: any) => {
             if (!f.geometry || !["LineString", "MultiLineString"].includes(f.geometry.type)) return null;
 
             const coords = f.geometry.type === "MultiLineString" ? f.geometry.coordinates : [f.geometry.coordinates];
-
-            // Case-insensitive attribute lookup
             const props = f.properties || {};
+
             const findProp = (keys: string[]) => {
                 const found = Object.keys(props).find(k => keys.includes(k.toUpperCase()));
                 return found ? props[found] : 0;
@@ -84,33 +66,65 @@ function convertWithElevation(geojson: any, settings: any, sourceEPSG: string): 
             const projectedLines = coords.map((line: any[]) =>
                 line.map(pt => {
                     const latLon = convertToLatLon([pt[0], pt[1]], sourceEPSG);
-                    if (!latLon) return [0, 0]; // Safety guard
-                    return fromLonLat(latLon);
+                    return latLon ? fromLonLat(latLon) : [0, 0];
                 })
             );
 
-            // Register endpoints
+            // Only index the START and END points of each line
             projectedLines.forEach((line: any[]) => {
                 if (line.length > 0) {
-                    getOrAddNode(line[0][0], line[0][1], elevStart);
-                    getOrAddNode(line[line.length - 1][0], line[line.length - 1][1], elevEnd);
+                    endpointList.push({ x: line[0][0], y: line[0][1], elev: elevStart });
+                    endpointList.push({ x: line[line.length - 1][0], y: line[line.length - 1][1], elev: elevEnd });
                 }
             });
 
             return { props, projectedLines, elevStart, elevEnd };
         })
-        .filter((item: any) => item !== null && item.projectedLines.length > 0); // REMOVE NULLS
+        .filter((item: any) => item !== null && item.projectedLines.length > 0);
 
-    // --- PASS 2: Split and Interpolate ---
+    // Build index using ONLY endpoints
+    const index = new Flatbush(endpointList.length);
+    for (const p of endpointList) {
+        index.add(p.x, p.y, p.x, p.y);
+    }
+    index.finish();
+
+    // --- HELPER: SNAP TO ENDPOINTS ---
+    const getOrAddNode = (x: number, y: number, elevation: number = 0): string => {
+        const tol = settings.tolerance;
+        const neighbors = index.search(x - tol, y - tol, x + tol, y + tol);
+
+        for (const idx of neighbors) {
+            const candidate = endpointList[idx];
+            const dist = Math.sqrt((candidate.x - x) ** 2 + (candidate.y - y) ** 2);
+            if (dist <= tol) {
+                // Return existing junction if one was already created at this specific coordinate
+                const existing = Array.from(nodesMap.values()).find(n =>
+                    Math.abs(n.x - candidate.x) < 0.0001 && Math.abs(n.y - candidate.y) < 0.0001
+                );
+                if (existing) return existing.id;
+            }
+        }
+
+        const id = `J-${nodeIdCounter++}`;
+        nodesMap.set(id, { id, x, y, elevation });
+        return id;
+    };
+
     const totalItems = featureData.length;
+
+    // --- PASS 2: GENERATE TOPOLOGY (VERTEX vs JUNCTION) ---
     featureData.forEach((feat: any, idx: number) => {
-        // Progress update
+        // Use the constant for progress updates
         if (idx % 10 === 0) {
-            ctx.postMessage({ type: 'progress', data: Math.round((idx / totalItems) * 100) });
+            ctx.postMessage({
+                type: 'progress',
+                data: Math.round((idx / totalItems) * 100)
+            });
         }
 
         feat.projectedLines.forEach((line: any[]) => {
-            if (line.length < 2) return; // Safety guard for corrupt geometries
+            if (line.length < 2) return;
 
             let totalLength = 0;
             for (let j = 0; j < line.length - 1; j++) {
@@ -123,36 +137,35 @@ function convertWithElevation(geojson: any, settings: any, sourceEPSG: string): 
             let accumulatedDist = 0;
 
             for (let i = 0; i < line.length - 1; i++) {
-                const p1 = line[i];
                 const p2 = line[i + 1];
-                const segDist = Math.sqrt((p2[0] - p1[0]) ** 2 + (p2[1] - p1[1]) ** 2);
+                const segDist = Math.sqrt((p2[0] - line[i][0]) ** 2 + (p2[1] - line[i][1]) ** 2);
 
                 currentPath.push(p2);
                 currentLen += segDist;
                 accumulatedDist += segDist;
 
-                // Check for T-Junction split
                 const tol = settings.tolerance;
-                const nodeAtP2 = findExistingNode(p2[0], p2[1]);
+                // Only split if P2 is an endpoint of ANOTHER line (T-Junction)
+                const splitCandidates = index.search(p2[0] - tol, p2[1] - tol, p2[0] + tol, p2[1] + tol);
                 const isLast = i === line.length - 2;
 
-                if (currentLen >= settings.maxPipeLength || nodeAtP2 || isLast) {
+                if (currentLen >= settings.maxPipeLength || splitCandidates.length > 0 || isLast) {
                     const ratio = totalLength > 0 ? accumulatedDist / totalLength : 0;
                     const interpElev = feat.elevStart + (feat.elevEnd - feat.elevStart) * ratio;
-
                     const endNodeId = getOrAddNode(p2[0], p2[1], interpElev);
 
                     if (startNodeId !== endNodeId) {
                         const pairKey = [startNodeId, endNodeId].sort().join('-');
                         if (!pipeDupCheck.has(pairKey)) {
                             const pId = `P-${pipeIdCounter++}`;
+                            // Intermediate points in currentPath become VERTICES, not Junctions
                             currentPath.slice(1, -1).forEach(v => vertices.push({ pId, x: v[0], y: v[1] }));
 
                             pipes.push({
                                 id: pId, n1: startNodeId, n2: endNodeId,
                                 len: Math.max(0.1, currentLen),
-                                diam: feat.props?.DIAMETER || feat.props?.diam || settings.defaultDiameter,
-                                rough: feat.props?.ROUGHNESS || feat.props?.rough || settings.defaultRoughness
+                                diam: feat.props?.DIAMETER || settings.defaultDiameter,
+                                rough: feat.props?.ROUGHNESS || settings.defaultRoughness
                             });
                             pipeDupCheck.add(pairKey);
                         }
@@ -165,17 +178,14 @@ function convertWithElevation(geojson: any, settings: any, sourceEPSG: string): 
         });
     });
 
-    // --- PASS 3: Generate INP Output ---
+    // --- PASS 3: GENERATE INP ---
     const pad = (s: any) => String(s).padEnd(16, ' ');
-    let out = "[TITLE]\nWeb Project Topology Export\n\n[JUNCTIONS]\n;ID              Elev      Demand\n";
-    nodes.forEach(n => out += `${pad(n.id)} ${n.elevation.toFixed(2)}      0\n`);
-
-    out += "\n[PIPES]\n;ID              Node1           Node2           Length    Diam      Roughness\n";
+    let out = "[TITLE]\nTopology Export\n\n[JUNCTIONS]\n";
+    nodesMap.forEach(n => out += `${pad(n.id)} ${n.elevation.toFixed(2)}      0\n`);
+    out += "\n[PIPES]\n";
     pipes.forEach(p => out += `${pad(p.id)} ${pad(p.n1)} ${pad(p.n2)} ${p.len.toFixed(2).padEnd(10)} ${String(p.diam).padEnd(10)} ${p.rough}\n`);
-
     out += "\n[COORDINATES]\n";
-    nodes.forEach(n => out += `${pad(n.id)} ${n.x.toFixed(4)} ${n.y.toFixed(4)}\n`);
-
+    nodesMap.forEach(n => out += `${pad(n.id)} ${n.x.toFixed(4)} ${n.y.toFixed(4)}\n`);
     out += "\n[VERTICES]\n";
     vertices.forEach(v => out += `${pad(v.pId)} ${v.x.toFixed(4)} ${v.y.toFixed(4)}\n`);
 

@@ -5,16 +5,16 @@ import { useParams } from "next/navigation";
 import { isEmpty } from "ol/extent";
 
 // Hooks
-import { useMapInitialization } from "@/hooks/useMapInitialization";
-import { useMapEvents } from "@/hooks/useMapEvents";
-import { useMapInteractions } from "@/hooks/useMapInteractions";
-import { useLayerManager } from "@/hooks/useLayerManager";
-import { useFeatureSelection } from "@/hooks/useFeatureSelection";
+import { useMapInitialization } from "@/hooks/map/useMapInitialization";
+import { useMapEvents } from "@/hooks/map/useMapEvents";
+import { useMapInteractions } from "@/hooks/map/useMapInteractions";
+import { useLayerManager } from "@/hooks/map/useLayerManager";
+import { useFeatureSelection } from "@/hooks/map/useFeatureSelection";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useHistoryManager } from "@/hooks/useHistoryManager";
 import { useMeasurement } from "@/hooks/useMeasurement";
-import { useMapFeatureSync } from "@/hooks/useMapFeatureSync";
-import { useMapContextMenu } from "@/hooks/useMapContextMenu";
+import { useMapFeatureSync } from "@/hooks/map/useMapFeatureSync";
+import { useMapContextMenu } from "@/hooks/map/useMapContextMenu";
 import { useDeleteHighlight } from "@/hooks/useDeleteHighlight";
 
 // Stores & Types

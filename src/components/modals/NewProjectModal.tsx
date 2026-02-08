@@ -185,10 +185,10 @@ export function NewProjectModal() {
         const inpContent = await processGisData(
           importFile,
           {
+            tolerance: 0.5,
+            maxPipeLength: 500,
             defaultDiameter: 150,
-            defaultRoughness: 100,
-            tolerance: 1.0,
-            maxPipeLength: 150
+            defaultRoughness: 110,
           },
           selectedEPSG,
           (percent) => console.log(`Processing: ${percent}%`)

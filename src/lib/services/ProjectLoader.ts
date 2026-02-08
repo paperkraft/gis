@@ -1,6 +1,6 @@
 import { Feature } from 'ol';
 import { FeatureType } from '@/types/network';
-import { ParsedProjectData } from '../import/inpParser';
+import { ParsedProjectData } from '../epanet/inpParser';
 
 const DEFAULT_PATTERNS = [{
     id: "1", description: "Default", multipliers: Array(24).fill(1.0)

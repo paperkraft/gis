@@ -1,5 +1,5 @@
 import { useMapStore } from "@/store/mapStore";
-import { parseINP } from "../import/inpParser";
+import { parseINP } from "../epanet/inpParser";
 import { useNetworkStore } from "@/store/networkStore";
 import { ProjectSettings } from "@/types/network";
 import { Point } from "ol/geom";

@@ -1,7 +1,7 @@
 import { Feature } from 'ol';
 import VectorSource from 'ol/source/Vector';
 import { useNetworkStore } from '@/store/networkStore';
-import { parseINP, ParsedProjectData } from './inpParser';
+import { parseINP, ParsedProjectData } from '../epanet/inpParser';
 
 export type ImportFormat = 'inp' | 'geojson' | 'shapefile' | 'kml';
 

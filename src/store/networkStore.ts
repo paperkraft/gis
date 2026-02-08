@@ -2,7 +2,7 @@ import { Feature } from 'ol';
 import GeoJSON from 'ol/format/GeoJSON';
 import { create } from 'zustand';
 
-import { ParsedProjectData } from '@/lib/import/inpParser';
+import { ParsedProjectData } from '@/lib/epanet/inpParser';
 import { ProjectLoader } from '@/lib/services/ProjectLoader';
 
 import { createFeatureSlice, FeatureSlice } from './slices/featureSlice';

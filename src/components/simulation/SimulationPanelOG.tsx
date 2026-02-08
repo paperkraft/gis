@@ -19,7 +19,7 @@ import {
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { generateINP } from "@/lib/export/inpWriter";
+import { generateINP } from "@/lib/epanet/inpWriter";
 import { cn } from "@/lib/utils";
 import { useNetworkStore } from "@/store/networkStore";
 import { useSimulationStore } from "@/store/simulationStore";
@@ -164,10 +164,10 @@ export function SimulationPanelOG() {
             status === "completed"
               ? "bg-green-50 border-green-100 dark:bg-green-900/20 dark:border-green-900/50"
               : status === "error"
-              ? "bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-900/50"
-              : status === "running"
-              ? "bg-blue-50 border-blue-100 dark:bg-blue-900/20 dark:border-blue-900/50"
-              : "bg-gray-50 border-gray-100 dark:bg-gray-800 dark:border-gray-700"
+                ? "bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-900/50"
+                : status === "running"
+                  ? "bg-blue-50 border-blue-100 dark:bg-blue-900/20 dark:border-blue-900/50"
+                  : "bg-gray-50 border-gray-100 dark:bg-gray-800 dark:border-gray-700"
           )}
         >
           {status === "completed" ? (
@@ -187,10 +187,10 @@ export function SimulationPanelOG() {
                 status === "completed"
                   ? "text-green-700 dark:text-green-300"
                   : status === "error"
-                  ? "text-red-700 dark:text-red-300"
-                  : status === "running"
-                  ? "text-blue-700 dark:text-blue-300"
-                  : "text-gray-700 dark:text-gray-300"
+                    ? "text-red-700 dark:text-red-300"
+                    : status === "running"
+                      ? "text-blue-700 dark:text-blue-300"
+                      : "text-gray-700 dark:text-gray-300"
               )}
             >
               {status === "idle"
@@ -201,8 +201,8 @@ export function SimulationPanelOG() {
               {status === "running"
                 ? "Calculating..."
                 : status === "completed"
-                ? "Results Available"
-                : "Waiting to start"}
+                  ? "Results Available"
+                  : "Waiting to start"}
             </p>
           </div>
         </div>
@@ -246,8 +246,8 @@ export function SimulationPanelOG() {
             {status === "running"
               ? "Simulating..."
               : status === "completed"
-              ? "Re-Run"
-              : "Run Analysis"}
+                ? "Re-Run"
+                : "Run Analysis"}
           </Button>
 
           {status !== "idle" && (

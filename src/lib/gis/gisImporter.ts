@@ -7,7 +7,7 @@ export async function processGisData(
     const buffer = await file.arrayBuffer();
 
     return new Promise((resolve, reject) => {
-        const worker = new Worker(new URL('@/lib/workers/gis.worker.ts', import.meta.url));
+        const worker = new Worker(new URL('@/lib/gis/gis.worker.ts', import.meta.url));
 
         worker.postMessage({
             buffer,
