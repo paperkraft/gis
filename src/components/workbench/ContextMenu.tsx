@@ -14,8 +14,6 @@ export function ContextMenu() {
   const {
     contextMenu,
     setContextMenu,
-    toggleLayerVisibility,
-    layerVisibility,
     showPipeArrows,
     showVertices,
     setShowPipeArrows,
@@ -41,18 +39,11 @@ export function ContextMenu() {
   if (!contextMenu) return null;
 
   const { x, y, id, type } = contextMenu;
-  const isLayer = type === "layer";
-  const isVisible = isLayer ? layerVisibility[id] : true;
 
   // --- ACTIONS ---
   const handleEditStyle = () => {
     setActiveStyleLayer(id);
     setActiveModal("STYLE_SETTINGS");
-    setContextMenu(null);
-  };
-
-  const handleToggleVisibility = () => {
-    toggleLayerVisibility(id);
     setContextMenu(null);
   };
 
@@ -119,12 +110,6 @@ export function ContextMenu() {
         label="Edit Symbology"
         onClick={handleEditStyle}
       />
-
-      {/* <MenuItem
-        icon={isVisible ? EyeOff : Eye}
-        label={isVisible ? `Hide ${id}s` : `Show ${id}s`}
-        onClick={handleToggleVisibility}
-      /> */}
 
       {id === "pipe" && (
         <>

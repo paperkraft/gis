@@ -199,15 +199,17 @@ export function MapContainer() {
         <Legend />
         <MapLayers />
 
-        <MapContextMenu
-          isVisible={contextMenu.isVisible}
-          position={contextMenu.position}
-          type={contextMenu.type}
-          feature={contextMenu.feature}
-          onClose={contextMenu.onClose}
-          onAction={contextMenu.onAction}
-          canMergeNode={contextMenu.canMergeNode}
-        />
+        {activeTool === 'modify' && (
+          <MapContextMenu
+            isVisible={contextMenu.isVisible}
+            position={contextMenu.position}
+            type={contextMenu.type}
+            feature={contextMenu.feature}
+            onClose={contextMenu.onClose}
+            onAction={contextMenu.onAction}
+            canMergeNode={contextMenu.canMergeNode}
+          />
+        )}
       </div>
 
       <StatusBar />
