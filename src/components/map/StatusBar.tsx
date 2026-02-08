@@ -1,18 +1,27 @@
 "use client";
-import { AlertCircle, CheckCircle2, Loader2, MousePointer2 } from 'lucide-react';
-import React from 'react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  MousePointer2,
+} from "lucide-react";
+import React from "react";
 
-import { useMapStore } from '@/store/mapStore';
-import { useNetworkStore } from '@/store/networkStore';
-import { useSimulationStore } from '@/store/simulationStore';
+import { useMapStore } from "@/store/mapStore";
+import { useNetworkStore } from "@/store/networkStore";
+import { useSimulationStore } from "@/store/simulationStore";
 
 export function StatusBar() {
   const { coordinates, zoom, projection } = useMapStore();
-  const { selectedFeatureId, selectedFeatureIds, features, hasUnsavedChanges } = useNetworkStore();
+  const { selectedFeatureId, selectedFeatureIds, features, hasUnsavedChanges } =
+    useNetworkStore();
   const { status: simStatus } = useSimulationStore();
 
-  const selectedIds = selectedFeatureIds || (selectedFeatureId ? [selectedFeatureId] : []);
-  
+  const selectedIds =
+    selectedFeatureIds.length > 0
+      ? selectedFeatureIds.join(", ")
+      : selectedFeatureId || "";
+
   return (
     <div className="absolute bottom-0 left-0 right-0 h-7 bg-white/95 dark:bg-gray-900/95 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between px-3 text-[10px] font-medium text-gray-600 dark:text-gray-400 backdrop-blur-sm z-20 select-none">
       {/* LEFT: System Status */}
@@ -60,8 +69,11 @@ export function StatusBar() {
         {selectedFeatureId ? (
           <div className="flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-100 dark:border-blue-900/50 text-blue-600 dark:text-blue-400">
             <MousePointer2 className="w-3 h-3" />
-            <span>
-              Selected: <span className="font-bold">{selectedIds.join(', ')}</span>
+            <span className="max-w-sm truncate">
+              Selected:{" "}
+              <span className="font-bold" title={selectedIds}>
+                {selectedIds}
+              </span>
             </span>
           </div>
         ) : (

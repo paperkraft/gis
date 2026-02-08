@@ -10,6 +10,8 @@ import { PANEL_REGISTRY } from "./panel_registry";
 import { ProjectTreePanel } from "./ProjectTreePanel";
 import { WorkbenchModal } from "./WorkbenchModal";
 import { AttributeTable } from "../panels/AttributeTablePanel";
+import { MergeConflictModal } from "../modals/MergeConflictModal";
+import { DeleteConfirmation } from "../modals/DeleteConfirmation";
 
 export default function WorkbenchLayout({ children }: { children: ReactNode }) {
   const [isResizing, setIsResizing] = useState(false);
@@ -30,7 +32,7 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
   const selectFeature = useNetworkStore((state) => state.selectFeature);
   const selectFeatures = useNetworkStore((state) => state.selectFeatures);
   const setSelectedFeature = useNetworkStore(
-    (state) => state.setSelectedFeature
+    (state) => state.setSelectedFeature,
   );
 
   // --- DYNAMIC COMPONENT RESOLUTION ---
@@ -60,7 +62,7 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
         document.body.style.userSelect = "";
       }
     },
-    [isResizing, isCollapsed]
+    [isResizing, isCollapsed],
   );
 
   useEffect(() => {
@@ -142,6 +144,9 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
 
         <ContextMenu />
       </div>
+
+      <MergeConflictModal />
+      <DeleteConfirmation />
 
       <AttributeTable
         isOpen={showAttributeTable}

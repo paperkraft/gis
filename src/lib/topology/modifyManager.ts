@@ -71,32 +71,43 @@ export class ModifyManager {
         // 4. Lifecycle Events
         this.modifyInteraction.on('modifystart', (event) => {
             this.isModifying = true;
-            window.dispatchEvent(new CustomEvent('takeSnapshot'));
             this.modifyStartCoordinates = {};
 
-            event.features.forEach((feature) => {
-                feature.set('isModifying', true);
-                const geom = feature.getGeometry();
-                if (geom instanceof Point) {
-                    this.modifyStartCoordinates[feature.getId() as string] = [...geom.getCoordinates()];
-                }
+            const store = useNetworkStore.getState();
+            store.startTransaction();
 
-                // RUBBER BANDING: Listen to geometry changes during drag
-                const type = feature.get('type');
+            try {
+                event.features.forEach((feature) => {
+                    feature.set('isModifying', true);
+                    const geom = feature.getGeometry();
 
-                if (['junction', 'tank', 'reservoir'].includes(type)) {
-                    const key = geom?.on('change', () => {
-                        this.rubberBandNode(feature as Feature);
-                    });
-                    if (key) feature.set('_modifyListenerKey', key);
-                }
-                else if (['pump', 'valve'].includes(type)) {
-                    const key = geom?.on('change', () => {
-                        this.rubberBandLink(feature as Feature);
-                    });
-                    if (key) feature.set('_modifyListenerKey', key);
-                }
-            });
+                    if (geom instanceof Point) {
+                        this.modifyStartCoordinates[feature.getId() as string] = [...geom.getCoordinates()];
+                    }
+
+                    // RUBBER BANDING: Listen to geometry changes during drag
+                    const type = feature.get('type');
+
+                    if (['junction', 'tank', 'reservoir'].includes(type)) {
+                        const key = geom?.on('change', () => {
+                            this.rubberBandNode(feature as Feature);
+                        });
+                        if (key) feature.set('_modifyListenerKey', key);
+                    }
+                    else if (['pump', 'valve'].includes(type)) {
+                        const key = geom?.on('change', () => {
+                            this.rubberBandLink(feature as Feature);
+                        });
+                        if (key) feature.set('_modifyListenerKey', key);
+                    }
+                });
+
+                store.commitTransaction();
+
+            } catch (error) {
+                store.commitTransaction();
+                throw error;
+            }
         });
 
         this.modifyInteraction.on('modifyend', (event) => {
@@ -177,7 +188,7 @@ export class ModifyManager {
     }
 
     // =========================================================
-    // 🔗 RUBBER BANDING LOGIC (Real-time)
+    // RUBBER BANDING LOGIC (Real-time)
     // =========================================================
 
     private rubberBandNode(node: Feature, modifiedIds?: string[], updatesAccumulator?: Record<string, any>) {
@@ -296,7 +307,7 @@ export class ModifyManager {
     }
 
     // =========================================================
-    // 🚀 HIGH-PERFORMANCE SPATIAL INDEXING (FLATBUSH)
+    // HIGH-PERFORMANCE SPATIAL INDEXING (FLATBUSH)
     // =========================================================
 
     private rebuildSpatialIndex() {
@@ -374,7 +385,7 @@ export class ModifyManager {
     }
 
     // =========================================================
-    // ⚙️ UTILS
+    // UTILS
     // =========================================================
 
     private getVertexStyleForFeature(feature: Feature): Style | Style[] {

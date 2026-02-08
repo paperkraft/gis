@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import { layerType } from '@/constants/map';
 import { WorkbenchModalType } from '@/components/workbench/modal_registry';
+import { Feature } from 'ol';
 export type FlowAnimationStyle = 'dashes' | 'particles' | 'glow' | 'combined';
 
 export type ToolType =
@@ -31,6 +32,28 @@ export interface ContextMenuState {
     id: string; // layerKey or featureId
 }
 
+export interface MergeContext {
+    node: Feature;
+    pipeA: Feature;
+    pipeB: Feature;
+    onResolve: (chosenPipe: Feature) => void;
+    onCancel: () => void;
+}
+
+interface DeleteContext {
+    features: Feature[];
+    impact: {
+        totalCount: number;      // Total items to be removed
+        cascadeCount: number;    // Items NOT selected but deleted automatically
+        orphanCount: number;     // Nodes deleted because Pipe was deleted
+        isMerge: boolean;        // Pump/Valve delete -> Merge Nodes?
+        primaryType: string;     // e.g. "Junction", "Pipe", or "Mixed"
+        affectedIds: string[];
+    };
+    onConfirm: () => void;
+    onCancel: () => void;
+}
+
 interface UIState {
 
     // project refresh key
@@ -43,6 +66,7 @@ interface UIState {
     // Symbology
     showLabels: boolean;
     showPipeArrows: boolean;
+    showVertices: boolean;
 
     // Snapping
     isSnappingEnabled: boolean;
@@ -83,7 +107,11 @@ interface UIState {
 
     // Context Menu & Styling State
     contextMenu: ContextMenuState | null;
+    mergeContext: MergeContext | null;
+    deleteContext: DeleteContext | null;
+
     activeStyleLayer: string | null;
+
 
     // project refresh utility
     refreshProjects: () => void;
@@ -95,6 +123,7 @@ interface UIState {
 
     setShowLabels: (show: boolean) => void;
     setShowPipeArrows: (show: boolean) => void;
+    setShowVertices: (show: boolean) => void;
 
     // Actions - Modals
     setKeyboardShortcutsModalOpen: (open: boolean) => void;
@@ -136,6 +165,8 @@ interface UIState {
 
     // Actions - Tab navigation
     setContextMenu: (menu: ContextMenuState | null) => void;
+    setMergeContext: (context: MergeContext | null) => void;
+    setDeleteContext: (context: DeleteContext | null) => void;
     setActiveStyleLayer: (layer: string | null) => void;
 
     // Utility - Reset all tools
@@ -194,11 +225,14 @@ const DEFAULT_STATE = {
 
     showLabels: false,
     showPipeArrows: false,
+    showVertices: false,
 
     isSnappingEnabled: true,
     styleSettingsModalOpen: false,
 
     contextMenu: null,
+    mergeContext: null,
+    deleteContext: null,
     activeStyleLayer: null,
 
 };
@@ -212,7 +246,10 @@ export const useUIStore = create<UIState>((set, get) => ({
 
     setSidebarWidth: (width) => set({ sidebarWidth: width }),
 
+    // Context
     setContextMenu: (menu) => set({ contextMenu: menu }),
+    setMergeContext: (context) => set({ mergeContext: context }),
+    setDeleteContext: (context) => set({ deleteContext: context }),
     setActiveStyleLayer: (layer) => set({ activeStyleLayer: layer }),
 
     // Modal actions
@@ -239,6 +276,8 @@ export const useUIStore = create<UIState>((set, get) => ({
     setMeasurementType: (type) => set({ measurementType: type }),
     setShowPipeArrows: (show) => set({ showPipeArrows: show }),
     setShowLabels: (show) => set({ showLabels: show }),
+    setShowVertices: (show) => set({ showVertices: show }),
+
     setIsSnappingEnabled: (enabled) => set({ isSnappingEnabled: enabled }),
     setStyleSettingsModalOpen: (open) => set({ styleSettingsModalOpen: open }),
 

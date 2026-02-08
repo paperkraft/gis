@@ -7,6 +7,7 @@ import {
   Spline,
   XCircle,
   ArrowLeftRight,
+  Merge,
 } from "lucide-react";
 
 import { COMPONENT_TYPES } from "@/constants/networkComponents";
@@ -18,6 +19,7 @@ interface MapContextMenuProps {
   feature: Feature | null;
   onClose: () => void;
   onAction: (action: string, payload?: any) => void;
+  canMergeNode: (feature: Feature | null) => boolean;
 }
 
 export function MapContextMenu({
@@ -27,11 +29,12 @@ export function MapContextMenu({
   feature,
   onClose,
   onAction,
+  canMergeNode,
 }: MapContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [adjustedPos, setAdjustedPos] = useState(position);
 
-  // 1. Collision Detection: Ensure menu stays inside the Viewport
+  // 1. Collision Detection: Ensure menu stays inside the Viewport.
   useLayoutEffect(() => {
     if (isVisible && menuRef.current) {
       const menu = menuRef.current.getBoundingClientRect();
@@ -129,11 +132,48 @@ export function MapContextMenu({
     },
   ];
 
+  const PUMP_MENUS_OPTIONS = [
+    {
+      icon: Settings,
+      label: "Properties",
+      action: "PROPERTIES",
+    },
+    {
+      icon: Trash2,
+      label: "Delete",
+      action: "DELETE",
+    },
+  ];
+
   const NODE_MENUS_OPTIONS = [
     {
       icon: Settings,
       label: "Properties",
       action: "PROPERTIES",
+    },
+    {
+      color: COMPONENT_TYPES.tank.color,
+      icon: COMPONENT_TYPES.tank.icon,
+      label: "Convert to Tank",
+      action: "CONVERT_TO_TANK",
+    },
+    {
+      color: COMPONENT_TYPES.reservoir.color,
+      icon: COMPONENT_TYPES.reservoir.icon,
+      label: "Convert to Reservoir",
+      action: "CONVERT_TO_RESERVOIR",
+    },
+    {
+      color: COMPONENT_TYPES.junction.color,
+      icon: COMPONENT_TYPES.junction.icon,
+      label: "Convert to Junction",
+      action: "CONVERT_TO_JUNCTION",
+    },
+    {
+      color: COMPONENT_TYPES.pipe.color,
+      icon: Merge,
+      label: "Merge Connected Pipes",
+      action: "MERGE_PIPES_AT_NODE",
     },
     {
       icon: Trash2,
@@ -154,9 +194,11 @@ export function MapContextMenu({
         const isFeature = ["Junction", "Pump", "Valve"].includes(menu.label);
         const label = isVertex ? "Add" : isFeature ? "Insert" : "";
 
+        const showSeparator = menu.action === "DELETE" && idx > 0;
+
         return (
           <React.Fragment key={menu.label}>
-            {(idx === 2 || idx === 5) && (
+            {showSeparator && (
               <div className="h-px bg-slate-200 dark:bg-slate-800 my-1" />
             )}
 
@@ -172,6 +214,22 @@ export function MapContextMenu({
       })}
     </>
   );
+
+  const currentType = feature?.get("type");
+
+  const shouldHide = (action: string) => {
+    if (currentType === "junction" && action === "CONVERT_TO_JUNCTION") return true;
+    if (currentType === "tank" && action === "CONVERT_TO_TANK") return true;
+    if (currentType === "reservoir" && action === "CONVERT_TO_RESERVOIR")
+      return true;
+    if (action === "MERGE_PIPES_AT_NODE") {
+      // Rule A: MUST be a Junction (cannot merge across Tank/Reservoir)
+      if (currentType !== "junction") return true;
+      // Rule B: MUST be topologically valid (exactly 2 pipes)
+      if (!canMergeNode(feature)) return true;
+    }
+    return false;
+  };
 
   // 2. Use createPortal to render directly into document.body
   // This prevents clipping by the MapContainer's overflow:hidden
@@ -214,13 +272,13 @@ export function MapContextMenu({
               </>
             )}
 
-            {/* ================= NODE / PUMP / VALVE MENU ================= */}
-            {(type === "PUMP" || type === "VALVE" || type === "NODE") && (
+            {/* ================= PUMP / VALVE MENU ================= */}
+            {(type === "PUMP" || type === "VALVE") && (
               <>
                 <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 dark:bg-slate-900/50 mb-1 border-b">
                   {type} {feature?.get("label") || ""}
                 </div>
-                {NODE_MENUS_OPTIONS.map((menu, idx) => {
+                {PUMP_MENUS_OPTIONS.map((menu, idx) => {
                   const Icon = menu.icon;
                   return (
                     <React.Fragment key={menu.label}>
@@ -230,7 +288,39 @@ export function MapContextMenu({
                       <MenuItem
                         icon={<Icon size={16} />}
                         label={menu.label}
-                        color={menu.action === "DELETE" ? "text-red-600" : undefined}
+                        color={
+                          menu.action === "DELETE" ? "text-red-600" : undefined
+                        }
+                        onClick={() => handleAction(menu.action)}
+                      />
+                    </React.Fragment>
+                  );
+                })}
+              </>
+            )}
+
+            {/* ================= NODE MENU ================= */}
+            {type === "NODE" && (
+              <>
+                <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 dark:bg-slate-900/50 mb-1 border-b">
+                  {type} {feature?.get("label") || ""}
+                </div>
+                {NODE_MENUS_OPTIONS.filter(
+                  (menu) => !shouldHide(menu.action),
+                ).map((menu, idx) => {
+                  const Icon = menu.icon;
+                  const showSeparator = menu.action === "DELETE" && idx > 0;
+                  return (
+                    <React.Fragment key={menu.label}>
+                      {showSeparator && (
+                        <div className="h-px bg-slate-200 dark:bg-slate-800 my-1" />
+                      )}
+                      <MenuItem
+                        icon={<Icon size={16} color={menu.color} />}
+                        label={menu.label}
+                        color={
+                          menu.action === "DELETE" ? "text-red-600" : undefined
+                        }
                         onClick={() => handleAction(menu.action)}
                       />
                     </React.Fragment>
@@ -259,7 +349,7 @@ export function MapContextMenu({
         </div>
       </div>
     </div>,
-    document.body // Portal Target
+    document.body, // Portal Target
   );
 }
 

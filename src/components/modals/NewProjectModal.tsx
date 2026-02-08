@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
 } from '@/components/ui/dialog';
-import { convertGisToINP } from '@/lib/gis/gisImporter';
 import { GisValidationResult, validateGisFile } from '@/lib/gis/gisValidator';
 import { AutoProjection } from '@/lib/gis/locationToZone';
 import { ProjectService } from '@/lib/services/ProjectService';
@@ -20,6 +19,7 @@ import { FlowUnits } from '@/types/network';
 import { ProjectFormFields } from './new-project/ProjectFormFields';
 import { ProjectSuccessView } from './new-project/ProjectSuccessView';
 import { ProjectType, ProjectTypeSelector } from './new-project/ProjectTypeSelector';
+import { processGisData } from '@/lib/gis/gisImporter';
 
 const DEFAULT_FORM_DATA = {
   title: "",
@@ -182,15 +182,17 @@ export function NewProjectModal() {
 
         // Convert to INP using the detected EPSG
         // If the user didn't search, it defaults to EPSG:4326 (Lat/Lon)
-        const inpContent = await convertGisToINP(
+        const inpContent = await processGisData(
           importFile,
           {
             defaultDiameter: 150,
             defaultRoughness: 100,
-            tolerance: 0.0001, // ~1 meters snapping
+            tolerance: 1.0,
+            maxPipeLength: 150
           },
-          selectedEPSG
-        );
+          selectedEPSG,
+          (percent) => console.log(`Processing: ${percent}%`)
+        )
 
         toast.dismiss();
 
@@ -307,7 +309,7 @@ export function NewProjectModal() {
                 <div className="bg-amber-50 border border-amber-100 p-2.5 rounded text-[11px] text-amber-700 leading-tight">
                   <strong>Note:</strong> "Upload a .zip file containing at least .shp, .shx, .dbf, and .prj files." or GeoJson. We will auto-create pipes along the road centerlines.
                 </div>
-            )}
+              )}
             </div>
 
             <DialogFooter className="p-3 bg-slate-50 border-t border-slate-100 flex justify-between items-center w-full shrink-0">
@@ -341,8 +343,8 @@ export function NewProjectModal() {
                   {loading
                     ? "Creating..."
                     : validating
-                    ? "Validating..."
-                    : "Create Project"}
+                      ? "Validating..."
+                      : "Create Project"}
                 </Button>
               </div>
             </DialogFooter>

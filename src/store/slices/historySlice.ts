@@ -6,16 +6,34 @@ import { NetworkState } from '../networkStore';
 export interface HistorySlice {
     past: Feature[][];
     future: Feature[][];
+    isTransactionActive: boolean;
+
     snapshot: () => void;
     undo: () => void;
     redo: () => void;
+
+    startTransaction: () => void;
+    commitTransaction: () => void;
 }
 
 export const createHistorySlice: StateCreator<NetworkState, [], [], HistorySlice> = (set, get) => ({
     past: [],
     future: [],
+    isTransactionActive: false,
+
+    startTransaction: () => {
+        if (get().isTransactionActive) return;
+        get().snapshot();
+        set({ isTransactionActive: true });
+    },
+
+    commitTransaction: () => {
+        set({ isTransactionActive: false });
+    },
 
     snapshot: () => {
+        if (get().isTransactionActive) return;
+
         const current = Array.from(get().features.values()).map(f => {
             const clone = f.clone();
             clone.setId(f.getId());
@@ -31,7 +49,6 @@ export const createHistorySlice: StateCreator<NetworkState, [], [], HistorySlice
         const previousState = past[past.length - 1];
         const newPast = past.slice(0, -1);
 
-        // Snapshot current state for Undo
         const currentSnapshot = Array.from(features.values()).map(f => {
             const c = f.clone();
             c.setId(f.getId());

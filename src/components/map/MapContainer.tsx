@@ -11,11 +11,11 @@ import { useMapInteractions } from "@/hooks/useMapInteractions";
 import { useLayerManager } from "@/hooks/useLayerManager";
 import { useFeatureSelection } from "@/hooks/useFeatureSelection";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { useDeleteHandler } from "@/hooks/useDeleteHandler";
 import { useHistoryManager } from "@/hooks/useHistoryManager";
 import { useMeasurement } from "@/hooks/useMeasurement";
 import { useMapFeatureSync } from "@/hooks/useMapFeatureSync";
 import { useMapContextMenu } from "@/hooks/useMapContextMenu";
+import { useDeleteHighlight } from "@/hooks/useDeleteHighlight";
 
 // Stores & Types
 import { useMapStore } from "@/store/mapStore";
@@ -31,7 +31,6 @@ import { MapToolbar } from "./MapToolbar";
 import { MapControls } from "./MapControls";
 import { MapLayers } from "./MapLayers";
 import { MapContextMenu } from "./MapContextMenu";
-import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
 
 export function MapContainer() {
   const params = useParams();
@@ -51,13 +50,7 @@ export function MapContainer() {
   // Network store
   const { selectedFeature, setSelectedFeature, features } = useNetworkStore();
 
-  const {
-    activeTool,
-    deleteModalOpen,
-    activeModal,
-    setActiveModal,
-    setDeleteModalOpen,
-  } = useUIStore();
+  const { activeTool, activeModal, setActiveModal } = useUIStore();
 
   useEffect(() => {
     hasZoomedRef.current = false;
@@ -91,7 +84,12 @@ export function MapContainer() {
   }, [map, vectorSource, features.size, projectId]);
 
   // Setup Interactions
-  useMapInteractions({ map, vectorSource });
+  const { deleteManager, pipeDrawingManager } = useMapInteractions({
+    map,
+    vectorSource,
+  });
+
+  const contextMenu = useMapContextMenu(pipeDrawingManager, deleteManager);
 
   // Handle Feature Selection
   useFeatureSelection({
@@ -107,6 +105,7 @@ export function MapContainer() {
       : null;
 
     const protectedModals = ["VALIDATION", "AUTO_ELEVATION", "DATA_MANAGER"];
+
     if (protectedModals.includes(activeModal)) {
       // Just update the ref so we track the selection, but DO NOT change the modal.
       lastSelectedIdRef.current = currentId;
@@ -118,6 +117,7 @@ export function MapContainer() {
       currentId !== lastSelectedIdRef.current &&
       activeTool === "select"
     ) {
+
       const type = selectedFeature?.get("type");
       let modalType: WorkbenchModalType = "NONE";
 
@@ -169,9 +169,6 @@ export function MapContainer() {
   // Keyboard Shortcuts
   useKeyboardShortcuts();
 
-  // Delete Handling
-  const { cascadeInfo, deleteCount, handleDeleteConfirm } = useDeleteHandler();
-
   // History Manager (Undo/Redo)
   useHistoryManager();
 
@@ -180,6 +177,8 @@ export function MapContainer() {
 
   // Activate Synchronization
   useMapFeatureSync();
+
+  useDeleteHighlight();
 
   // Simulation results from database
   const { loadResults } = useSimulationStore();
@@ -190,12 +189,9 @@ export function MapContainer() {
     }
   }, [projectId, loadResults]);
 
-  const contextMenu = useMapContextMenu();
-
   return (
     <div className="relative w-full h-full bg-gray-100 dark:bg-gray-900 flex flex-col">
       <div className="flex-1 relative overflow-hidden">
-        {/* Map Target */}
         <div ref={mapRef} className="w-full h-full" />
 
         <MapToolbar />
@@ -203,28 +199,19 @@ export function MapContainer() {
         <Legend />
         <MapLayers />
 
-        <MapContextMenu
-          isVisible={contextMenu.isVisible}
-          position={contextMenu.position}
-          type={contextMenu.type}
-          feature={contextMenu.feature}
-          onClose={contextMenu.onClose}
-          onAction={contextMenu.onAction}
-        />
-
-        <DeleteConfirmationModal
-          isOpen={deleteModalOpen}
-          onClose={() => setDeleteModalOpen(false)}
-          onConfirm={handleDeleteConfirm}
-          count={deleteCount}
-          featureName={selectedFeature?.get("label") || "Unknown"}
-          featureType={selectedFeature?.get("type") || "Feature"}
-          featureId={selectedFeature?.getId()?.toString() || "Unknown"}
-          cascadeInfo={cascadeInfo}
-        />
+        {activeTool === 'modify' && (
+          <MapContextMenu
+            isVisible={contextMenu.isVisible}
+            position={contextMenu.position}
+            type={contextMenu.type}
+            feature={contextMenu.feature}
+            onClose={contextMenu.onClose}
+            onAction={contextMenu.onAction}
+            canMergeNode={contextMenu.canMergeNode}
+          />
+        )}
       </div>
 
-      {/* Status bar */}
       <StatusBar />
     </div>
   );

@@ -53,7 +53,7 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
     if (featureType === 'pipe') {
         currentMode = linkColorMode;
         activeGradient = linkGradient;
-        const diameter = feature.get('diameter') || 100;
+        const diameter = feature.get('diameter') || 150;
 
         // Auto Scale Logic (Overrides fixed width)
         if (isAutoScale) {

@@ -35,8 +35,8 @@ export function WorkbenchModal({
         position: "absolute",
         top: 10,
         left: sidebarWidth + 18,
-        right: 12,
-        bottom: 40,
+        right: 9,
+        bottom: 38,
         zIndex: 50,
       }
     : {
@@ -44,7 +44,7 @@ export function WorkbenchModal({
         top: 10,
         left: sidebarWidth + 18,
         width: "320px",
-        maxHeight: "calc(100vh - 100px)",
+        maxHeight: "calc(100vh - 95px)",
         zIndex: 50,
       };
 

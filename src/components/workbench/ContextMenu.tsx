@@ -14,10 +14,10 @@ export function ContextMenu() {
   const {
     contextMenu,
     setContextMenu,
-    toggleLayerVisibility,
-    layerVisibility,
     showPipeArrows,
+    showVertices,
     setShowPipeArrows,
+    setShowVertices,
     setActiveStyleLayer,
     setActiveModal,
   } = useUIStore();
@@ -39,8 +39,6 @@ export function ContextMenu() {
   if (!contextMenu) return null;
 
   const { x, y, id, type } = contextMenu;
-  const isLayer = type === "layer";
-  const isVisible = isLayer ? layerVisibility[id] : true;
 
   // --- ACTIONS ---
   const handleEditStyle = () => {
@@ -49,8 +47,8 @@ export function ContextMenu() {
     setContextMenu(null);
   };
 
-  const handleToggleVisibility = () => {
-    toggleLayerVisibility(id);
+  const handleVertexVisibility = () => {
+    setShowVertices(!showVertices);
     setContextMenu(null);
   };
 
@@ -113,18 +111,20 @@ export function ContextMenu() {
         onClick={handleEditStyle}
       />
 
-      {/* <MenuItem
-        icon={isVisible ? EyeOff : Eye}
-        label={isVisible ? `Hide ${id}s` : `Show ${id}s`}
-        onClick={handleToggleVisibility}
-      /> */}
-
       {id === "pipe" && (
-        <MenuItem
-          icon={showPipeArrows ? EyeOff : Eye}
-          label={showPipeArrows ? "Hide Arrows" : "Show Arrows"}
-          onClick={handleArrowVisibility}
-        />
+        <>
+          <MenuItem
+            icon={showPipeArrows ? EyeOff : Eye}
+            label={showPipeArrows ? "Hide Arrows" : "Show Arrows"}
+            onClick={handleArrowVisibility}
+          />
+
+          <MenuItem
+            icon={showVertices ? EyeOff : Eye}
+            label={showVertices ? "Hide Vertices" : "Show Vertices"}
+            onClick={handleVertexVisibility}
+          />
+        </>
       )}
 
       <MenuItem

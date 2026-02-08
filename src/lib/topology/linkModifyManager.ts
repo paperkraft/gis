@@ -90,10 +90,13 @@ export class LinkModifyManager {
             if (!this.draggedLink) return;
 
             if (!this.isDragging && event.dragging) {
-                window.dispatchEvent(new CustomEvent('takeSnapshot'));
+                const store = useNetworkStore.getState();
+                store.startTransaction();
 
                 this.isDragging = true;
                 this.map.getViewport().style.cursor = 'move';
+
+                store.commitTransaction();
             }
 
             if (this.isDragging) {

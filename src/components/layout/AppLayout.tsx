@@ -9,7 +9,7 @@ import { useUIStore } from "@/store/uiStore";
 import { Button } from "../ui/button";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
-import { sidebarMenus } from "./sidebar";
+import { sidebarMenus } from "./sidebar-menus";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const path = usePathname();

@@ -5,7 +5,7 @@ import { useCallback } from "react";
 
 import { cn } from "@/lib/utils";
 
-import { sidebarMenus } from "./sidebar";
+import { sidebarMenus } from "./sidebar-menus";
 
 export const Sidebar = () => {
   const router = useRouter();
