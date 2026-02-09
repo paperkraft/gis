@@ -342,8 +342,8 @@ export function useMapContextMenu(
         setState(prev => ({ ...prev, isVisible: false }));
         // Optional: clear selection on background click if desired, 
         // but often context menu dismissal shouldn't deselect.
-        selectFeature(null)
-        selectFeatures([])
+        // selectFeature(null)
+        // selectFeatures([])
     }, []);
 
     return { ...state, onClose: closeMenu, onAction: handleAction, canMergeNode };
