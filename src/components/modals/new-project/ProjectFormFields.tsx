@@ -33,11 +33,11 @@ interface ProjectFormFieldsProps {
     onProjectionFound?: (proj: AutoProjection) => void;
 }
 
-export function ProjectFormFields({ 
+export function ProjectFormFields({
     projectType, formData, setFormData, importFile, fileInputRef, handleFileSelect,
     validating, validationResult, showProjectionSelect,
     onProjectionFound
-    
+
 }: ProjectFormFieldsProps) {
 
     // Local state for the search
@@ -60,7 +60,7 @@ export function ProjectFormFields({
             setIsSearching(false);
         }
     };
-    
+
     const handleChange = (key: string, val: any) => setFormData({ ...formData, [key]: val });
 
     // Helper to determine accepted file extensions
@@ -78,7 +78,7 @@ export function ProjectFormFields({
                             label="Title *"
                             name="title"
                             value={formData.title}
-                            onChange={(v)=> handleChange('title', v)}
+                            onChange={(v) => handleChange('title', v)}
                             placeholder={projectType === 'blank' ? "e.g. New Project" : "Auto-filled from filename"}
                         />
 
@@ -87,11 +87,14 @@ export function ProjectFormFields({
                             name="description"
                             textarea
                             value={formData.description}
-                            onChange={(v)=> handleChange('description', v)}
+                            onChange={(v) => handleChange('description', v)}
                             placeholder="Describe the project goals..."
                         />
 
-                        
+
+
+
+
                     </FormGroup>
                 </div>
             </div>
@@ -106,19 +109,19 @@ export function ProjectFormFields({
                                     label="Flow Units"
                                     name="units"
                                     value={formData.units}
-                                    onChange={(v)=> handleChange('units', v)}
+                                    onChange={(v) => handleChange('units', v)}
                                     options={flowUnitOptions}
                                 />
                                 <FormSelect
                                     label="Projection"
                                     name="projection"
                                     value={formData.projection}
-                                    onChange={(v)=> handleChange('projection', v)}
+                                    onChange={(v) => handleChange('projection', v)}
                                     options={projectionList}
                                 />
                             </div>
                         </FormGroup>
-                        
+
                         <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700 mt-2">
                             <p className="font-bold mb-1">Starting from scratch?</p>
                             You will start with an empty canvas. You can draw network using the toolbar, then configure simulation settings later.
@@ -126,6 +129,30 @@ export function ProjectFormFields({
                     </div>
                 ) : (
                     <FormGroup label='Source File'>
+                        {projectType === 'gis' && (
+                            <div className="grid grid-cols-2 gap-2">
+                                <FormInput
+                                    type='number'
+                                    step='0.1'
+                                    label="Tolerance (meters)"
+                                    name="tolerance"
+                                    value={formData.tolerance ?? 0.5}
+                                    onChange={(v) => handleChange('tolerance', v)}
+                                    placeholder="Tolerance for snapping nodes (default: 0.5)"
+                                />
+
+                                <FormInput
+                                    type='number'
+                                    step='50'
+                                    label="Max Pipe Length (meters)"
+                                    name="maxPipeLength"
+                                    value={formData.maxPipeLength ?? 500}
+                                    onChange={(v) => handleChange('maxPipeLength', v)}
+                                    placeholder="Maximum pipe length (default: 500)"
+                                />
+                            </div>
+                        )}
+
                         <div
                             onClick={() => fileInputRef.current?.click()}
                             className={cn(
@@ -157,17 +184,17 @@ export function ProjectFormFields({
                                         <div className={cn(
                                             "p-2 text-[10px] flex gap-2 items-start leading-snug animate-in slide-in-from-top-2 fade-in duration-300",
                                             validationResult.status === 'error' ? "bg-red-50 border-red-200 text-red-700" :
-                                            validationResult.status === 'warning' ? "bg-amber-50 border-amber-200 text-amber-700" :
-                                            "bg-green-50 border-green-200 text-green-700"
+                                                validationResult.status === 'warning' ? "bg-amber-50 border-amber-200 text-amber-700" :
+                                                    "bg-green-50 border-green-200 text-green-700"
                                         )}>
                                             <div className='flex gap-1'>
                                                 <div className="shrink-0">
-                                                    {validationResult.status === 'error' ? <XCircle size={14}/> : 
-                                                    validationResult.status === 'warning' ? <AlertTriangle size={14}/> : <CheckCircle2 size={14}/>}
+                                                    {validationResult.status === 'error' ? <XCircle size={14} /> :
+                                                        validationResult.status === 'warning' ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
                                                 </div>
                                                 <span className="font-bold block mb-0.5">
-                                                    {validationResult.status === 'error' ? 'Invalid File' : 
-                                                    validationResult.status === 'warning' ? 'Projection Warning :' : 'Valid Geometry'}
+                                                    {validationResult.status === 'error' ? 'Invalid File' :
+                                                        validationResult.status === 'warning' ? 'Projection Warning :' : 'Valid Geometry'}
                                                 </span>
                                                 {validationResult.message}
                                             </div>
@@ -190,7 +217,7 @@ export function ProjectFormFields({
                                         Identify Project Location
                                     </h6>
                                     <p className="text-[10px] text-primary leading-relaxed">
-                                        We detected local coordinates.<br/>Enter the city/region name to automatically fix the projection.
+                                        We detected local coordinates.<br />Enter the city/region name to automatically fix the projection.
                                     </p>
                                 </div>
 
@@ -199,17 +226,17 @@ export function ProjectFormFields({
                                         label=""
                                         name="location-search"
                                         value={locationQuery}
-                                        onChange={(v)=> setLocationQuery(v)}
+                                        onChange={(v) => setLocationQuery(v)}
                                         placeholder="e.g. Kolhapur, Maharashtra, India"
                                         onKeyDown={(e) => e.key === 'Enter' && handleLocationSearch()}
                                         className='w-full'
                                     />
-                                    <Button 
-                                        size="sm" 
-                                        onClick={handleLocationSearch} 
+                                    <Button
+                                        size="sm"
+                                        onClick={handleLocationSearch}
                                         disabled={isSearching}
                                         className='size-7.5'
-                                        // className="bg-blue-600 text-white hover:bg-blue-700"
+                                    // className="bg-blue-600 text-white hover:bg-blue-700"
                                     >
                                         {isSearching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
                                     </Button>

@@ -26,6 +26,11 @@ const DEFAULT_FORM_DATA = {
   description: "",
   projection: "EPSG:3857",
   units: "LPS",
+  // GIS-specific settings
+  tolerance: 0.5,
+  maxPipeLength: 500,
+  defaultDiameter: 150,
+  defaultRoughness: 110,
 };
 
 export function NewProjectModal() {
@@ -114,9 +119,7 @@ export function NewProjectModal() {
         name.endsWith(".geojson");
 
       if (!isValid) {
-        toast.error(
-          "Please select a valid .zip (Shapefile) or .json (GeoJSON) file"
-        );
+        toast.error("Please select a valid .zip (Shapefile) or .json (GeoJSON) file");
         return;
       }
 
@@ -185,10 +188,10 @@ export function NewProjectModal() {
         const inpContent = await processGisData(
           importFile,
           {
-            tolerance: 0.5,
-            maxPipeLength: 500,
-            defaultDiameter: 150,
-            defaultRoughness: 110,
+            tolerance: formData.tolerance ?? 0.5,
+            maxPipeLength: formData.maxPipeLength ?? 500,
+            defaultDiameter: formData.defaultDiameter ?? 150,
+            defaultRoughness: formData.defaultRoughness ?? 110,
           },
           selectedEPSG,
           (percent) => console.log(`Processing: ${percent}%`)

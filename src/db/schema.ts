@@ -108,3 +108,4 @@ export const bookmarks = pgTable("bookmarks", {
     zoom: doublePrecision("zoom").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
