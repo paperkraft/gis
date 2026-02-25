@@ -1,4 +1,3 @@
-import Flatbush from 'flatbush';
 import { Feature, MapBrowserEvent } from 'ol';
 import { LineString, Point } from 'ol/geom';
 import { Draw, Snap } from 'ol/interaction';
@@ -47,10 +46,6 @@ export class PipeDrawingManager {
     // Handlers
     private clickHandler: ((event: any) => void) | null = null;
 
-    // Performance Optimization: Spatial Index
-    private spatialIndex: Flatbush | null = null;
-    private indexedFeatures: Feature[] = [];
-
     // Updated Constraint: 1 meter for pumps/valves
     private readonly MIN_PIPE_LENGTH = 1.0;
 
@@ -64,8 +59,6 @@ export class PipeDrawingManager {
     // ============================================
 
     public startDrawing(type: 'pipe' | 'pump' | 'valve' = 'pipe') {
-
-        this.rebuildSpatialIndex();
 
         this.stopDrawing(); // Clear previous state
         this.activeType = type;
@@ -154,8 +147,6 @@ export class PipeDrawingManager {
 
         this.removeHighlightLayer();
 
-        this.spatialIndex = null;
-        this.indexedFeatures = [];
         this.tempStartNode = null;
 
         if (fullReset) {
@@ -254,7 +245,6 @@ export class PipeDrawingManager {
         const coord = (node.getGeometry() as Point).getCoordinates();
         this.drawingCoordinates = [coord];
         this.addVertexMarker(coord);
-        this.spatialIndex = null; // Invalidate
     }
 
     // ============================================
@@ -438,84 +428,38 @@ export class PipeDrawingManager {
         return this.createNode(coordinate, 'junction');
     }
 
-    private rebuildSpatialIndex() {
-        const allFeatures = this.vectorSource.getFeatures();
-        const targets = allFeatures.filter(f =>
-            ['pipe', 'junction', 'tank', 'reservoir'].includes(f.get('type')) &&
-            !f.get('isPreview') && !f.get('isVisualLink')
-        );
-
-        this.indexedFeatures = targets;
-
-        if (targets.length > 0) {
-            this.spatialIndex = new Flatbush(targets.length);
-
-            for (const feature of targets) {
-                const geom = feature.getGeometry();
-                if (geom instanceof Point) {
-                    const c = geom.getCoordinates();
-                    this.spatialIndex.add(c[0], c[1], c[0], c[1]);
-                } else if (geom instanceof LineString) {
-                    const ext = geom.getExtent();
-                    this.spatialIndex.add(ext[0], ext[1], ext[2], ext[3]);
-                }
-            }
-            this.spatialIndex.finish();
-        } else {
-            this.spatialIndex = null;
-        }
-    }
-
     public findPipeAtCoordinate(coordinate: number[]): Feature | null {
-        if (!this.spatialIndex) this.rebuildSpatialIndex();
-        if (!this.spatialIndex) return null;
-
         const resolution = this.map.getView().getResolution() || 1;
         const tolerance = 10 * resolution;
 
-        const results = this.spatialIndex.neighbors(coordinate[0], coordinate[1], 10, tolerance);
+        const bestPipe = this.vectorSource.getClosestFeatureToCoordinate(coordinate, (f) => f.get('type') === 'pipe');
+        if (!bestPipe) return null;
 
-        let bestPipe: Feature | null = null;
-        let minDist = Infinity;
+        const geom = bestPipe.getGeometry() as LineString;
+        const closest = geom.getClosestPoint(coordinate);
+        const dx = closest[0] - coordinate[0];
+        const dy = closest[1] - coordinate[1];
+        const dist = Math.sqrt(dx * dx + dy * dy);
 
-        for (const i of results) {
-            const feature = this.indexedFeatures[i];
-            if (feature.get('type') === 'pipe') {
-                const geom = feature.getGeometry() as LineString;
-                const closest = geom.getClosestPoint(coordinate);
-                const dx = closest[0] - coordinate[0];
-                const dy = closest[1] - coordinate[1];
-                const dist = Math.sqrt(dx * dx + dy * dy);
-
-                if (dist < tolerance && dist < minDist) {
-                    minDist = dist;
-                    bestPipe = feature;
-                }
-            }
+        if (dist < tolerance) {
+            return bestPipe;
         }
-        return bestPipe;
+
+        return null;
     }
 
     private findNodeAtCoordinate(coordinate: number[]): Feature | null {
-        if (!this.spatialIndex) this.rebuildSpatialIndex();
-        if (!this.spatialIndex) return null;
-
         const resolution = this.map.getView().getResolution() || 1;
         const tolerance = 10 * resolution;
 
-        const results = this.spatialIndex.neighbors(coordinate[0], coordinate[1], 10, tolerance);
+        const bestNode = this.vectorSource.getClosestFeatureToCoordinate(coordinate, (f) => ['junction', 'tank', 'reservoir'].includes(f.get('type')));
+        if (!bestNode) return null;
 
-        for (const i of results) {
-            const feature = this.indexedFeatures[i];
-            const type = feature.get('type');
-            if (['junction', 'tank', 'reservoir'].includes(type)) {
-                const geom = feature.getGeometry() as Point;
-                const c = geom.getCoordinates();
-                const dist = Math.sqrt(Math.pow(c[0] - coordinate[0], 2) + Math.pow(c[1] - coordinate[1], 2));
+        const geom = bestNode.getGeometry() as Point;
+        const c = geom.getCoordinates();
+        const dist = Math.sqrt(Math.pow(c[0] - coordinate[0], 2) + Math.pow(c[1] - coordinate[1], 2));
 
-                if (dist < tolerance) return feature;
-            }
-        }
+        if (dist < tolerance) return bestNode;
         return null;
     }
 
@@ -526,8 +470,6 @@ export class PipeDrawingManager {
         if (!this.tempStartNode && this._isDrawingMode) {
             this.tempStartNode = feature;
         }
-        this.startNode = feature;
-        this.spatialIndex = null;
         return feature;
     }
 
@@ -541,8 +483,6 @@ export class PipeDrawingManager {
         // Update Topology
         store.updateNodeConnections(startNode.getId() as string, feature.getId() as string, "add");
         store.updateNodeConnections(endNode.getId() as string, feature.getId() as string, "add");
-
-        this.spatialIndex = null;
     }
 
     private createLinkBetweenNodes(node1: Feature, node2: Feature, type: 'pump' | 'valve') {
@@ -557,7 +497,6 @@ export class PipeDrawingManager {
         const id = component.getId() as string;
         store.updateNodeConnections(node1.getId() as string, id, "add");
         store.updateNodeConnections(node2.getId() as string, id, "add");
-        this.spatialIndex = null;
     }
 
     private addVertexMarker(coord: number[]) {
@@ -734,7 +673,6 @@ export class PipeDrawingManager {
             store.updateNodeConnections(endNodeId, p2Id, "add");
 
             this.vectorSource.changed();
-            this.spatialIndex = null;
 
             // 2. Commit Transaction
             store.commitTransaction();
@@ -803,8 +741,6 @@ export class PipeDrawingManager {
 
             store.updateNodeConnections(newNodeId, p2Id, "add");
             store.updateNodeConnections(endNodeId, p2Id, "add");
-
-            this.spatialIndex = null;
 
             // 2. Commit Transaction
             store.commitTransaction();

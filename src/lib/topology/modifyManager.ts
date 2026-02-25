@@ -1,13 +1,14 @@
-import Flatbush from 'flatbush';
 import { Collection, Feature, Map } from 'ol';
 import { click } from 'ol/events/condition';
 import { LineString, Point } from 'ol/geom';
 import { Modify, Select } from 'ol/interaction';
 import { unByKey } from 'ol/Observable';
 import VectorSource from 'ol/source/Vector';
+import VectorLayer from 'ol/layer/Vector';
 import { Style } from 'ol/style';
 
 import { getVertexStyle, VertexStyles } from '@/lib/styles/vertexStyles';
+import { getFeatureStyle } from '@/lib/styles/featureStyles';
 import { useNetworkStore } from '@/store/networkStore';
 
 import { getSelectedStyle } from '../styles/featureStyles';
@@ -19,49 +20,118 @@ export class ModifyManager {
     private modifyInteraction: Modify | null = null;
     private selectInteraction: Select | null = null;
     private linkModifyManager: LinkModifyManager;
-    private modifyStartCoordinates: Record<string, number[]> = {};
 
-    // Performance Optimization: Flatbush Spatial Index
-    private modifiableFeatures: Collection<Feature>;
     private isModifying: boolean = false;
     private isPointerDown: boolean = false;
-    private spatialIndex: Flatbush | null = null;
-    private indexedFeatures: Feature[] = [];
+
+    private modifiableFeatures: Collection<Feature>;
     private boundPointerMoveHandler: (e: any) => void;
     private boundPointerDownHandler: (e: any) => void;
     private boundPointerUpHandler: (e: any) => void;
+
+    private dragSource: VectorSource;
+    private dragLayer: VectorLayer<any>;
+    private activeDragFeatures: Feature[] = [];
 
     constructor(map: Map, vectorSource: VectorSource) {
         this.map = map;
         this.vectorSource = vectorSource;
         this.linkModifyManager = new LinkModifyManager(map, vectorSource);
 
-        // Dynamic Collection for "Just-In-Time" modification
         this.modifiableFeatures = new Collection<Feature>();
         this.boundPointerMoveHandler = this.handlePointerMove.bind(this);
         this.boundPointerDownHandler = () => { this.isPointerDown = true; };
         this.boundPointerUpHandler = () => { this.isPointerDown = false; };
+
+        this.dragSource = new VectorSource();
+        this.dragLayer = new VectorLayer({
+            source: this.dragSource,
+            zIndex: 100, // Topmost interaction layer
+            style: (feature) => getFeatureStyle(feature as Feature<any>),
+            declutter: false, // Disabling declutter makes it render instantly
+            updateWhileAnimating: true,
+            updateWhileInteracting: true
+        });
+        this.map.addLayer(this.dragLayer);
+    }
+
+    private getFeature(id: string): Feature | null {
+        if (!id) return null;
+        let f = this.vectorSource.getFeatureById(id);
+        if (f) return f as Feature;
+        f = this.dragSource.getFeatureById(id);
+        if (f) return f as Feature;
+        return null;
+    }
+
+    private setDragEnvironment(draggedFeatures: Feature[]) {
+        const affected = new Set<Feature>();
+
+        const addLink = (linkId: string) => {
+            const link = this.getFeature(linkId);
+            if (link) {
+                affected.add(link);
+                const visLine = this.getFeature(`VIS-${linkId}`);
+                if (visLine) affected.add(visLine);
+            }
+        };
+
+        const addNode = (nodeId: string) => {
+            const node = this.getFeature(nodeId);
+            if (node) {
+                affected.add(node);
+                const links = node.get('connectedLinks') as string[] || [];
+                links.forEach(addLink);
+            }
+        };
+
+        draggedFeatures.forEach(feature => {
+            affected.add(feature);
+            const type = feature.get('type');
+            if (['junction', 'tank', 'reservoir'].includes(type)) {
+                addNode(feature.getId() as string);
+            } else if (['pipe', 'pump', 'valve'].includes(type)) {
+                addLink(feature.getId() as string);
+                addNode(feature.get('startNodeId'));
+                addNode(feature.get('endNodeId'));
+            }
+        });
+
+        this.activeDragFeatures = Array.from(affected);
+        // Move to drag layer for fast rendering
+        this.activeDragFeatures.forEach(f => {
+            if (this.vectorSource.hasFeature(f)) {
+                this.vectorSource.removeFeature(f);
+                this.dragSource.addFeature(f);
+            }
+        });
+    }
+
+    private cleanupDragEnvironment() {
+        this.activeDragFeatures.forEach(f => {
+            if (this.dragSource.hasFeature(f)) {
+                this.dragSource.removeFeature(f);
+                this.vectorSource.addFeature(f);
+            }
+        });
+        this.activeDragFeatures = [];
     }
 
     public startModifying() {
         if (this.modifyInteraction) return;
 
-        // 1. Build Index for ALL features (Nodes, Links, Pipes)
-        this.rebuildSpatialIndex();
-
-        // 2. Select Interaction (Visual only - allows seeing properties while dragging)
+        // 1. Select Interaction (Visual only)
         this.selectInteraction = new Select({
             condition: click,
             style: (feature) => getSelectedStyle(feature as Feature),
             filter: (feature) => {
                 const type = feature.get('type');
-                // Allow selecting everything relevant
                 return ['pipe', 'junction', 'tank', 'reservoir', 'pump', 'valve'].includes(type);
             },
         });
         this.map.addInteraction(this.selectInteraction);
 
-        // 3. Modify Interaction (Linked to our high-perf collection)
+        // 2. Modify Interaction (Linked to dynamic collection)
         this.modifyInteraction = new Modify({
             features: this.modifiableFeatures,
             style: (feature) => this.getVertexStyleForFeature(feature as Feature),
@@ -71,21 +141,16 @@ export class ModifyManager {
         // 4. Lifecycle Events
         this.modifyInteraction.on('modifystart', (event) => {
             this.isModifying = true;
-            this.modifyStartCoordinates = {};
 
             const store = useNetworkStore.getState();
             store.startTransaction();
+
+            this.setDragEnvironment(event.features.getArray());
 
             try {
                 event.features.forEach((feature) => {
                     feature.set('isModifying', true);
                     const geom = feature.getGeometry();
-
-                    if (geom instanceof Point) {
-                        this.modifyStartCoordinates[feature.getId() as string] = [...geom.getCoordinates()];
-                    }
-
-                    // RUBBER BANDING: Listen to geometry changes during drag
                     const type = feature.get('type');
 
                     if (['junction', 'tank', 'reservoir'].includes(type)) {
@@ -100,11 +165,19 @@ export class ModifyManager {
                         });
                         if (key) feature.set('_modifyListenerKey', key);
                     }
+                    else if (type === 'pipe') {
+                        // Reverse Rubber-Banding: Dragging a pipe endpoint should move the underlying node
+                        const key = geom?.on('change', () => {
+                            this.rubberBandNodesFromPipe(feature as Feature);
+                        });
+                        if (key) feature.set('_modifyListenerKey', key);
+                    }
                 });
 
                 store.commitTransaction();
 
             } catch (error) {
+                this.cleanupDragEnvironment();
                 store.commitTransaction();
                 throw error;
             }
@@ -116,13 +189,10 @@ export class ModifyManager {
 
             const store = useNetworkStore.getState();
             const modifiedIds: string[] = [];
-
-            // We will store all geometry updates here before sending to Zustand
             const updatesAccumulator: Record<string, any> = {};
 
             event.features.forEach((feature) => {
                 feature.unset('isModifying');
-                // Cleanup Listener
                 const key = feature.get('_modifyListenerKey');
                 if (key) {
                     unByKey(key);
@@ -131,34 +201,35 @@ export class ModifyManager {
 
                 const type = feature.get('type');
                 const id = feature.getId() as string;
-                modifiedIds.push(id);
 
-                // Strategy Pattern for Updates
+                // If the feature itself moved
+                if (!modifiedIds.includes(id)) modifiedIds.push(id);
+
                 if (['junction', 'tank', 'reservoir'].includes(type)) {
                     this.rubberBandNode(feature as Feature, modifiedIds, updatesAccumulator);
                     this.checkForPipeSplit(feature as Feature);
                 } else if (type === 'pump' || type === 'valve') {
                     this.rubberBandLink(feature as Feature, modifiedIds);
                 } else if (type === 'pipe') {
-                    // 3. Handle Pipe Move Explicitly
                     this.handlePipeMove(feature as Feature, updatesAccumulator);
+                    // Also finalize node positions
+                    this.rubberBandNodesFromPipe(feature as Feature, modifiedIds, updatesAccumulator);
                 }
             });
 
-            // This ensures the new vertex coordinates are saved to the State/DB
+            // Put them back in the main source
+            this.cleanupDragEnvironment();
+
             if (Object.keys(updatesAccumulator).length > 0) {
                 store.updateFeatures(updatesAccumulator);
             }
 
             store.markModified(modifiedIds);
-            this.modifyStartCoordinates = {};
             store.markUnSaved();
-
-            // Rebuild index to reflect new positions
-            this.rebuildSpatialIndex();
         });
 
         this.map.addInteraction(this.modifyInteraction);
+
         this.map.on('pointermove', this.boundPointerMoveHandler);
         this.map.on('pointerdown' as any, this.boundPointerDownHandler);
         this.map.on('pointerup' as any, this.boundPointerUpHandler);
@@ -166,30 +237,99 @@ export class ModifyManager {
         this.map.getViewport().style.cursor = 'move';
     }
 
+    private handlePointerMove(event: any) {
+        if (this.isModifying || this.isPointerDown) return;
+
+        const pixel = this.map.getEventPixel(event.originalEvent);
+        let bestFeature: Feature | null = null;
+        let foundNode = false;
+
+        this.map.forEachFeatureAtPixel(pixel, (feature, layer) => {
+            if (foundNode) return; // Break loop if node already found
+
+            const type = feature.get('type');
+            if (['junction', 'tank', 'reservoir'].includes(type)) {
+                bestFeature = feature as Feature;
+                foundNode = true; // Priority given to nodes
+            } else if (type === 'pipe' || type === 'pump' || type === 'valve') {
+                if (!bestFeature) bestFeature = feature as Feature;
+            }
+        }, {
+            hitTolerance: 10
+        });
+
+        if (bestFeature) {
+            const current = this.modifiableFeatures.getArray();
+            if (current.length !== 1 || current[0] !== bestFeature) {
+                this.modifiableFeatures.clear();
+                this.modifiableFeatures.push(bestFeature);
+                this.map.getViewport().style.cursor = 'move';
+            }
+            return;
+        }
+
+        // Clear if nothing found
+        if (this.modifiableFeatures.getLength() > 0) {
+            this.modifiableFeatures.clear();
+            this.map.getViewport().style.cursor = 'move';
+        }
+    }
+
     private handlePipeMove(pipe: Feature, updatesAccumulator: Record<string, any>) {
         const id = pipe.getId() as string;
         const geom = pipe.getGeometry();
 
-        // Safety Check
         if (!geom || !(geom instanceof LineString)) return;
 
-        // 1. Get NEW Coordinates (Vertices)
         const newCoords = geom.getCoordinates();
-
-        // 2. Update Length
         const newLength = Math.round(geom.getLength());
         pipe.set('length', newLength);
 
-        // 3. Add to Batch for Store Update
         updatesAccumulator[id] = {
             geometry: newCoords,
             length: newLength
         };
     }
 
-    // =========================================================
-    // RUBBER BANDING LOGIC (Real-time)
-    // =========================================================
+    private rubberBandNodesFromPipe(pipe: Feature, modifiedIds?: string[], updatesAccumulator?: Record<string, any>) {
+        const geom = pipe.getGeometry() as LineString;
+        if (!geom) return;
+
+        const coords = geom.getCoordinates();
+        const startCoord = coords[0];
+        const endCoord = coords[coords.length - 1];
+
+        const startNodeId = pipe.get('startNodeId');
+        const endNodeId = pipe.get('endNodeId');
+
+        [
+            { id: startNodeId, coord: startCoord },
+            { id: endNodeId, coord: endCoord }
+        ].forEach(({ id, coord }) => {
+            if (!id) return;
+            const node = this.getFeature(id);
+            if (!node) return;
+
+            const nodeGeom = node.getGeometry() as Point;
+            const currentCoord = nodeGeom.getCoordinates();
+
+            // Only update if the coordinate actually moved 
+            // (to avoid circular triggers during dragging)
+            if (currentCoord[0] !== coord[0] || currentCoord[1] !== coord[1]) {
+                nodeGeom.setCoordinates(coord);
+
+                if (modifiedIds && !modifiedIds.includes(id)) {
+                    modifiedIds.push(id);
+                }
+
+                if (updatesAccumulator) {
+                    updatesAccumulator[id] = {
+                        geometry: coord
+                    };
+                }
+            }
+        });
+    }
 
     private rubberBandNode(node: Feature, modifiedIds?: string[], updatesAccumulator?: Record<string, any>) {
         const nodeId = node.getId() as string;
@@ -197,33 +337,31 @@ export class ModifyManager {
         const connectedLinks = node.get('connectedLinks') as string[] || [];
 
         connectedLinks.forEach(linkId => {
-            const link = this.vectorSource.getFeatureById(linkId);
+            const link = this.getFeature(linkId);
             if (!link) return;
 
             const type = link.get('type');
 
-            // Stretch Pipes
             if (type === 'pipe') {
                 const geom = link.getGeometry() as LineString;
                 const coords = geom.getCoordinates();
                 let updated = false;
 
-                // Update start or end coordinate of the pipe
-                if (link.get('startNodeId') === nodeId) {
+                // Stop circular dependency: Only set coordinates if they ACTUALLY changed
+                if (link.get('startNodeId') === nodeId && (coords[0][0] !== newCoord[0] || coords[0][1] !== newCoord[1])) {
                     coords[0] = newCoord;
                     updated = true;
-                } else if (link.get('endNodeId') === nodeId) {
+                } else if (link.get('endNodeId') === nodeId && (coords[coords.length - 1][0] !== newCoord[0] || coords[coords.length - 1][1] !== newCoord[1])) {
                     coords[coords.length - 1] = newCoord;
                     updated = true;
                 }
 
                 if (updated) {
-                    geom.setCoordinates(coords); // Visual Update
+                    geom.setCoordinates(coords);
                     const newLen = Math.round(geom.getLength());
                     link.set('length', newLen);
                     if (modifiedIds) modifiedIds.push(linkId);
 
-                    // 🚀 SYNC TO STORE ACCUMULATOR
                     if (updatesAccumulator) {
                         updatesAccumulator[linkId] = {
                             geometry: coords,
@@ -231,9 +369,7 @@ export class ModifyManager {
                         };
                     }
                 }
-            }
-            // Stretch Pump/Valve Visuals
-            else if (type === 'pump' || type === 'valve') {
+            } else if (type === 'pump' || type === 'valve') {
                 this.rubberBandLinkVisual(link, nodeId, newCoord, modifiedIds);
             }
         });
@@ -243,14 +379,18 @@ export class ModifyManager {
         const linkId = link.getId() as string;
         const newCoord = (link.getGeometry() as Point).getCoordinates();
 
-        // Find visual line and bend it
         const visualId = `VIS-${linkId}`;
-        let visualLine = this.vectorSource.getFeatureById(visualId);
+        let visualLine = this.getFeature(visualId);
 
         if (!visualLine) {
             visualLine = this.vectorSource.getFeatures().find(
                 f => f.get('isVisualLink') && f.get('parentLinkId') === linkId
             ) || null;
+            if (!visualLine) {
+                visualLine = this.dragSource.getFeatures().find(
+                    f => f.get('isVisualLink') && f.get('parentLinkId') === linkId
+                ) || null;
+            }
         }
 
         if (visualLine) {
@@ -258,12 +398,10 @@ export class ModifyManager {
             const lGeom = visualLine.getGeometry() as LineString;
             const lCoords = lGeom.getCoordinates();
 
-            // Mid-point drag: Update the middle vertex
             if (lCoords.length === 3) {
                 lCoords[1] = newCoord;
                 lGeom.setCoordinates(lCoords);
             } else if (lCoords.length === 2) {
-                // If straight line, convert to bent line
                 lCoords.splice(1, 0, newCoord);
                 lGeom.setCoordinates(lCoords);
             }
@@ -273,12 +411,17 @@ export class ModifyManager {
     private rubberBandLinkVisual(component: Feature, movedNodeId: string, newCoord: number[], modifiedIds?: string[]) {
         const linkId = component.getId() as string;
         const visualId = `VIS-${linkId}`;
-        let visualLine = this.vectorSource.getFeatureById(visualId);
+        let visualLine = this.getFeature(visualId);
 
         if (!visualLine) {
             visualLine = this.vectorSource.getFeatures().find(
                 f => f.get('isVisualLink') && f.get('parentLinkId') === linkId
             ) || null;
+            if (!visualLine) {
+                visualLine = this.dragSource.getFeatures().find(
+                    f => f.get('isVisualLink') && f.get('parentLinkId') === linkId
+                ) || null;
+            }
         }
 
         if (visualLine) {
@@ -286,7 +429,6 @@ export class ModifyManager {
             const lGeom = visualLine.getGeometry() as LineString;
             const lCoords = lGeom.getCoordinates();
 
-            // Update endpoint matching the moved node
             if (component.get('startNodeId') === movedNodeId) {
                 lCoords[0] = newCoord;
             } else {
@@ -295,7 +437,6 @@ export class ModifyManager {
 
             lGeom.setCoordinates(lCoords);
 
-            // Keep icon centered if straight line
             if (lCoords.length === 2) {
                 const componentGeom = component.getGeometry() as Point;
                 componentGeom.setCoordinates([
@@ -306,152 +447,35 @@ export class ModifyManager {
         }
     }
 
-    // =========================================================
-    // HIGH-PERFORMANCE SPATIAL INDEXING (FLATBUSH)
-    // =========================================================
-
-    private rebuildSpatialIndex() {
-        const allFeatures = this.vectorSource.getFeatures();
-        const targets = allFeatures.filter(f =>
-            ['junction', 'tank', 'reservoir', 'pump', 'valve', 'pipe'].includes(f.get('type'))
-        );
-
-        this.indexedFeatures = targets;
-
-        if (targets.length > 0) {
-            this.spatialIndex = new Flatbush(targets.length);
-
-            for (const feature of targets) {
-                const geom = feature.getGeometry();
-                if (geom instanceof Point) {
-                    const c = geom.getCoordinates();
-                    this.spatialIndex.add(c[0], c[1], c[0], c[1]);
-                } else if (geom instanceof LineString) {
-                    const ext = geom.getExtent();
-                    this.spatialIndex.add(ext[0], ext[1], ext[2], ext[3]);
-                } else {
-                    // FALLBACK: Prevents crash if geometry is missing/corrupt
-                    this.spatialIndex.add(0, 0, 0, 0);
-                }
-            }
-            this.spatialIndex.finish();
-        } else {
-            this.spatialIndex = null;
-        }
-    }
-
-    private handlePointerMove(event: any) {
-        if (this.isModifying || this.isPointerDown || !this.spatialIndex) return;
-
-        const coordinate = event.coordinate;
-        const resolution = this.map.getView().getResolution() || 1;
-        const tolerance = 10 * resolution;
-
-        // 1. Query Index
-        const results = this.spatialIndex.neighbors(coordinate[0], coordinate[1], 5, tolerance);
-
-        if (results.length > 0) {
-            // 2. Prioritize Nodes/Points over Pipes (Snapping feel)
-            let bestFeature: Feature | null = null;
-
-            // Sort: Points first, then Lines
-            const candidates = results.map(i => this.indexedFeatures[i]);
-            const points = candidates.filter(f => f.getGeometry() instanceof Point);
-
-            if (points.length > 0) {
-                bestFeature = points[0]; // Pick closest point
-            } else {
-                // If only lines, check distance to segment
-                bestFeature = candidates[0];
-            }
-
-            // 3. Update Modify Collection
-            if (bestFeature) {
-                const current = this.modifiableFeatures.getArray();
-                if (current.length !== 1 || current[0] !== bestFeature) {
-                    this.modifiableFeatures.clear();
-                    this.modifiableFeatures.push(bestFeature);
-                    this.map.getViewport().style.cursor = 'move';
-                }
-                return;
-            }
-        }
-
-        // Clear if nothing found
-        if (this.modifiableFeatures.getLength() > 0) {
-            this.modifiableFeatures.clear();
-            this.map.getViewport().style.cursor = 'move';
-        }
-    }
-
-    // =========================================================
-    // UTILS
-    // =========================================================
-
     private getVertexStyleForFeature(feature: Feature): Style | Style[] {
         const geometry = feature.getGeometry();
         if (!geometry) return VertexStyles.default;
         const type = geometry.getType();
 
-        if (type === 'LineString') return getVertexStyle({}); // Pipe vertices
-        if (type === 'Point') return getVertexStyle({ isHighlighted: true }); // Nodes
+        if (type === 'LineString') return getVertexStyle({});
+        if (type === 'Point') return getVertexStyle({ isHighlighted: true });
 
         return VertexStyles.default;
     }
 
-    // Keeping the split logic for nodes dropped on pipes
     private checkForPipeSplit(node: Feature) {
-        // 1. Get Drop Coordinates
         const nodeCoord = (node.getGeometry() as Point).getCoordinates();
         const nodeId = node.getId() as string;
 
-        // 2. Define Tolerance (10 pixels converted to Map Units)
-        // This mimics the "hit detection" radius of the mouse
         const resolution = this.map.getView().getResolution() || 1;
         const tolerance = 10 * resolution;
 
-        // 3. Query Spatial Index (Instant CPU lookup)
-        if (!this.spatialIndex) return;
+        const bestPipe = this.vectorSource.getClosestFeatureToCoordinate(nodeCoord, (f) => f.get('type') === 'pipe');
+        if (!bestPipe) return;
 
-        // Find neighbors within the tolerance box
-        const candidateIndices = this.spatialIndex.neighbors(nodeCoord[0], nodeCoord[1], 10, tolerance);
+        const geom = bestPipe.getGeometry() as LineString;
+        const closestPoint = geom.getClosestPoint(nodeCoord);
+        const dist = Math.sqrt(Math.pow(closestPoint[0] - nodeCoord[0], 2) + Math.pow(closestPoint[1] - nodeCoord[1], 2));
 
-        let bestPipe: Feature | null = null;
-        let minDistance = Infinity;
-
-        // 4. Mathematical Geometry Check
-        for (const i of candidateIndices) {
-            const feature = this.indexedFeatures[i];
-
-            // Skip the node itself
-            if (feature.getId() === nodeId) continue;
-
-            // Only check Pipes
-            if (feature.get('type') === 'pipe') {
-                const geom = feature.getGeometry() as LineString;
-
-                // Find closest point on this pipe segment to our node
-                const closestPoint = geom.getClosestPoint(nodeCoord);
-
-                // Calculate distance
-                const dx = closestPoint[0] - nodeCoord[0];
-                const dy = closestPoint[1] - nodeCoord[1];
-                const dist = Math.sqrt(dx * dx + dy * dy);
-
-                // If it's within tolerance and closer than others, pick it
-                if (dist < tolerance && dist < minDistance) {
-                    minDistance = dist;
-                    bestPipe = feature;
-                }
-            }
-        }
-
-        // 5. Execute Split if a valid pipe is found
-        if (bestPipe) {
+        if (dist < tolerance) {
             const startId = bestPipe.get('startNodeId');
             const endId = bestPipe.get('endNodeId');
 
-            // Prevent splitting a pipe that is already connected to this node (short circuit)
             if (startId !== nodeId && endId !== nodeId) {
                 this.splitPipeByNode(bestPipe, node);
             }
@@ -466,12 +490,10 @@ export class ModifyManager {
             const nodeCoord = (node.getGeometry() as Point).getCoordinates();
 
             const originalProps = { ...pipe.getProperties() };
-            // Cleanup props
             delete originalProps.geometry; delete originalProps.id;
             delete originalProps.startNodeId; delete originalProps.endNodeId;
             delete originalProps.length; delete originalProps.label;
 
-            // 1. Calculate Split Point
             let splitIndex = 0;
             let minDistance = Infinity;
             for (let i = 0; i < coords.length - 1; i++) {
@@ -481,7 +503,6 @@ export class ModifyManager {
                 if (dist < minDistance) { minDistance = dist; splitIndex = i; }
             }
 
-            // 2. Generate IDs
             const pipe1Id = store.generateUniqueId('pipe');
             const pipe2Id = store.generateUniqueId('pipe');
             const startId = pipe.get('startNodeId');
@@ -489,7 +510,6 @@ export class ModifyManager {
             const nodeId = node.getId() as string;
             const oldPipeId = pipe.getId() as string;
 
-            // 3. Create New Geometries
             const coords1 = [...coords.slice(0, splitIndex + 1), nodeCoord];
             const coords2 = [nodeCoord, ...coords.slice(splitIndex + 1)];
 
@@ -517,50 +537,34 @@ export class ModifyManager {
                 length: Math.round(new LineString(coords2).getLength())
             });
 
-            // 4. UPDATE MAP (Remove Old, Add New)
             this.vectorSource.removeFeature(pipe);
             this.vectorSource.addFeatures([p1, p2]);
 
-            // Manually Update Feature 'connectedLinks'
             const updateFeatureConnections = (targetNodeId: string, removeId: string | null, addId: string) => {
                 const targetNode = this.vectorSource.getFeatureById(targetNodeId);
                 if (targetNode) {
                     let links = targetNode.get('connectedLinks') as string[] || [];
-
-                    // Remove Old Pipe ID
                     if (removeId) {
                         links = links.filter(id => id !== removeId);
                     }
-
-                    // Add New Pipe ID (prevent duplicates)
                     if (!links.includes(addId)) {
                         links.push(addId);
                     }
-
-                    targetNode.set('connectedLinks', [...links]); // Spread to trigger change detection if needed
+                    targetNode.set('connectedLinks', [...links]);
                 }
             };
 
-            // Update Start Node (Remove Old, Add P1)
             updateFeatureConnections(startId, oldPipeId, pipe1Id);
-
-            // Update End Node (Remove Old, Add P2)
             updateFeatureConnections(endId, oldPipeId, pipe2Id);
-
-            // Update the New Split Node (Add P1, Add P2)
-            // (This node is usually fresh or moved, so it shouldn't have the old pipe ID)
             updateFeatureConnections(nodeId, null, pipe1Id);
             updateFeatureConnections(nodeId, null, pipe2Id);
 
-            // =========================================================
-
-            // 5. UPDATE STORE
-            store.removeFeature(pipe.getId() as string);
+            store.removeFeature(oldPipeId);
             store.addFeature(p1);
             store.addFeature(p2);
 
-            store.updateNodeConnections(startId, pipe.getId() as string, 'remove');
-            store.updateNodeConnections(endId, pipe.getId() as string, 'remove');
+            store.updateNodeConnections(startId, oldPipeId, 'remove');
+            store.updateNodeConnections(endId, oldPipeId, 'remove');
             store.updateNodeConnections(startId, pipe1Id, 'add');
             store.updateNodeConnections(nodeId, pipe1Id, 'add');
             store.updateNodeConnections(nodeId, pipe2Id, 'add');
@@ -578,8 +582,6 @@ export class ModifyManager {
 
         this.modifyInteraction = null;
         this.selectInteraction = null;
-        this.spatialIndex = null;
-        this.indexedFeatures = [];
         this.modifiableFeatures.clear();
 
         this.linkModifyManager.cleanup();

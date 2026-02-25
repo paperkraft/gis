@@ -38,8 +38,9 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
             source: source,
             style: (feature) => getFeatureStyle(feature as Feature<Geometry>),
             properties: { name: 'network' },
-            updateWhileAnimating: true,
-            updateWhileInteracting: true,
+            updateWhileAnimating: false,
+            updateWhileInteracting: false,
+            declutter: true,
             zIndex: 10,
         });
 

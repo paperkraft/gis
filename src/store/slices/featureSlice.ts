@@ -268,6 +268,7 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
 
             // 1. Update the OpenLayers Feature
             node.set('connectedLinks', links);
+            node.changed();
 
             // 2. Mark as Modified so it gets Saved
             const newModified = new Set(state.modifiedIds);
