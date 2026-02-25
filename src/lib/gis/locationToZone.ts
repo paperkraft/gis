@@ -1,7 +1,7 @@
 import proj4 from 'proj4';
 
 export interface AutoProjection {
-    code: string;       // e.g., "EPSG:32643"
+    code: number;       // e.g., "32643"
     definition: string; // The Proj4 definition string
     zone: number;
     hemisphere: 'N' | 'S';
@@ -55,7 +55,7 @@ export async function getProjectionFromLocation(query: string): Promise<AutoProj
     proj4.defs(code, def);
 
     return {
-        code,
+        code: Number(`${epsgPrefix}${zone}`),
         definition: def,
         zone,
         hemisphere,

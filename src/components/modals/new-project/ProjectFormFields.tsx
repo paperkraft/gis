@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, FileArchive, FileCode2, Loader2, MapPin, Search, UploadCloud, X, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FileArchive, FileCode2, Loader2, MapPin, Search, UploadCloud, XCircle } from 'lucide-react';
 import React, { useState } from 'react';
 
 import { FormGroup } from '@/components/form-controls/FormGroup';
@@ -9,12 +9,10 @@ import { cn } from '@/lib/utils';
 
 import { ProjectType } from './ProjectTypeSelector';
 import { GisValidationResult } from '@/lib/gis/gisValidator';
-import { COMMON_PROJECTIONS } from '@/lib/gis/projections';
 import { AutoProjection, getProjectionFromLocation } from '@/lib/gis/locationToZone';
 import { toast } from 'sonner';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { ProjectionSelect } from '@/components/shared/ProjectionSelect';
 
 interface ProjectFormFieldsProps {
     projectType: ProjectType;
@@ -31,17 +29,19 @@ interface ProjectFormFieldsProps {
     validationResult?: GisValidationResult | null;
     showProjectionSelect?: boolean;
     onProjectionFound?: (proj: AutoProjection) => void;
+    getProjection?: (srid: number) => void;
 }
 
 export function ProjectFormFields({
     projectType, formData, setFormData, importFile, fileInputRef, handleFileSelect,
     validating, validationResult, showProjectionSelect,
-    onProjectionFound
+    onProjectionFound, getProjection
 
 }: ProjectFormFieldsProps) {
 
     // Local state for the search
     const [locationQuery, setLocationQuery] = useState("");
+    const [projection, setProjection] = useState<number>();
     const [isSearching, setIsSearching] = useState(false);
     const [foundZone, setFoundZone] = useState<AutoProjection | null>(null);
 
@@ -211,47 +211,52 @@ export function ProjectFormFields({
                         </div>
 
                         {projectType === 'gis' && showProjectionSelect && (
-                            <div className="p-3 bg-blue-50 border border-blue-100 rounded-md animate-in fade-in zoom-in-95 space-y-2">
-                                <div>
-                                    <h6 className="text-[11px] font-bold text-primary uppercase tracking-wide">
-                                        Identify Project Location
-                                    </h6>
-                                    <p className="text-[10px] text-primary leading-relaxed">
-                                        We detected local coordinates.<br />Enter the city/region name to automatically fix the projection.
-                                    </p>
-                                </div>
+                            <>
+                                <ProjectionSelect value={projection} onChange={(v) => { setProjection(v); getProjection?.(v) }} />
 
-                                <div className="flex gap-2">
-                                    <FormInput
-                                        label=""
-                                        name="location-search"
-                                        value={locationQuery}
-                                        onChange={(v) => setLocationQuery(v)}
-                                        placeholder="e.g. Kolhapur, Maharashtra, India"
-                                        onKeyDown={(e) => e.key === 'Enter' && handleLocationSearch()}
-                                        className='w-full'
-                                    />
-                                    <Button
-                                        size="sm"
-                                        onClick={handleLocationSearch}
-                                        disabled={isSearching}
-                                        className='size-7.5'
-                                    // className="bg-blue-600 text-white hover:bg-blue-700"
-                                    >
-                                        {isSearching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-                                    </Button>
-                                </div>
-
-                                {foundZone && (
-                                    <div className="flex items-start gap-2 text-[10px] text-green-700 bg-green-100/50 p-2 rounded border border-green-500">
-                                        <MapPin size={14} className="shrink-0 mt-0.5" />
-                                        <div>
-                                            <span className="font-bold block">Detected: UTM Zone {foundZone.zone}{foundZone.hemisphere} - {foundZone.code}</span>
-                                            <span className="block line-clamp-1">{foundZone.locationName}</span>
-                                        </div>
+                                <div className="hidden p-3 bg-blue-50 border border-blue-100 rounded-md animate-in fade-in zoom-in-95 space-y-2">
+                                    <div>
+                                        <h6 className="text-[11px] font-bold text-primary uppercase tracking-wide">
+                                            Identify Project Location
+                                        </h6>
+                                        <p className="text-[10px] text-primary leading-relaxed">
+                                            We detected local coordinates.<br />Enter the city/region name to automatically fix the projection.
+                                        </p>
                                     </div>
-                                )}
-                            </div>
+
+                                    <div className="flex gap-2">
+                                        <FormInput
+                                            label=""
+                                            name="location-search"
+                                            value={locationQuery}
+                                            onChange={(v) => setLocationQuery(v)}
+                                            placeholder="e.g. Kolhapur, Maharashtra, India"
+                                            onKeyDown={(e) => e.key === 'Enter' && handleLocationSearch()}
+                                            className='w-full'
+                                        />
+                                        <Button
+                                            size="sm"
+                                            onClick={handleLocationSearch}
+                                            disabled={isSearching}
+                                            className='size-7.5'
+                                        // className="bg-blue-600 text-white hover:bg-blue-700"
+                                        >
+                                            {isSearching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                                        </Button>
+                                    </div>
+
+                                    {foundZone && (
+                                        <div className="flex items-start gap-2 text-[10px] text-green-700 bg-green-100/50 p-2 rounded border border-green-500">
+                                            <MapPin size={14} className="shrink-0 mt-0.5" />
+                                            <div>
+                                                <span className="font-bold block">Detected: UTM Zone {foundZone.zone}{foundZone.hemisphere} - {foundZone.code}</span>
+                                                <span className="block line-clamp-1">{foundZone.locationName}</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+
                         )}
                     </FormGroup>
                 )}

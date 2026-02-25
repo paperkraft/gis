@@ -105,8 +105,8 @@ export const usePropertyForm = () => {
             geom.setCoordinates(coords.reverse());
 
             // 2. Flip Data
-            const newStart = formData.endNodeId;
-            const newEnd = formData.startNodeId;
+            const newStart = formData.endNodeId || formData.target;
+            const newEnd = formData.startNodeId || formData.source;
 
             const updates = { startNodeId: newStart, endNodeId: newEnd };
             updateFeature(selectedFeatureId, updates);
@@ -122,7 +122,7 @@ export const usePropertyForm = () => {
             const connectedLinks = formData.connectedLinks || [];
             return { type: "node", count: connectedLinks.length, connections: connectedLinks };
         } else if (["pipe", "pump", "valve"].includes(formData.type)) {
-            return { type: "link", startNodeId: formData.startNodeId, endNodeId: formData.endNodeId, isPipe: formData.type === 'pipe' };
+            return { type: "link", startNodeId: formData.startNodeId || formData.source, endNodeId: formData.endNodeId || formData.target, isPipe: formData.type === 'pipe' };
         }
         return null;
     };

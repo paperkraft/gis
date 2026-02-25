@@ -20,15 +20,16 @@ import { ProjectFormFields } from './new-project/ProjectFormFields';
 import { ProjectSuccessView } from './new-project/ProjectSuccessView';
 import { ProjectType, ProjectTypeSelector } from './new-project/ProjectTypeSelector';
 import { processGisData } from '@/lib/gis/gisImporter';
+import shpjs from 'shpjs';
 
 const DEFAULT_FORM_DATA = {
   title: "",
   description: "",
-  projection: "EPSG:3857",
+  projection: "3857",
   units: "LPS",
   // GIS-specific settings
-  tolerance: 0.5,
-  maxPipeLength: 500,
+  tolerance: 5,
+  maxPipeLength: 150,
   defaultDiameter: 150,
   defaultRoughness: 110,
 };
@@ -56,7 +57,7 @@ export function NewProjectModal() {
 
   // GIS Projection State
   const [showProjectionSelect, setShowProjectionSelect] = useState(false);
-  const [selectedEPSG, setSelectedEPSG] = useState("EPSG:4326");
+  const [selectedEPSG, setSelectedEPSG] = useState<number | undefined>(undefined);
 
   const isOpen = activeModal === "NEW_PROJECT";
 
@@ -67,7 +68,7 @@ export function NewProjectModal() {
     setCreatedProjectId("");
     setValidationResult(null);
     setShowProjectionSelect(false);
-    setSelectedEPSG("EPSG:4326");
+    setSelectedEPSG(undefined);
     setFormData(DEFAULT_FORM_DATA);
     setValidating(false);
     setLoading(false);
@@ -75,6 +76,10 @@ export function NewProjectModal() {
       fileInputRef.current.value = "";
     }
   };
+
+  const getProjection = (srid: number) => {
+    setSelectedEPSG(srid);
+  }
 
   useEffect(() => {
     if (isOpen) {
@@ -111,7 +116,7 @@ export function NewProjectModal() {
       setValidating(true);
       setValidationResult(null);
       setShowProjectionSelect(false);
-      setSelectedEPSG("EPSG:4326");
+      setSelectedEPSG(undefined);
 
       const isValid =
         name.endsWith(".zip") ||
@@ -158,7 +163,7 @@ export function NewProjectModal() {
 
   // Projection Found Callback (From ProjectFormFields)
   const handleProjectionFound = (proj: AutoProjection) => {
-    setSelectedEPSG(proj.code); // e.g. "EPSG:32643"
+    setSelectedEPSG(+proj.code); // e.g. "32643"
     toast.success(`Projection set to Zone ${proj.zone}${proj.hemisphere}`);
   };
 
@@ -183,34 +188,59 @@ export function NewProjectModal() {
 
         toast.loading("Converting GIS data to network model...");
 
-        // Convert to INP using the detected EPSG
-        // If the user didn't search, it defaults to EPSG:4326 (Lat/Lon)
-        const inpContent = await processGisData(
-          importFile,
-          {
-            tolerance: formData.tolerance ?? 0.5,
-            maxPipeLength: formData.maxPipeLength ?? 500,
-            defaultDiameter: formData.defaultDiameter ?? 150,
-            defaultRoughness: formData.defaultRoughness ?? 110,
-          },
-          selectedEPSG,
-          (percent) => console.log(`Processing: ${percent}%`)
-        )
+        let geojson: any;
+
+        if (importFile.name.toLowerCase().endsWith('.zip')) {
+          const buffer = await importFile.arrayBuffer();
+          geojson = await shpjs(buffer);
+          if (Array.isArray(geojson)) geojson = geojson[0];
+        } else if (importFile.name.toLowerCase().endsWith('.geojson') || importFile.name.toLowerCase().endsWith('.json')) {
+          const text = await importFile.text();
+          try {
+            geojson = JSON.parse(text);
+          } catch (e) {
+            throw new Error("Failed to parse GeoJSON. The file might be too large or corrupted.");
+          }
+        } else {
+          throw new Error("Unsupported file type. Please upload a .zip shapefile or .geojson");
+        }
+
+        if (!geojson || !geojson.features) throw new Error("Invalid GeoJSON structure");
+
+        const settings = {
+          tolerance: formData.tolerance,
+          maxPipeLength: +formData.maxPipeLength,
+          defaultDiameter: formData.defaultDiameter,
+          defaultRoughness: formData.defaultRoughness,
+        }
+
+        const payload = {
+          title: formData.title,
+          description: formData.description || `Imported from ${importFile.name}`,
+          geojson,
+          settings,
+          projection: selectedEPSG,
+        }
+
+        // Send to server for PostGIS
+        const response = await fetch('/api/gis/import', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        const result = await response.json();
+        console.log('res', result);
+
+        if (!response.ok) {
+          throw new Error("Failed to process GIS data on server");
+        }
 
         toast.dismiss();
 
-        if (!inpContent || inpContent.length < 50) {
-          toast.error("Conversion resulted in empty network.");
-          setLoading(false);
-          return;
+        if (result.id) {
+          projectId = result.id
         }
-
-        // 2. API Call to create project from INP
-        projectId = await ProjectService.createProjectFromFile(
-          formData.title,
-          formData.description || `Imported from ${importFile.name}`,
-          inpContent
-        );
       }
 
       // --- PATH B: INP IMPORT ---
@@ -306,6 +336,7 @@ export function NewProjectModal() {
                 validationResult={validationResult}
                 showProjectionSelect={showProjectionSelect}
                 onProjectionFound={handleProjectionFound}
+                getProjection={getProjection}
               />
 
               {projectType === 'gis' && !importFile && (
@@ -334,15 +365,10 @@ export function NewProjectModal() {
                     validating ||
                     !formData.title ||
                     (projectType === "gis" &&
-                      (!importFile || validationResult?.status === "error")) ||
+                      (!importFile || validationResult?.status === "error" || (validationResult?.status === "warning" && !selectedEPSG))) ||
                     (projectType === "import" && !importFile)
                   }
                 >
-                  {/* {loading
-                    ? "Creating..."
-                    : projectType === "import" || projectType === "gis"
-                    ? "Import & Create"
-                    : "Create Project"} */}
                   {loading
                     ? "Creating..."
                     : validating
