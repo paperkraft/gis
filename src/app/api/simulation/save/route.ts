@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { simulationRuns, simulationResults } from "@/db/schema";
-import { SimulationHistory } from "@/store/simulationStore";
-import { eq, inArray } from "drizzle-orm"; // Import 'eq'
+import { eq, inArray } from "drizzle-orm";
 
 export async function POST(req: NextRequest) {
     try {
