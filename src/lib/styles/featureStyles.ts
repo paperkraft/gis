@@ -232,10 +232,53 @@ export const getSelectedStyle = (feature: Feature): Style[] => {
     const featureType = feature.get("type");
     const styles: Style[] = [];
 
-    // Halo
+    // Halo — shape-matched per feature type
     if (featureType === "pipe") {
         styles.push(new Style({
             stroke: new Stroke({ color: "rgba(250, 204, 21, 0.6)", width: 12 }),
+            zIndex: 199,
+        }));
+    } else if (featureType === "pump") {
+        styles.push(new Style({
+            image: new RegularShape({
+                fill: new Fill({ color: "rgba(250, 204, 21, 0.5)" }),
+                stroke: new Stroke({ color: "rgba(250, 204, 21, 1)", width: 2 }),
+                points: 3,
+                radius: 20,
+            }),
+            zIndex: 199,
+        }));
+    } else if (featureType === "valve") {
+        styles.push(new Style({
+            image: new RegularShape({
+                fill: new Fill({ color: "rgba(250, 204, 21, 0.5)" }),
+                stroke: new Stroke({ color: "rgba(250, 204, 21, 1)", width: 2 }),
+                points: 4,
+                radius: 20,
+                angle: Math.PI / 4,
+            }),
+            zIndex: 199,
+        }));
+    } else if (featureType === "tank") {
+        styles.push(new Style({
+            image: new RegularShape({
+                fill: new Fill({ color: "rgba(250, 204, 21, 0.5)" }),
+                stroke: new Stroke({ color: "rgba(250, 204, 21, 1)", width: 2 }),
+                points: 5,
+                radius: 22,
+                angle: 0,
+            }),
+            zIndex: 199,
+        }));
+    } else if (featureType === "reservoir") {
+        styles.push(new Style({
+            image: new RegularShape({
+                fill: new Fill({ color: "rgba(250, 204, 21, 0.5)" }),
+                stroke: new Stroke({ color: "rgba(250, 204, 21, 1)", width: 2 }),
+                points: 6,
+                radius: 22,
+                angle: 0,
+            }),
             zIndex: 199,
         }));
     } else {
