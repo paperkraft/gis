@@ -176,7 +176,7 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
                 // angle: Math.PI / 4, 
             }),
             text: textStyle,
-            zIndex: 100,
+            zIndex: 150,
         });
     }
 
@@ -191,7 +191,7 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
                 angle: Math.PI / 4,
             }),
             text: textStyle,
-            zIndex: 100,
+            zIndex: 150,
         });
     }
 
