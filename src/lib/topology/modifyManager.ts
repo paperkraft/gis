@@ -209,7 +209,7 @@ export class ModifyManager {
                     this.rubberBandNode(feature as Feature, modifiedIds, updatesAccumulator);
                     this.checkForPipeSplit(feature as Feature);
                 } else if (type === 'pump' || type === 'valve') {
-                    this.rubberBandLink(feature as Feature, modifiedIds);
+                    this.rubberBandLink(feature as Feature, modifiedIds, updatesAccumulator);
                 } else if (type === 'pipe') {
                     this.handlePipeMove(feature as Feature, updatesAccumulator);
                     // Also finalize node positions
@@ -375,7 +375,7 @@ export class ModifyManager {
         });
     }
 
-    private rubberBandLink(link: Feature, modifiedIds?: string[]) {
+    private rubberBandLink(link: Feature, modifiedIds?: string[], updatesAccumulator?: Record<string, any>) {
         const linkId = link.getId() as string;
         const newCoord = (link.getGeometry() as Point).getCoordinates();
 
@@ -394,17 +394,52 @@ export class ModifyManager {
         }
 
         if (visualLine) {
-            if (modifiedIds) modifiedIds.push(linkId);
+            if (modifiedIds && !modifiedIds.includes(linkId)) modifiedIds.push(linkId);
             const lGeom = visualLine.getGeometry() as LineString;
             const lCoords = lGeom.getCoordinates();
 
-            if (lCoords.length === 3) {
-                lCoords[1] = newCoord;
-                lGeom.setCoordinates(lCoords);
+            let midX, midY;
+            if (lCoords.length >= 3) {
+                midX = lCoords[1][0];
+                midY = lCoords[1][1];
             } else if (lCoords.length === 2) {
-                lCoords.splice(1, 0, newCoord);
-                lGeom.setCoordinates(lCoords);
+                midX = (lCoords[0][0] + lCoords[1][0]) / 2;
+                midY = (lCoords[0][1] + lCoords[1][1]) / 2;
+            } else {
+                return;
             }
+
+            const dx = newCoord[0] - midX;
+            const dy = newCoord[1] - midY;
+
+            // If almost zero, skip to avoid loop
+            if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) return;
+
+            const newLCoords = lCoords.map(coord => [coord[0] + dx, coord[1] + dy]);
+            lGeom.setCoordinates(newLCoords);
+
+            const moveNode = (nodeId: string, coord: number[]) => {
+                const node = this.getFeature(nodeId);
+                if (node) {
+                    const nGeom = node.getGeometry() as Point;
+                    nGeom.setCoordinates(coord);
+
+                    if (modifiedIds && !modifiedIds.includes(nodeId)) {
+                        modifiedIds.push(nodeId);
+                    }
+                    if (updatesAccumulator) {
+                        updatesAccumulator[nodeId] = { geometry: coord };
+                    }
+                    // Trigger pipe rubber-banding
+                    this.rubberBandNode(node, modifiedIds, updatesAccumulator);
+                }
+            };
+
+            const startNodeId = link.get('startNodeId');
+            const endNodeId = link.get('endNodeId');
+
+            if (startNodeId) moveNode(startNodeId as string, newLCoords[0]);
+            if (endNodeId) moveNode(endNodeId as string, newLCoords[newLCoords.length - 1]);
         }
     }
 
@@ -438,11 +473,13 @@ export class ModifyManager {
             lGeom.setCoordinates(lCoords);
 
             if (lCoords.length === 2) {
-                const componentGeom = component.getGeometry() as Point;
-                componentGeom.setCoordinates([
-                    (lCoords[0][0] + lCoords[1][0]) / 2,
-                    (lCoords[0][1] + lCoords[1][1]) / 2
-                ]);
+                if (!component.get('isModifying')) {
+                    const componentGeom = component.getGeometry() as Point;
+                    componentGeom.setCoordinates([
+                        (lCoords[0][0] + lCoords[1][0]) / 2,
+                        (lCoords[0][1] + lCoords[1][1]) / 2
+                    ]);
+                }
             }
         }
     }
