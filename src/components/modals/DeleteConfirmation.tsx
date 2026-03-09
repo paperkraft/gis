@@ -3,6 +3,7 @@ import {
   Eye,
   EyeOff,
   Ghost,
+  GripHorizontal,
   Link2Off,
   Merge,
 } from "lucide-react";
@@ -18,10 +19,11 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/store/uiStore";
+import { useDraggableDialog } from "@/hooks/useDraggableDialog";
 
 export function DeleteConfirmation() {
   const { deleteContext } = useUIStore();
-  const [isPeeking, setIsPeeking] = useState(false);
+  const { position, onPointerDown, isDragging } = useDraggableDialog();
 
   if (!deleteContext) return null;
 
@@ -39,30 +41,24 @@ export function DeleteConfirmation() {
       <DialogContent
         className={cn(
           "max-w-md bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-lg transition-opacity duration-200",
-          isPeeking ? "opacity-10 pointer-events-none" : "opacity-100",
+          isDragging ? "opacity-90 shadow-2xl duration-0" : "opacity-100 duration-200"
         )}
+        style={{ transform: `translate(calc(0% + ${position.x}px), calc(0% + ${position.y}px))` }}
       >
-        <DialogHeader className="flex flex-row items-center justify-start">
+        <DialogHeader
+          onPointerDown={onPointerDown}
+          className="flex flex-row items-center justify-start"
+        >
           <DialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-500">
             <AlertTriangle className="size-5" />
             Delete {primaryType}?
           </DialogTitle>
-          <button
-            className="p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors focus:outline-none"
-            onMouseEnter={() => setIsPeeking(true)}
-            onMouseLeave={() => setIsPeeking(false)}
-            // Touch support for mobile/tablet
-            onTouchStart={() => setIsPeeking(true)}
-            onTouchEnd={() => setIsPeeking(false)}
-            title="Hold to see map"
-          >
-            {isPeeking ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
+          <GripHorizontal className="w-5 h-5 text-zinc-400 mr-4 opacity-50" />
         </DialogHeader>
 
         <div className="py-4 space-y-4">
           <p className="text-zinc-600 dark:text-zinc-300">
-            Are you sure you want to delete
+            Are you sure you want to delete&nbsp;
             {isSingleSelection ? (
               <span className="font-bold text-zinc-900 dark:text-white">
                 {singleLabel}

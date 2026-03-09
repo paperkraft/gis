@@ -1,15 +1,17 @@
+import { CheckCircle2, Eye, EyeOff, GitMerge, GripHorizontal } from 'lucide-react';
 import React, { useState } from 'react';
-import { useUIStore } from '@/store/uiStore';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+
 import { Button } from '@/components/ui/button';
-import { Eye, EyeOff, CheckCircle2, GitMerge } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useDraggableDialog } from '@/hooks/useDraggableDialog';
 import { useMergeHighlight } from '@/hooks/useMergeHighlight';
+import { cn } from '@/lib/utils';
+import { useUIStore } from '@/store/uiStore';
 
 export function MergeConflictModal() {
   const { mergeContext } = useUIStore();
-  const [isPeeking, setIsPeeking] = useState(false);
-  
+  const { position, onPointerDown, isDragging } = useDraggableDialog();
+
   useMergeHighlight();
 
   if (!mergeContext) return null;
@@ -31,36 +33,29 @@ export function MergeConflictModal() {
 
   return (
     <Dialog open={true} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent 
+      <DialogContent
+        style={{ transform: `translate(calc(0% + ${position.x}px), calc(0% + ${position.y}px))` }}
         className={cn(
-          "max-w-2xl bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-2xl transition-opacity duration-200",
-          isPeeking ? "opacity-10 pointer-events-none" : "opacity-100"
+          "max-w-2xl bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-2xl transition-none",
+          isDragging ? "opacity-90 shadow-2xl duration-0" : "opacity-100 duration-200"
         )}
       >
-        <DialogHeader className="flex flex-row items-center justify-start">
+        <DialogHeader onPointerDown={onPointerDown} className="flex flex-row items-center justify-start">
           <DialogTitle className="flex items-center gap-2">
             <GitMerge className="w-5 h-5 text-indigo-500" />
             Merge Conflict Resolution
           </DialogTitle>
-          
-          <button
-            className="p-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors"
-            onMouseEnter={() => setIsPeeking(true)}
-            onMouseLeave={() => setIsPeeking(false)}
-            title="Hold to see map"
-          >
-            {isPeeking ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
+          <GripHorizontal className="w-5 h-5 text-zinc-400 mr-4 opacity-50" />
         </DialogHeader>
 
         <div className="py-2">
           <p className="text-zinc-500 dark:text-zinc-400 mb-6 text-sm">
-            Two pipes will be merged into a single continuous pipe. 
+            Two pipes will be merged into a single continuous pipe.
             Please select which <strong>properties</strong> (Diameter, Material, etc.) should be preserved.
           </p>
 
           <div className="grid grid-cols-2 gap-4">
-            <PipeSelectionCard 
+            <PipeSelectionCard
               colorClass="border-purple-500 bg-purple-50/50 dark:bg-purple-900/10"
               iconColor="text-purple-500"
               title="Pipe A (Preserve)"
@@ -68,7 +63,7 @@ export function MergeConflictModal() {
               onClick={() => onResolve(pipeA)}
             />
 
-            <PipeSelectionCard 
+            <PipeSelectionCard
               colorClass="border-orange-500 bg-orange-50/50 dark:bg-orange-900/10"
               iconColor="text-orange-500"
               title="Pipe B (Preserve)"
@@ -88,7 +83,7 @@ export function MergeConflictModal() {
 
 function PipeSelectionCard({ colorClass, iconColor, title, details, onClick }: any) {
   return (
-    <button 
+    <button
       onClick={onClick}
       className={cn(
         "relative group flex flex-col items-start p-4 rounded-xl border-2 text-left transition-all duration-200",
@@ -115,7 +110,7 @@ function PipeSelectionCard({ colorClass, iconColor, title, details, onClick }: a
           <span>{details.length} m</span>
         </div>
       </div>
-        
+
       <div className={cn("mt-4 text-xs font-semibold uppercase tracking-wider opacity-60", iconColor)}>
         Click to Select
       </div>
