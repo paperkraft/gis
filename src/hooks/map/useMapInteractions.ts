@@ -10,6 +10,7 @@ import { ModifyManager } from '@/lib/topology/modifyManager';
 import { PipeDrawingManager } from '@/lib/topology/pipeDrawingManager';
 import { VertexLayerManager } from '@/lib/topology/vertexManager';
 import { useNetworkStore } from '@/store/networkStore';
+import { useMapStore } from '@/store/mapStore';
 import { useUIStore } from '@/store/uiStore';
 import { FeatureType } from '@/types/network';
 import { DeleteManager } from '@/lib/topology/deleteManager';
@@ -46,23 +47,16 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
         modifyManagerRef.current = modifyManager;
         vertexLayerManagerRef.current = vertexManager;
         deleteManagerRef.current = deleteManager;
-        // validationManagerRef.current = validationManager;
 
-        // const unsubscribe = useNetworkStore.subscribe((state, prevState) => {
-        //     // If the feature count changed or version updated, run validation
-        //     if (state.features !== prevState.features) {
-        //         // Debounce slightly if needed, or run immediately
-        //         validationManager.runValidation();
-        //     }
-        // });
+        // Expose DeleteManager globally so property panel can use the same delete path
+        useMapStore.getState().setDeleteManager(deleteManager);
 
         return () => {
             pipeManager.cleanup();
             modifyManager.cleanup();
             vertexManager.cleanup();
             deleteManager.cleanup();
-            // unsubscribe();
-            // validationManager.clear();
+            useMapStore.getState().setDeleteManager(null);
         };
     }, [map, vectorSource]);
 

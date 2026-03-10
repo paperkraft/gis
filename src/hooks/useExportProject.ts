@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { useNetworkStore } from '@/store/networkStore';
 import { buildINP } from '@/lib/epanet/inpBuilder';
-import { createFeatureFromData } from './map/useMapFeatureSync';
+import { createFeatureFromData } from '@/lib/utils/featureUtils';
 import GeoJSON from 'ol/format/GeoJSON';
 
 export function useExportProject() {

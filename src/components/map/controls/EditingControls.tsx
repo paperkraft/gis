@@ -2,6 +2,7 @@
 import { BoxSelect, Pentagon, Magnet, Undo2, Redo2 } from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
 import { ControlGroup, ToolBtn, Divider } from "./Shared";
+import { useHistoryManager } from "@/hooks/useHistoryManager";
 
 interface EditingControlsProps {
   activeGroup: string | null;
@@ -14,9 +15,10 @@ export function EditingControls({
 }: EditingControlsProps) {
   const { activeTool, setActiveTool, isSnappingEnabled, setIsSnappingEnabled } =
     useUIStore();
+  const { undo, redo } = useHistoryManager();
 
-  const handleUndo = () => window.dispatchEvent(new CustomEvent("undo"));
-  const handleRedo = () => window.dispatchEvent(new CustomEvent("redo"));
+  const handleUndo = () => undo();
+  const handleRedo = () => redo();
 
   const isEditingActive = ["select-box", "select-polygon"].includes(
     activeTool || ""

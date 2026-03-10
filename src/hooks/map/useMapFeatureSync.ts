@@ -1,26 +1,13 @@
 import { useEffect } from 'react';
 import { Vector as VectorLayer } from 'ol/layer';
 import { Vector as VectorSource } from 'ol/source';
-import { Feature } from 'ol';
 import { Point, LineString } from 'ol/geom';
 import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
-import { NetworkFeatureData } from '@/types/network';
+import { createFeatureFromData } from '@/lib/utils/featureUtils';
 
-// Helper to instantiate OL feature from Data Model
-export function createFeatureFromData(data: NetworkFeatureData): Feature {
-    let geom;
-    if (data.type === 'pipe' || data.type === 'visual') {
-        geom = new LineString(data.geometry);
-    } else {
-        geom = new Point(data.geometry as number[]);
-    }
-
-    const feature = new Feature({ geometry: geom });
-    feature.setId(data.id);
-    feature.setProperties(data.properties);
-    return feature;
-}
+// Re-export for backwards compatibility — prefer importing from @/lib/utils/featureUtils directly
+export { createFeatureFromData } from '@/lib/utils/featureUtils';
 
 export function useMapFeatureSync() {
     const { map } = useMapStore();
@@ -47,7 +34,6 @@ export function useMapFeatureSync() {
             if (state.version === lastVersion) return;
 
             // Detect full reload (Undo/Redo/LoadProject)
-            // state.features is completely replaced on Undo/Redo or load
             const isFullReload =
                 state.features !== prevState.features ||
                 (state.features.size === 0 && source.getFeatures().length > 0) ||
@@ -55,7 +41,6 @@ export function useMapFeatureSync() {
 
             if (isFullReload) {
                 source.clear();
-                // To avoid freezing UI entirely, we batch add
                 const olFeatures = Array.from(state.features.values()).map(createFeatureFromData);
                 source.addFeatures(olFeatures);
             } else {
@@ -74,9 +59,7 @@ export function useMapFeatureSync() {
                         if (!mapFeature) {
                             source.addFeature(createFeatureFromData(storeFeatureData));
                         } else {
-                            // Update existing feature
-                            // Geometry update (Only if not currently being actively dragged/modified by the user)
-                            let currentGeom = mapFeature.getGeometry();
+                            const currentGeom = mapFeature.getGeometry();
                             if (!mapFeature.get('isModifying') && !mapFeature.get('isDragging')) {
                                 if (storeFeatureData.type === 'pipe' || storeFeatureData.type === 'visual') {
                                     if (currentGeom && currentGeom.getType() === 'LineString') {

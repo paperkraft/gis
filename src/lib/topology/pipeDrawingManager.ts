@@ -790,16 +790,65 @@ export class PipeDrawingManager {
 
     public reversePipeDirection(pipe: Feature) {
         const store = useNetworkStore.getState();
+        const id = pipe.getId() as string;
+        if (!id) return;
+
+        const storeData = store.features.get(id);
+        if (!storeData) return;
+
         store.startTransaction();
 
         try {
-            const id = pipe.getId() as string;
-            if (!id) return;
-            // 3. Update Store State
-            store.markModified([id]);
-            store.markUnSaved();
+            const props = storeData.properties;
+
+            // 1. Swap node references (all aliases used throughout the system)
+            const newStart = props.endNodeId || props.target || props.toNode;
+            const newEnd = props.startNodeId || props.source || props.fromNode;
+
+            // 2. Reverse map geometry
+            const geom = pipe.getGeometry() as LineString;
+            if (geom) {
+                const reversed = [...geom.getCoordinates()].reverse();
+                geom.setCoordinates(reversed);
+
+                // 3. Update store with reversed geometry + swapped node IDs + both aliases
+                store.updateFeature(id, {
+                    geometry: reversed,
+                    startNodeId: newStart,
+                    endNodeId: newEnd,
+                    source: newStart,
+                    target: newEnd,
+                });
+            } else {
+                // No geometry on map — update store properties only
+                store.updateFeature(id, {
+                    startNodeId: newStart,
+                    endNodeId: newEnd,
+                    source: newStart,
+                    target: newEnd,
+                });
+            }
+
+            // 4. If this is a pump/valve, also update the visual link geometry
+            const visualId = `VIS-${id}`;
+            const visualFeature = this.vectorSource.getFeatureById(visualId);
+            if (visualFeature) {
+                const vGeom = visualFeature.getGeometry() as LineString;
+                if (vGeom) {
+                    const reversedVis = [...vGeom.getCoordinates()].reverse();
+                    vGeom.setCoordinates(reversedVis);
+                    store.updateFeature(visualId, {
+                        geometry: reversedVis,
+                        startNodeId: newStart,
+                        endNodeId: newEnd,
+                    });
+                }
+            }
+
+            pipe.changed();
             store.commitTransaction();
         } catch (error) {
+            console.error('reversePipeDirection failed', error);
             store.commitTransaction();
         }
     }

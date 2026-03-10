@@ -198,16 +198,54 @@ export class DeleteManager {
             return;
         }
 
-        // 1. Calculate Midpoint & Create New Junction
-        const c1 = (startNode.getGeometry() as Point).getCoordinates();
-        const c2 = (endNode.getGeometry() as Point).getCoordinates();
-        const midPoint = [(c1[0] + c2[0]) / 2, (c1[1] + c2[1]) / 2];
+        // 1. Find the external pipe neighbors and work out the best merge-point position.
+        //    The pump has 2 internal inlet/outlet junctions. The external pipes connect to those
+        //    internal junctions. We want to place the merged junction where the EXTERNAL pipes meet.
 
-        const newJunction = NetworkFactory.createNode('junction', midPoint);
+        const allNeighborIds = [
+            ...this.getConnectedLinksStore(startNodeId),
+            ...this.getConnectedLinksStore(endNodeId)
+        ].filter(id => id !== linkId);
+
+        // For each external pipe, find which end connects to the internal junction and use the OTHER end's coordinate
+        let mergePoint: number[] | null = null;
+
+        // Strategy: place the merged junction at the midpoint of the external pipe far-ends.
+        const farEndCoords: number[][] = [];
+        allNeighborIds.forEach(neighborId => {
+            const pipeData = store.features.get(neighborId);
+            if (!pipeData) return;
+            const pStartId = pipeData.properties?.startNodeId;
+            const pEndId = pipeData.properties?.endNodeId;
+
+            // The far-end node is the one NOT connected to this pump's internal nodes
+            const farNodeId = (pStartId === startNodeId || pStartId === endNodeId) ? pEndId : pStartId;
+            if (!farNodeId) return;
+            const farNodeData = store.features.get(farNodeId);
+            if (farNodeData) {
+                farEndCoords.push(farNodeData.geometry as number[]);
+            }
+        });
+
+        if (farEndCoords.length >= 2) {
+            // Midpoint between the two external far-end nodes
+            mergePoint = [
+                (farEndCoords[0][0] + farEndCoords[1][0]) / 2,
+                (farEndCoords[0][1] + farEndCoords[1][1]) / 2
+            ];
+        } else {
+            // Fallback: midpoint between the pump's two internal nodes
+            const c1 = (startNode.getGeometry() as Point).getCoordinates();
+            const c2 = (endNode.getGeometry() as Point).getCoordinates();
+            mergePoint = [(c1[0] + c2[0]) / 2, (c1[1] + c2[1]) / 2];
+        }
+
+        // 2. Create New Junction at merge point
+        const newJunction = NetworkFactory.createNode('junction', mergePoint);
         const newJunctionId = newJunction.id as string;
 
         const mapJunction = new Feature({
-            geometry: new Point(midPoint),
+            geometry: new Point(mergePoint),
             ...newJunction.properties
         });
         mapJunction.setId(newJunction.id);
@@ -216,99 +254,67 @@ export class DeleteManager {
         this.vectorSource.addFeature(mapJunction);
         store.addFeature(newJunction);
 
-        // 2. Identify Neighbors (The two pipes connecting to the pump)
-        const neighborIds = [
-            ...this.getConnectedLinksStore(startNodeId),
-            ...this.getConnectedLinksStore(endNodeId)
-        ].filter(id => id !== linkId);
-
-        const neighbors: Feature[] = [];
-
         // 3. Reconnect Neighbors to New Junction
-        neighborIds.forEach(neighborId => {
-            let pipeFeature = this.getFeature(neighborId);
-            if (!pipeFeature) {
-                const storeData = store.features.get(neighborId);
-                if (storeData) {
-                    pipeFeature = new Feature({ ...storeData.properties, geometry: undefined });
-                    pipeFeature.setId(neighborId);
-                    pipeFeature.set('type', storeData.type);
-                }
-            }
-            if (!pipeFeature) return;
+        allNeighborIds.forEach(neighborId => {
+            // Always read fresh state — store may have been mutated by previous addFeature/updateFeature calls
+            const freshStore = useNetworkStore.getState();
+            const pipeStoreData = freshStore.features.get(neighborId);
+            if (!pipeStoreData) return;
 
-            neighbors.push(pipeFeature); // Track for potential merge later
+            // Read node IDs from store properties (authoritative), not from OL feature.get()
+            const pStartId = pipeStoreData.properties?.startNodeId || pipeStoreData.properties?.source;
+            const pEndId = pipeStoreData.properties?.endNodeId || pipeStoreData.properties?.target;
 
-            const pipeGeom = pipeFeature.getGeometry() as LineString;
-            // Clone coords to avoid reference issues
-            const coords = pipeGeom.getCoordinates();
-            const pStartId = pipeFeature.get('startNodeId');
-            const pEndId = pipeFeature.get('endNodeId');
+            // Get current pipe coordinates from fresh store
+            const pipeCoords = [...((pipeStoreData.geometry as number[][]) || [])];
 
             let modified = false;
 
-            // Update Start Point
             if (pStartId === startNodeId || pStartId === endNodeId) {
-                pipeFeature.set('startNodeId', newJunctionId);
-                store.updateFeature(neighborId, { startNodeId: newJunctionId });
-                coords[0] = midPoint;
+                // Update BOTH startNodeId AND source — saveCurrentProject reads `props.source || props.startNodeId`
+                store.updateFeature(neighborId, { startNodeId: newJunctionId, source: newJunctionId });
+                if (pipeCoords.length >= 2) pipeCoords[0] = mergePoint!;
 
-                // Update Topology
                 store.updateNodeConnections(pStartId, neighborId, 'remove');
                 store.updateNodeConnections(newJunctionId, neighborId, 'add');
                 modified = true;
-
             } else if (pEndId === startNodeId || pEndId === endNodeId) {
-                pipeFeature.set('endNodeId', newJunctionId);
-                store.updateFeature(neighborId, { endNodeId: newJunctionId });
-                coords[coords.length - 1] = midPoint;
+                // Update BOTH endNodeId AND target — saveCurrentProject reads `props.target || props.endNodeId`
+                store.updateFeature(neighborId, { endNodeId: newJunctionId, target: newJunctionId });
+                if (pipeCoords.length >= 2) pipeCoords[pipeCoords.length - 1] = mergePoint!;
 
                 store.updateNodeConnections(pEndId, neighborId, 'remove');
                 store.updateNodeConnections(newJunctionId, neighborId, 'add');
                 modified = true;
             }
 
-            if (modified) {
-                pipeGeom.setCoordinates(coords);
-                // Recalculate length after stretch
-                const newLen = Math.round(pipeGeom.getLength());
-                pipeFeature.set('length', newLen);
-                store.updateFeature(neighborId, { geometry: coords, length: newLen });
+            if (modified && pipeCoords.length >= 2) {
+                // Update map feature geometry
+                const pipeMapFeature = this.getFeature(neighborId);
+                if (pipeMapFeature) {
+                    const pipeGeom = pipeMapFeature.getGeometry() as LineString;
+                    if (pipeGeom) {
+                        pipeGeom.setCoordinates(pipeCoords);
+                        const newLen = Math.round(pipeGeom.getLength());
+                        pipeMapFeature.set('length', newLen);
+                        store.updateFeature(neighborId, { geometry: pipeCoords, length: newLen });
+                    }
+                } else {
+                    // Map feature not in source — update store geometry directly
+                    const newLen = Math.round(new LineString(pipeCoords).getLength());
+                    store.updateFeature(neighborId, { geometry: pipeCoords, length: newLen });
+                }
             }
-
         });
 
         // 4. Delete Old Components (Pump, J_in, J_out, Visual)
         const visualId = `VIS-${linkId}`;
         const visual = this.getFeature(visualId);
 
-        // Remove strictly
         if (visual) { this.vectorSource.removeFeature(visual); store.removeFeature(visualId); }
         this.vectorSource.removeFeature(link); store.removeFeature(linkId);
-        this.vectorSource.removeFeature(startNode); store.removeFeature(startNodeId);
-        this.vectorSource.removeFeature(endNode); store.removeFeature(endNodeId);
-
-        // ---------------------------------------------------------
-        // AUTO-HEAL LOGIC: Merge pipes if they are identical
-        // ---------------------------------------------------------
-        // if (neighbors.length === 2 && this.pipeDrawingManager) {
-        //     const [pipeA, pipeB] = neighbors;
-
-        //     // Check Compatibility (Diameter, Material, Roughness)
-        //     const propsA = pipeA.getProperties();
-        //     const propsB = pipeB.getProperties();
-
-        //     const isCompatible =
-        //         propsA.diameter === propsB.diameter &&
-        //         propsA.material === propsB.material &&
-        //         propsA.roughness === propsB.roughness;
-
-        //     if (isCompatible) {
-        //         // Perform the merge immediately using the existing logic
-        //         // pipeA serves as the template for the new merged pipe
-        //         this.pipeDrawingManager.mergePipes(pipeA, pipeB, newJunction, true);
-        //     }
-        // }
+        if (startNode) { this.vectorSource.removeFeature(startNode); store.removeFeature(startNodeId); }
+        if (endNode) { this.vectorSource.removeFeature(endNode); store.removeFeature(endNodeId); }
     }
 
     // Scenario 1 & 2: Recursive Delete
@@ -345,14 +351,13 @@ export class DeleteManager {
             this.disconnectLinkFromNode(startId, featureId);
             this.disconnectLinkFromNode(endId, featureId);
 
-            // Then check if nodes are now orphans
+            // Then check if nodes are now orphans — read FRESH store state after disconnect
             [startId, endId].forEach(nodeId => {
-                const nodeData = store.features.get(nodeId);
+                const freshStore = useNetworkStore.getState();
+                const nodeData = freshStore.features.get(nodeId);
                 if (nodeData) {
                     const conns = nodeData.properties?.connectedLinks || [];
-                    // Since we just disconnected, if length is 0, it's an orphan
                     if (conns.length === 0) {
-                        // Mock Feature for delete
                         const nodeFeat = new Feature();
                         nodeFeat.setId(nodeId);
                         nodeFeat.set('type', nodeData.type);

@@ -107,8 +107,6 @@ export class ProjectService {
                 });
             });
 
-            console.log('load', data);
-
             useNetworkStore.getState().loadProject({
                 features,
                 settings: { ...data.settings, description: project?.description },
@@ -192,8 +190,8 @@ export class ProjectService {
                 let geometryType = ['pipe', 'pump', 'valve'].includes(type) ? 'LineString' : 'Point';
                 let coordinates = f.geometry;
 
-                // SPECIAL HANDLING: Pump/Valve (Point -> LineString)
-                // We must use 'currentFeaturesMap' to get the MOVED node positions
+                // LINK GEOMETRY: Always reconstruct endpoints from node positions to prevent drift.
+                // Middle vertices (if any) are preserved.
                 if (['pipe', 'pump', 'valve'].includes(type) && sourceId && targetId) {
                     const sNode = currentFeaturesMap.get(sourceId);
                     const tNode = currentFeaturesMap.get(targetId);
@@ -202,10 +200,20 @@ export class ProjectService {
                         const sGeom = sNode.geometry as number[];
                         const tGeom = tNode.geometry as number[];
 
-                        if (geometryType === 'LineString' && (!coordinates || !Array.isArray(coordinates[0]))) {
-                            geometryType = 'LineString';
-                            coordinates = [sGeom, tGeom]; // [Start, End]
+                        // Build from existing coords if available (to preserve middle vertices)
+                        let coords = coordinates ? [...(coordinates as number[][])] : [];
+
+                        if (!Array.isArray(coords[0])) {
+                            // Geometry is a Point or empty — rebuild as simple 2-point line
+                            coords = [sGeom, tGeom];
+                        } else {
+                            // Snap just the two endpoints, preserve any middle vertices
+                            coords[0] = sGeom;
+                            coords[coords.length - 1] = tGeom;
                         }
+
+                        geometryType = 'LineString';
+                        coordinates = coords;
                     }
                 }
 

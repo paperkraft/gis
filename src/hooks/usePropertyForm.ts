@@ -1,31 +1,16 @@
 'use client';
 
-import { Feature } from 'ol';
-import { LineString, Point } from 'ol/geom';
 import { useEffect, useState } from 'react';
+import { LineString } from 'ol/geom';
 
 import { ElevationService } from '@/lib/services/ElevationService';
+import { createFeatureFromData } from '@/lib/utils/featureUtils';
+import { sanitizeProperties } from '@/lib/utils/sanitize';
 import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
-import { createFeatureFromData } from './map/useMapFeatureSync';
 
-// Helper to prevent React crashes with OL objects
-export const sanitizeProperties = (props: Record<string, any>): Record<string, any> => {
-    if (!props) return {};
-    const clean: Record<string, any> = {};
-    Object.keys(props).forEach(key => {
-        const val = props[key];
-        if (key === 'geometry') return;
-        if (val instanceof Feature || (val && typeof val.getId === 'function')) {
-            clean[key] = val.getId()?.toString() || "[Feature]";
-        } else if (val && typeof val === 'object' && !Array.isArray(val)) {
-            clean[key] = val.id || val.Id || val.ID || "[Object]";
-        } else {
-            clean[key] = val;
-        }
-    });
-    return clean;
-};
+// Re-export for any consumers that import sanitizeProperties from here
+export { sanitizeProperties } from '@/lib/utils/sanitize';
 
 export const usePropertyForm = () => {
     const { version, selectedFeature, selectedFeatureId, updateFeature, removeFeature } = useNetworkStore();
@@ -63,12 +48,27 @@ export const usePropertyForm = () => {
             setFormData(selectedFeature.properties);
             setHasChanges(false);
         }
-    }
+    };
 
     const handleDelete = () => {
-        if (selectedFeatureId && confirm("Are you sure you want to delete this component?")) {
-            removeFeature(selectedFeatureId);
-            useNetworkStore.getState().selectFeature(null);
+        if (!selectedFeatureId) return;
+
+        // Delegate to DeleteManager so we get:
+        // - Confirmation modal with impact summary
+        // - Orphan node cleanup for pipes
+        // - Pump/valve merge logic
+        // - Cascade delete for node→connected pipes
+        const dm = useMapStore.getState().deleteManager;
+        if (dm) {
+            // Ensure the feature is selected so deleteSelectedFeature picks it up
+            useNetworkStore.getState().selectFeature(selectedFeatureId);
+            dm.deleteSelectedFeature();
+        } else {
+            // Fallback if map isn't loaded yet
+            if (confirm('Are you sure you want to delete this component?')) {
+                removeFeature(selectedFeatureId);
+                useNetworkStore.getState().selectFeature(null);
+            }
         }
     };
 
@@ -88,10 +88,10 @@ export const usePropertyForm = () => {
         try {
             if (['junction', 'tank', 'reservoir'].includes(selectedFeature.type)) {
                 const elevation = await ElevationService.getElevation(selectedFeature.geometry as number[]);
-                if (elevation !== null) handleChange("elevation", elevation);
+                if (elevation !== null) handleChange('elevation', elevation);
             }
         } catch (e) {
-            console.error("Elevation failed", e);
+            console.error('Elevation failed', e);
         } finally {
             setIsLoading(false);
         }
@@ -100,24 +100,61 @@ export const usePropertyForm = () => {
     // --- LINK SPECIFIC ACTIONS ---
     const handleReverse = () => {
         if (!selectedFeature || !selectedFeatureId) return;
+        if (!['pipe', 'pump', 'valve'].includes(selectedFeature.type)) return;
 
-        if (['pipe', 'pump', 'valve'].includes(selectedFeature.type)) {
-            // 2. Flip Data
-            const newStart = formData.endNodeId || formData.target || formData.toNode;
-            const newEnd = formData.startNodeId || formData.source || formData.fromNode;
+        // Delegate to pipeDrawingManager so geometry reversal also happens on the map
+        const { vectorSource, deleteManager: _ } = useMapStore.getState();
+        if (vectorSource) {
+            const mapFeature = vectorSource.getFeatureById(selectedFeatureId);
+            if (mapFeature) {
+                // Import lazily to avoid circular dep — read from mapStore's vectorSource context
+                // pipeDrawingManager is exposed via import in context menu; here we use the store OL feature directly
+                const props = selectedFeature.properties;
+                const newStart = props.endNodeId || props.target || props.toNode;
+                const newEnd = props.startNodeId || props.source || props.fromNode;
 
-            const updates = { startNodeId: newStart, endNodeId: newEnd, source: newStart, target: newEnd };
-            updateFeature(selectedFeatureId, updates);
-            setFormData(prev => ({ ...prev, ...updates }));
+                const geom = mapFeature.getGeometry();
+                if (geom && geom.getType() === 'LineString') {
+                    const reversed = [...(geom as LineString).getCoordinates()].reverse();
+                    (geom as LineString).setCoordinates(reversed);
+
+                    updateFeature(selectedFeatureId, {
+                        geometry: reversed,
+                        startNodeId: newStart,
+                        endNodeId: newEnd,
+                        source: newStart,
+                        target: newEnd,
+                    });
+                    mapFeature.changed();
+                } else {
+                    // Point geometry (pump/valve) — property-only update
+                    updateFeature(selectedFeatureId, {
+                        startNodeId: newStart,
+                        endNodeId: newEnd,
+                        source: newStart,
+                        target: newEnd,
+                    });
+                }
+
+                setFormData(prev => ({ ...prev, startNodeId: newStart, endNodeId: newEnd, source: newStart, target: newEnd }));
+                return;
+            }
         }
+
+        // Fallback: property-only update (store only, no OL geometry change)
+        const newStart = formData.endNodeId || formData.target || formData.toNode;
+        const newEnd = formData.startNodeId || formData.source || formData.fromNode;
+        const updates = { startNodeId: newStart, endNodeId: newEnd, source: newStart, target: newEnd };
+        updateFeature(selectedFeatureId, updates);
+        setFormData(prev => ({ ...prev, ...updates }));
     };
 
     const getConnectedInfo = () => {
-        if (["junction", "tank", "reservoir"].includes(formData.type)) {
+        if (['junction', 'tank', 'reservoir'].includes(formData.type)) {
             const connectedLinks = formData.connectedLinks || [];
-            return { type: "node", count: connectedLinks.length, connections: connectedLinks };
-        } else if (["pipe", "pump", "valve"].includes(formData.type)) {
-            return { type: "link", startNodeId: formData.startNodeId || formData.source, endNodeId: formData.endNodeId || formData.target, isPipe: formData.type === 'pipe' };
+            return { type: 'node', count: connectedLinks.length, connections: connectedLinks };
+        } else if (['pipe', 'pump', 'valve'].includes(formData.type)) {
+            return { type: 'link', startNodeId: formData.startNodeId || formData.source, endNodeId: formData.endNodeId || formData.target, isPipe: formData.type === 'pipe' };
         }
         return null;
     };

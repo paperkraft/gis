@@ -1,8 +1,9 @@
 import { ChevronDown, Loader2, Save } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import React from "react";
+import React, { useState } from "react";
+import { toast } from "sonner";
 
-import { useProjectSave } from "@/hooks/useProjectSave";
+import { ProjectService } from "@/lib/services/ProjectService";
 import { useNetworkStore } from "@/store/networkStore";
 import { Button } from "../ui/button";
 
@@ -22,11 +23,28 @@ export const Header = ({
 
   const route = useRouter();
 
-  const { saveProject, isSaving } = useProjectSave(projectId);
+  const [isSaving, setIsSaving] = useState(false);
   const hasUnsavedChanges = useNetworkStore((s) => s.hasUnsavedChanges);
 
   const handleBack = () => {
     route.replace("/");
+  };
+
+  const saveProject = async () => {
+    if (!projectId || isSaving) return;
+    setIsSaving(true);
+    try {
+      const result = await ProjectService.saveCurrentProject(projectId);
+      if (result.success) {
+        toast.success("Project saved successfully");
+      } else {
+        toast.error("Failed to save project");
+      }
+    } catch {
+      toast.error("An error occurred while saving");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -76,8 +94,8 @@ export const Header = ({
 
         <div className="flex items-center gap-4">
           {(hasUnsavedChanges || isSaving) && (
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               variant={hasUnsavedChanges ? "default" : "outline"}
               onClick={saveProject}
               disabled={isSaving || !hasUnsavedChanges}
@@ -87,7 +105,7 @@ export const Header = ({
               {isSaving ? "Saving..." : "Save Changes"}
             </Button>
           )}
-          
+
           <div className="h-4 w-px bg-slate-200" />
           <div className="flex items-center gap-3 cursor-pointer hover:bg-muted py-1 px-2 rounded">
             <div className="w-8 h-8 rounded-full bg-primary-foreground text-primary flex items-center justify-center font-bold text-xs border border-primary/20">

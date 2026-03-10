@@ -59,7 +59,8 @@ export const createHistorySlice: StateCreator<NetworkState, [], [], HistorySlice
             past: newPast,
             future: [currentSnapshot, ...state.future],
             features: newMap,
-            hasUnsavedChanges: true
+            hasUnsavedChanges: true,
+            version: state.version + 1
         }));
     },
 
@@ -83,7 +84,8 @@ export const createHistorySlice: StateCreator<NetworkState, [], [], HistorySlice
             past: [...state.past, currentSnapshot],
             future: newFuture,
             features: newMap,
-            hasUnsavedChanges: true
+            hasUnsavedChanges: true,
+            version: state.version + 1
         }))
     }
 });
