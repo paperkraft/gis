@@ -1,11 +1,11 @@
-import { Feature } from 'ol';
+import { NetworkFeatureData } from '@/types/network';
 import { StateCreator } from 'zustand';
 
 import { NetworkState } from '../networkStore';
 
 export interface HistorySlice {
-    past: Feature[][];
-    future: Feature[][];
+    past: NetworkFeatureData[][];
+    future: NetworkFeatureData[][];
     isTransactionActive: boolean;
 
     snapshot: () => void;
@@ -35,9 +35,7 @@ export const createHistorySlice: StateCreator<NetworkState, [], [], HistorySlice
         if (get().isTransactionActive) return;
 
         const current = Array.from(get().features.values()).map(f => {
-            const clone = f.clone();
-            clone.setId(f.getId());
-            return clone;
+            return structuredClone(f);
         });
         set((state) => ({ past: [...state.past, current], future: [] }));
     },
@@ -50,14 +48,12 @@ export const createHistorySlice: StateCreator<NetworkState, [], [], HistorySlice
         const newPast = past.slice(0, -1);
 
         const currentSnapshot = Array.from(features.values()).map(f => {
-            const c = f.clone();
-            c.setId(f.getId());
-            return c;
+            return structuredClone(f);
         });
 
         // Restore
         const newMap = new Map();
-        previousState.forEach(f => newMap.set(f.getId(), f));
+        previousState.forEach(f => newMap.set(f.id, f));
 
         set((state) => ({
             past: newPast,
@@ -76,14 +72,12 @@ export const createHistorySlice: StateCreator<NetworkState, [], [], HistorySlice
 
         // Snapshot current state for Redo
         const currentSnapshot = Array.from(features.values()).map(f => {
-            const c = f.clone();
-            c.setId(f.getId());
-            return c;
+            return structuredClone(f);
         });
 
         // Restore
         const newMap = new Map();
-        nextState.forEach(f => newMap.set(f.getId(), f));
+        nextState.forEach(f => newMap.set(f.id, f));
 
         set((state) => ({
             past: [...state.past, currentSnapshot],

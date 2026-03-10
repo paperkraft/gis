@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 
 import { useNetworkStore } from '@/store/networkStore';
 import { ProjectService } from '@/lib/services/ProjService';
-import { LineString, Point } from 'ol/geom';
+import { createFeatureFromData } from './map/useMapFeatureSync';
 
 export function useProjectSave(projectId: string) {
     const [isSaving, setIsSaving] = useState(false);
@@ -29,12 +29,13 @@ export function useProjectSave(projectId: string) {
             const writer = new GeoJSON();
 
             // 1. Filter only Modified Features
-            const rawChangedFeatures = Array.from(features.values()).filter(f => modifiedIds.has(f.getId() as string));
+            const rawChangedFeatures = Array.from(features.values()).filter(f => modifiedIds.has(f.id));
 
             // 2. Reconstruct Link Geometries to prevent "Drift"
             const featuresToSave = rawChangedFeatures.map(f => {
-                const type = f.get('type');
-                const props = f.getProperties();
+                const type = f.type;
+                const props = f.properties;
+                const fData = { ...f };
 
                 // Check if it's a Link (Pipe, Pump, Valve)
                 if (['pipe', 'pump', 'valve'].includes(type)) {
@@ -43,38 +44,31 @@ export function useProjectSave(projectId: string) {
                     const targetId = props.target || props.endNodeId || props.toNode;
 
                     if (sourceId && targetId) {
-                        const sNode = features.get(sourceId);
-                        const tNode = features.get(targetId);
+                        const sNode = features.get(sourceId as string);
+                        const tNode = features.get(targetId as string);
 
                         if (sNode && tNode) {
-                            const sGeom = (sNode.getGeometry() as Point).getCoordinates();
-                            const tGeom = (tNode.getGeometry() as Point).getCoordinates();
-
-                            const clone = f.clone();
+                            const sGeom = sNode.geometry as number[];
+                            const tGeom = tNode.geometry as number[];
 
                             // 1. GET CURRENT SHAPE (Start + Vertices + End)
-                            const currentGeom = f.getGeometry() as LineString;
-                            const coords = currentGeom.getCoordinates();
+                            let coords = f.geometry ? [...(f.geometry as number[][])] : [];
 
                             // 2. SNAP ENDPOINTS ONLY (Preserve Middle Vertices)
                             if (coords.length >= 2) {
                                 coords[0] = sGeom;                 // Snap Start
                                 coords[coords.length - 1] = tGeom; // Snap End
-
-                                // 3. APPLY FULL GEOMETRY
-                                clone.setGeometry(new LineString(coords));
                             } else {
                                 // Fallback (should rarely happen)
-                                clone.setGeometry(new LineString([sGeom, tGeom]));
+                                coords = [sGeom, tGeom];
                             }
 
-                            clone.setId(f.getId());
-                            return clone;
+                            fData.geometry = coords;
                         }
                     }
                 }
-                // If it's a Node or unrelated feature, return as is
-                return f;
+
+                return createFeatureFromData(fData);
             });
 
             // 3. Serialize (Auto-transform 3857 -> 4326)

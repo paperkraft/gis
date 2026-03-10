@@ -16,6 +16,8 @@ import { useUIStore } from '@/store/uiStore';
 export class PipeDrawingManager {
     private map: Map;
     private vectorSource: VectorSource;
+    private scratchSource: VectorSource;
+    private scratchLayer: VectorLayer<VectorSource>;
     private drawInteraction: Draw | null = null;
     private snapInteraction: Snap | null = null;
 
@@ -52,6 +54,20 @@ export class PipeDrawingManager {
     constructor(map: Map, vectorSource: VectorSource) {
         this.map = map;
         this.vectorSource = vectorSource;
+
+        this.scratchSource = new VectorSource();
+        this.scratchLayer = new VectorLayer({
+            source: this.scratchSource,
+            zIndex: 9999, // Above main network, below highlights
+            style: {
+                'stroke-color': '#F59E0B',
+                'stroke-width': 2,
+                'stroke-line-dash': [10, 10],
+                'circle-radius': 5,
+                'circle-fill-color': '#F59E0B',
+            }
+        });
+        this.map.addLayer(this.scratchLayer);
     }
 
     // ============================================
@@ -69,9 +85,9 @@ export class PipeDrawingManager {
 
         this.setupHighlightLayer();
 
-        // Initialize Draw Interaction (For Standalone Line Drawing)
+        // Initialize Draw Interaction (For Standalone Line Drawing) on Scratch layer
         this.drawInteraction = new Draw({
-            source: this.vectorSource,
+            source: this.scratchSource, // Draw on scratch
             type: 'LineString',
             // Pumps/Valves must be 2 points (Inlet -> Outlet)
             maxPoints: type === 'pipe' ? undefined : 2,
@@ -154,10 +170,10 @@ export class PipeDrawingManager {
             this.startNode = null;
         } else {
             // Partial reset
-            this.vertexMarkers.forEach(m => this.vectorSource.removeFeature(m));
+            this.vertexMarkers.forEach(m => this.scratchSource.removeFeature(m));
             this.vertexMarkers = [];
             if (this.previewLine) {
-                this.vectorSource.removeFeature(this.previewLine);
+                this.scratchSource.removeFeature(this.previewLine);
                 this.previewLine = null;
             }
         }
@@ -182,6 +198,7 @@ export class PipeDrawingManager {
 
     public cleanup() {
         this.stopDrawing();
+        this.map.removeLayer(this.scratchLayer);
     }
 
     // ============================================
@@ -393,8 +410,8 @@ export class PipeDrawingManager {
             // Invalid topology (self-loop or failed node creation)
             // The Draw interaction adds the raw line to the source automatically. 
             setTimeout(() => {
-                const rawFeatures = this.vectorSource.getFeatures().filter(f => !f.get('type'));
-                rawFeatures.forEach(f => this.vectorSource.removeFeature(f));
+                const rawFeatures = this.scratchSource.getFeatures().filter(f => !f.get('type'));
+                rawFeatures.forEach(f => this.scratchSource.removeFeature(f));
             }, 0);
         } else {
             // 2. Create Domain Feature (Pipe/Pump/Valve)
@@ -406,8 +423,8 @@ export class PipeDrawingManager {
         }
 
         setTimeout(() => {
-            const rawFeatures = this.vectorSource.getFeatures().filter(f => !f.get('type'));
-            rawFeatures.forEach(f => this.vectorSource.removeFeature(f));
+            const rawFeatures = this.scratchSource.getFeatures().filter(f => !f.get('type'));
+            rawFeatures.forEach(f => this.scratchSource.removeFeature(f));
         }, 0);
 
         // If 'pump' or 'valve', we usually stop after one.
@@ -464,9 +481,17 @@ export class PipeDrawingManager {
     }
 
     private createNode(coordinate: number[], type: FeatureType): Feature {
-        const feature = NetworkFactory.createNode(type, coordinate);
-        this.vectorSource.addFeature(feature);
-        useNetworkStore.getState().addFeature(feature);
+        const featureData = NetworkFactory.createNode(type, coordinate);
+        // Add To Store
+        useNetworkStore.getState().addFeature(featureData);
+
+        // Return dummy feature for drawing state logic
+        const feature = new Feature({ geometry: new Point(coordinate) });
+        feature.setId(featureData.id);
+        feature.setProperties(featureData.properties);
+
+        // We sync via useMapFeatureSync now!
+
         if (!this.tempStartNode && this._isDrawingMode) {
             this.tempStartNode = feature;
         }
@@ -474,36 +499,52 @@ export class PipeDrawingManager {
     }
 
     private createPipe(coords: number[][], startNode: Feature, endNode: Feature) {
-        const feature = NetworkFactory.createPipe(coords, startNode, endNode);
-        this.vectorSource.addFeature(feature);
 
+        const featureData = NetworkFactory.createPipe(coords, startNode.getId() as string, endNode.getId() as string);
         const store = useNetworkStore.getState();
-        store.addFeature(feature);
-        store.updateFeature(feature.getId() as string, { geometry: coords });
-        // Update Topology
-        store.updateNodeConnections(startNode.getId() as string, feature.getId() as string, "add");
-        store.updateNodeConnections(endNode.getId() as string, feature.getId() as string, "add");
+        store.startTransaction();
+
+        try {
+            store.addFeature(featureData);
+            // Update Topology
+            store.updateNodeConnections(startNode.getId() as string, featureData.id, "add");
+            store.updateNodeConnections(endNode.getId() as string, featureData.id, "add");
+            store.commitTransaction();
+        } catch (e) {
+            store.commitTransaction();
+        }
     }
 
     private createLinkBetweenNodes(node1: Feature, node2: Feature, type: 'pump' | 'valve') {
-        const [component, visual] = NetworkFactory.createComplexLink(type, node1, node2);
-        this.vectorSource.addFeatures([component, visual]);
-
         const store = useNetworkStore.getState();
-        store.addFeature(component);
-        store.addFeature(visual);
 
-        // Update Topology
-        const id = component.getId() as string;
-        store.updateNodeConnections(node1.getId() as string, id, "add");
-        store.updateNodeConnections(node2.getId() as string, id, "add");
+        // Use empty dummy features to satisfy type signatures for Data Model creation
+        // since we refactored NetworkFactory to use NetworkFeatureData
+        const [componentData, visualData] = NetworkFactory.createComplexLink(type,
+            { id: node1.getId() as string, type: node1.get('type'), geometry: (node1.getGeometry() as Point).getCoordinates(), properties: {} as any },
+            { id: node2.getId() as string, type: node2.get('type'), geometry: (node2.getGeometry() as Point).getCoordinates(), properties: {} as any }
+        );
+
+        store.startTransaction();
+        try {
+            store.addFeature(componentData);
+            store.addFeature(visualData);
+
+            // Update Topology
+            const id = componentData.id;
+            store.updateNodeConnections(node1.getId() as string, id, "add");
+            store.updateNodeConnections(node2.getId() as string, id, "add");
+            store.commitTransaction();
+        } catch (e) {
+            store.commitTransaction();
+        }
     }
 
     private addVertexMarker(coord: number[]) {
         const marker = new Feature({ geometry: new Point(coord) });
         marker.setStyle(new Style({ image: new CircleStyle({ radius: 3, fill: new Fill({ color: "#1FB8CD" }) }) }));
         marker.set("isVertexMarker", true);
-        this.vectorSource.addFeature(marker);
+        this.scratchSource.addFeature(marker);
         this.vertexMarkers.push(marker);
     }
 
@@ -513,10 +554,10 @@ export class PipeDrawingManager {
     private resetState() {
         this.drawingCoordinates = [];
         this.endNode = null;
-        this.vertexMarkers.forEach(m => this.vectorSource.removeFeature(m));
+        this.vertexMarkers.forEach(m => this.scratchSource.removeFeature(m));
         this.vertexMarkers = [];
         if (this.previewLine) {
-            this.vectorSource.removeFeature(this.previewLine);
+            this.scratchSource.removeFeature(this.previewLine);
             this.previewLine = null;
         }
     }
@@ -559,9 +600,9 @@ export class PipeDrawingManager {
             delete newProps.startNodeId; delete newProps.endNodeId; delete newProps.geometryName;
 
             // 4. Create New Pipe
-            const newPipe = NetworkFactory.createPipe(mergedCoords,
-                vectorSource.getFeatureById(startNodeId) || store.features.get(startNodeId)!,
-                vectorSource.getFeatureById(endNodeId) || store.features.get(endNodeId)!,
+            const newPipeData = NetworkFactory.createPipe(mergedCoords,
+                startNodeId,
+                endNodeId,
                 undefined, newProps
             );
 
@@ -575,14 +616,13 @@ export class PipeDrawingManager {
             store.removeFeature(pipeB.getId() as string);
 
             // Add New
-            vectorSource.addFeature(newPipe);
-            store.addFeature(newPipe);
+            store.addFeature(newPipeData);
 
             // Update Connections
             store.updateNodeConnections(startNodeId, pipeA.getId() as string, 'remove');
             store.updateNodeConnections(endNodeId, pipeB.getId() as string, 'remove');
-            store.updateNodeConnections(startNodeId, newPipe.getId() as string, 'add');
-            store.updateNodeConnections(endNodeId, newPipe.getId() as string, 'add');
+            store.updateNodeConnections(startNodeId, newPipeData.id as string, 'add');
+            store.updateNodeConnections(endNodeId, newPipeData.id as string, 'add');
 
             // Finalize
             store.commitTransaction();
@@ -627,11 +667,13 @@ export class PipeDrawingManager {
 
             const pStart = coords[splitIndex];
             const pEnd = coords[splitIndex + 1];
+
+            // RESTORED GAP LOGIC based on user feedback.
             const dx = pEnd[0] - pStart[0];
             const dy = pEnd[1] - pStart[1];
             const len = Math.sqrt(dx * dx + dy * dy);
 
-            const GAP = this.MIN_PIPE_LENGTH;
+            const GAP = this.MIN_PIPE_LENGTH; // Usually 1.0 or 0.5
             const safeOffset = (len > 0) ? Math.min(GAP, len * 0.4) : 0.1;
             const offsetX = (len > 0) ? (dx / len) * safeOffset : 0.1;
             const offsetY = (len > 0) ? (dy / len) * safeOffset : 0;
@@ -644,24 +686,19 @@ export class PipeDrawingManager {
 
             const coords1 = [...coords.slice(0, splitIndex + 1), point1];
             const p1Id = store.generateUniqueId('pipe');
-            const p1 = new Feature({ geometry: new LineString(coords1) });
-            p1.setId(p1Id);
-            p1.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p1Id, startNodeId: startNodeId, endNodeId: j1Id, source: startNodeId, target: j1Id, label: p1Id, length: this.calculatePipeLength(p1.getGeometry() as LineString) });
+            const p1Data = NetworkFactory.createPipe(coords1, startNodeId, j1Id, p1Id, { ...pipeProps, isNew: true });
 
             const coords2 = [point2, ...coords.slice(splitIndex + 1)];
             const p2Id = store.generateUniqueId('pipe');
-            const p2 = new Feature({ geometry: new LineString(coords2) });
-            p2.setId(p2Id);
-            p2.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p2Id, startNodeId: j2Id, endNodeId: endNodeId, source: j2Id, target: endNodeId, label: p2Id, length: this.calculatePipeLength(p2.getGeometry() as LineString) });
+            const p2Data = NetworkFactory.createPipe(coords2, j2Id, endNodeId, p2Id, { ...pipeProps, isNew: true });
 
             this.createLinkBetweenNodes(j1, j2, type);
 
             this.vectorSource.removeFeature(pipe);
             store.removeFeature(originalId);
 
-            this.vectorSource.addFeatures([p1, p2]);
-            store.addFeature(p1);
-            store.addFeature(p2);
+            store.addFeature(p1Data);
+            store.addFeature(p2Data);
 
             store.updateNodeConnections(startNodeId, originalId, "remove");
             store.updateNodeConnections(endNodeId, originalId, "remove");
@@ -672,6 +709,8 @@ export class PipeDrawingManager {
             store.updateNodeConnections(j2Id, p2Id, "add");
             store.updateNodeConnections(endNodeId, p2Id, "add");
 
+            // No immediate vectorSource.addFeature for the new pipes; rely on `useMapFeatureSync` 
+            // so we don't end up with duplicate reference features.
             this.vectorSource.changed();
 
             // 2. Commit Transaction
@@ -716,22 +755,17 @@ export class PipeDrawingManager {
 
             const coords1 = [...coords.slice(0, splitIndex + 1), closestPoint];
             const p1Id = store.generateUniqueId('pipe');
-            const p1 = new Feature({ geometry: new LineString(coords1) });
-            p1.setId(p1Id);
-            p1.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p1Id, startNodeId: startNodeId, endNodeId: newNodeId, source: startNodeId, target: newNodeId, label: `${p1Id}`, length: this.calculatePipeLength(p1.getGeometry() as LineString) });
+            const p1Data = NetworkFactory.createPipe(coords1, startNodeId, newNodeId, p1Id, { ...pipeProps, isNew: true });
 
             const coords2 = [closestPoint, ...coords.slice(splitIndex + 1)];
             const p2Id = store.generateUniqueId('pipe');
-            const p2 = new Feature({ geometry: new LineString(coords2) });
-            p2.setId(p2Id);
-            p2.setProperties({ ...pipeProps, type: 'pipe', isNew: true, id: p2Id, startNodeId: newNodeId, endNodeId: endNodeId, source: newNodeId, target: endNodeId, label: `${p2Id}`, length: this.calculatePipeLength(p2.getGeometry() as LineString) });
+            const p2Data = NetworkFactory.createPipe(coords2, newNodeId, endNodeId, p2Id, { ...pipeProps, isNew: true });
 
             this.vectorSource.removeFeature(pipe);
             store.removeFeature(originalId);
 
-            this.vectorSource.addFeatures([p1, p2]);
-            store.addFeature(p1);
-            store.addFeature(p2);
+            store.addFeature(p1Data);
+            store.addFeature(p2Data);
 
             store.updateNodeConnections(startNodeId, originalId, "remove");
             store.updateNodeConnections(endNodeId, originalId, "remove");
@@ -759,21 +793,9 @@ export class PipeDrawingManager {
         store.startTransaction();
 
         try {
-            const geometry = pipe.getGeometry() as LineString;
-            const coords = geometry.getCoordinates();
-
-            // 1. Reverse Coordinates
-            const reversedCoords = coords.reverse();
-            geometry.setCoordinates(reversedCoords);
-
-            // 2. Swap Start/End Node IDs in Properties
-            const startNodeId = pipe.get('startNodeId');
-            const endNodeId = pipe.get('endNodeId');
-            pipe.set('startNodeId', endNodeId);
-            pipe.set('endNodeId', startNodeId);
-
-            // 3. Update Store State
             const id = pipe.getId() as string;
+            if (!id) return;
+            // 3. Update Store State
             store.markModified([id]);
             store.markUnSaved();
             store.commitTransaction();
@@ -799,35 +821,31 @@ export class PipeDrawingManager {
         try {
             // Create New Node at same location
             const coords = (node.getGeometry() as Point).getCoordinates();
-            const newNode = NetworkFactory.createNode(newType, coords);
-            const newId = newNode.getId() as string;
+            const newNodeData = NetworkFactory.createNode(newType, coords);
+            const newId = newNodeData.id as string;
 
             // Transfer Properties? 
             // Usually we DON'T transfer props between different types (e.g. Tank level vs Junction demand).
             // But we MUST transfer topology.
 
-            // ADD TO STORE & MAP FIRST
-            // We must do this before updating connections so the store can find 'newId'
-            vectorSource.addFeature(newNode);
-            store.addFeature(newNode);
+            // ADD TO STORE
+            store.addFeature(newNodeData);
 
             // Update Connected Links
             // We need to look at the store to find who connects to us
             const storeNode = store.features.get(oldId);
-            const connectedLinks = storeNode?.get('connectedLinks') || [];
+            const connectedLinks = storeNode?.properties?.connectedLinks || [];
 
             connectedLinks.forEach((linkId: string) => {
-                const link = vectorSource.getFeatureById(linkId) || store.features.get(linkId);
-                if (link) {
+                const linkData = store.features.get(linkId);
+                if (linkData) {
                     // A. Update Link Endpoints (Point to new Node ID)
                     let modified = false;
-                    if (link.get('startNodeId') === oldId) {
-                        link.set('startNodeId', newId);
+                    if (linkData.properties?.startNodeId === oldId) {
                         store.updateFeature(linkId, { startNodeId: newId });
                         modified = true;
                     }
-                    if (link.get('endNodeId') === oldId) {
-                        link.set('endNodeId', newId);
+                    if (linkData.properties?.endNodeId === oldId) {
                         store.updateFeature(linkId, { endNodeId: newId });
                         modified = true;
                     }

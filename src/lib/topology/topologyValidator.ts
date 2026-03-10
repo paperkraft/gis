@@ -2,6 +2,7 @@ import VectorSource from "ol/source/Vector";
 import { Feature } from "ol";
 import { Point, LineString } from "ol/geom";
 import { NetworkValidation, ValidationError, ValidationWarning } from "@/types/network";
+import { useNetworkStore } from "@/store/networkStore";
 
 export class TopologyValidator {
     private vectorSource: VectorSource;
@@ -145,7 +146,7 @@ export class TopologyValidator {
     private findSelfLoops(): Feature[] {
         return this.vectorSource
             .getFeatures()
-            .filter((f) => ["pipe", "pump", "valve"].includes(f.get("type")))
+            .filter((f) => ["pipe", "pump", "valve"].includes(f.get("type")) && !f.get('isVisualLink'))
             .filter((link) => {
                 const start = link.get("startNodeId");
                 const end = link.get("endNodeId");
@@ -220,14 +221,18 @@ export class TopologyValidator {
     private findPipesWithMissingNodes(): Feature[] {
         const links = this.vectorSource
             .getFeatures()
-            .filter((f) => ["pipe", "pump", "valve"].includes(f.get("type")));
+            .filter((f) => ["pipe", "pump", "valve"].includes(f.get("type")) && !f.get('isVisualLink'));
+
+        const store = useNetworkStore.getState();
 
         return links.filter((link) => {
             const startNodeId = link.get("startNodeId");
             const endNodeId = link.get("endNodeId");
 
-            const startNode = this.findNodeById(startNodeId);
-            const endNode = this.findNodeById(endNodeId);
+            // Look up nodes in the actual Store data map to prevent race conditions
+            // between OpenLayers rendering and validation triggering.
+            const startNode = store.features.get(startNodeId);
+            const endNode = store.features.get(endNodeId);
 
             return !startNode || !endNode;
         });
@@ -257,7 +262,7 @@ export class TopologyValidator {
         // We'll perform a simplified check on the first segment of pipes
         const pipes = this.vectorSource
             .getFeatures()
-            .filter((f) => f.get("type") === "pipe");
+            .filter((f) => f.get("type") === "pipe" && !f.get('isVisualLink'));
 
         const crossings: Feature[] = []; // Store pipes involved in crossings
 
@@ -324,7 +329,7 @@ export class TopologyValidator {
 
     private findInvalidGeometries(): Feature[] {
         return this.vectorSource.getFeatures().filter((feature) => {
-            if (feature.get('isPreview') || feature.get('isVertexMarker')) return false;
+            if (feature.get('isPreview') || feature.get('isVertexMarker') || feature.get('isVisualLink')) return false;
 
             const geometry = feature.getGeometry();
             if (!geometry) return true;
@@ -353,7 +358,15 @@ export class TopologyValidator {
         };
 
         return this.vectorSource.getFeatures().filter((feature) => {
+            // Skip all visual/helper features via multiple guards
+            if (feature.get('isVisualLink')) return false;
+
             const type = feature.get("type") as string;
+            if (type === 'visual') return false;
+
+            const id = this.getId(feature);
+            if (id.startsWith('VIS-')) return false;
+
             const required = requiredProps[type];
 
             if (!required) return false;

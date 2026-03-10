@@ -94,14 +94,14 @@ export function MapContainer() {
   // Handle Feature Selection
   useFeatureSelection({
     map,
-    vectorLayer,
+    vectorLayer: vectorLayer as any,
     enableHover: activeTool === "select",
-    onFeatureSelect: setSelectedFeature,
   });
 
   useEffect(() => {
     const currentId = selectedFeature
-      ? selectedFeature.getId()?.toString() || null
+      // @ts-ignore
+      ? selectedFeature.id || selectedFeature.getId()?.toString() || null
       : null;
 
     const protectedModals = ["VALIDATION", "AUTO_ELEVATION", "DATA_MANAGER"];
@@ -118,7 +118,7 @@ export function MapContainer() {
       activeTool === "select"
     ) {
 
-      const type = selectedFeature?.get("type");
+      const type = selectedFeature?.type || (selectedFeature as any)?.get("type");
       let modalType: WorkbenchModalType = "NONE";
 
       // Map Feature Types to Modal Types

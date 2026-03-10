@@ -15,7 +15,7 @@ import {
 import { useMapStore } from "@/store/mapStore";
 import { useNetworkStore } from "@/store/networkStore";
 import { useUIStore } from "@/store/uiStore";
-import { Feature } from "ol";
+import { NetworkFeatureData } from "@/types/network";
 import { Point } from "ol/geom"; // Import Point for type checking
 
 export function AssetSearch() {
@@ -57,9 +57,9 @@ export function AssetSearch() {
 
     return Array.from(features.values())
       .filter((f) => {
-        const id = f.getId()?.toString().toLowerCase() || "";
-        const label = f.get("label")?.toString().toLowerCase() || "";
-        const type = f.get("type")?.toString().toLowerCase() || "";
+        const id = f.id?.toString().toLowerCase() || "";
+        const label = f.properties?.label?.toString().toLowerCase() || "";
+        const type = f.type?.toString().toLowerCase() || "";
         return (
           id.includes(lowerQuery) ||
           label.includes(lowerQuery) ||
@@ -70,15 +70,19 @@ export function AssetSearch() {
   }, [query, features]);
 
   // --- FIXED NAVIGATION LOGIC ---
-  const handleSelect = (storeFeature: Feature) => {
+  const handleSelect = (storeFeatureData: NetworkFeatureData) => {
     if (!map) return;
 
-    const id = storeFeature.getId();
+    const id = storeFeatureData.id;
     if (!id) return;
 
     // 1. Try to get the LIVE feature from the map (ensures geometry is rendered)
-    // Fallback to storeFeature if not found on map yet
-    const feature = vectorSource?.getFeatureById(id) || storeFeature;
+    const feature = vectorSource?.getFeatureById(id as string);
+    if (!feature) {
+      selectFeature(id.toString());
+      setShowAssetSearch(false);
+      return;
+    }
     const geometry = feature.getGeometry();
 
     if (geometry) {
@@ -176,9 +180,9 @@ export function AssetSearch() {
           ) : (
             <div className="space-y-1">
               {filteredAssets.map((feature, index) => {
-                const id = feature.getId()?.toString();
-                const type = feature.get("type");
-                const label = feature.get("label");
+                const id = feature.id?.toString() || "";
+                const type = feature.type || "";
+                const label = feature.properties?.label || "";
                 const isSelected = index === selectedIndex;
 
                 return (
@@ -186,18 +190,16 @@ export function AssetSearch() {
                     key={id}
                     onClick={() => handleSelect(feature)}
                     onMouseEnter={() => setSelectedIndex(index)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
-                      isSelected
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${isSelected
                         ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-900 dark:text-indigo-100"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-                    }`}
+                      }`}
                   >
                     <div
-                      className={`p-2 rounded-md ${
-                        isSelected
+                      className={`p-2 rounded-md ${isSelected
                           ? "bg-white dark:bg-gray-800 shadow-sm"
                           : "bg-gray-100 dark:bg-gray-800"
-                      }`}
+                        }`}
                     >
                       {getIcon(type)}
                     </div>

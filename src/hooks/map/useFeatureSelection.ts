@@ -16,8 +16,8 @@ import { useUIStore } from '@/store/uiStore';
 interface UseFeatureSelectionOptions {
     map: Map | null;
     vectorLayer: VectorLayer<any> | null;
-    onFeatureSelect?: (feature: Feature | null) => void;
-    onFeatureHover?: (feature: Feature | null) => void;
+    onFeatureSelect?: (feature: any | null) => void;
+    onFeatureHover?: (feature: any | null) => void;
     enableHover?: boolean;
 }
 
@@ -42,7 +42,7 @@ export function useFeatureSelection({
     const dragBoxInteractionRef = useRef<DragBox | null>(null);
     const drawPolygonInteractionRef = useRef<Draw | null>(null);
     const hoverInteractionRef = useRef<Select | null>(null);
-    const selectedFeatureRef = useRef<Feature | null>(null);
+    const selectedFeatureRef = useRef<any | null>(null);
 
     // Helper: Select feature by ID programmatically
     const selectFeatureById = useCallback(

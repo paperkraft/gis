@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { useNetworkStore } from '@/store/networkStore';
 import { buildINP } from '@/lib/epanet/inpBuilder';
+import { createFeatureFromData } from './map/useMapFeatureSync';
 import GeoJSON from 'ol/format/GeoJSON';
 
 export function useExportProject() {
@@ -52,9 +53,11 @@ export function useExportProject() {
             const featureList = Array.from(features.values());
             const format = new GeoJSON();
 
+            const olFeatures = featureList.map(createFeatureFromData);
+
             // Write features to string
             // Important: Transform from Map Projection (EPSG:3857) to Standard GeoJSON (EPSG:4326)
-            const jsonString = format.writeFeatures(featureList, {
+            const jsonString = format.writeFeatures(olFeatures, {
                 dataProjection: 'EPSG:4326',
                 featureProjection: 'EPSG:3857',
                 decimals: 6 // Keep high precision for coordinates

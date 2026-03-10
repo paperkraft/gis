@@ -1,7 +1,6 @@
-import { Feature } from "ol";
 import { LineString, Point } from "ol/geom";
 import { transform } from "ol/proj";
-import { NetworkControl, NetworkFeatureProperties, ProjectSettings, PumpCurve, TimePattern } from "@/types/network";
+import { NetworkControl, NetworkFeatureData, ProjectSettings, PumpCurve, TimePattern } from "@/types/network";
 
 const pad = (val: any, width: number = 16) => {
     let str = (val !== undefined && val !== null) ? String(val) : '0';
@@ -9,9 +8,9 @@ const pad = (val: any, width: number = 16) => {
     return str.padEnd(width, ' ');
 };
 
-// Helper to get ID safely from an OpenLayers Feature
-const getId = (f: Feature): string => {
-    const id = f.getId() || f.get('id');
+// Helper to get ID safely
+const getId = (f: NetworkFeatureData): string => {
+    const id = f.id;
     return id ? String(id).trim() : 'UNKNOWN';
 };
 
@@ -22,7 +21,7 @@ const formatTime = (val: string | number) => {
     return val.includes(':') ? val : `${val}:00`;
 };
 
-export function buildINP(features: Feature[],
+export function buildINP(features: NetworkFeatureData[],
     patterns: TimePattern[] = [],
     curves: PumpCurve[] = [],
     controls: NetworkControl[] = [],
@@ -46,7 +45,7 @@ export function buildINP(features: Feature[],
 
     // Filter features by type (Case-insensitive check)
     const getByType = (type: string) => features.filter(f => {
-        const t = f.get('type');
+        const t = f.type;
         return t && String(t).toLowerCase() === type.toLowerCase();
     });
 
@@ -75,7 +74,7 @@ export function buildINP(features: Feature[],
         lines.push('[JUNCTIONS]');
         lines.push(';ID              Elevation    Demand       Pattern');
         junctions.forEach(f => {
-            const props = f.getProperties() as NetworkFeatureProperties;
+            const props = f.properties;
             // Use '1' as default pattern if none specified
             // const pattern = props.pattern || (defaultPatternId ? "1" : "");
             const pattern = props.pattern || defaultPatternId
@@ -89,7 +88,7 @@ export function buildINP(features: Feature[],
         lines.push('[RESERVOIRS]');
         lines.push(';ID              Head         Pattern');
         reservoirs.forEach(f => {
-            const props = f.getProperties() as NetworkFeatureProperties;
+            const props = f.properties;
             // Head is often stored in 'head' or 'elevation'
             const head = props.head !== undefined ? props.head : (props.elevation ?? 100);
             lines.push(`${pad(getId(f))} ${pad(head)} ${pad(props.headPattern || "")} ;`);
@@ -102,7 +101,7 @@ export function buildINP(features: Feature[],
         lines.push('[TANKS]');
         lines.push(';ID              Elevation    InitLevel    MinLevel     MaxLevel     Diameter     MinVol       VolCurve');
         tanks.forEach(f => {
-            const props = f.getProperties() as NetworkFeatureProperties;
+            const props = f.properties;
             lines.push(`${pad(getId(f))} ${pad(props.elevation ?? 0)} ${pad(props.initLevel ?? 10)} ${pad(props.minLevel ?? 0)} ${pad(props.maxLevel ?? 20)} ${pad(props.diameter ?? 50)} ${pad(props.minVol ?? 0)} ${pad(props.volCurve || "")} ;`);
         });
         lines.push('');
@@ -113,7 +112,7 @@ export function buildINP(features: Feature[],
         lines.push('[PIPES]');
         lines.push(';ID              Node1           Node2           Length       Diameter     Roughness    MinorLoss    Status');
         pipes.forEach(f => {
-            const props = f.getProperties() as NetworkFeatureProperties;
+            const props = f.properties;
             lines.push(`${pad(getId(f))} ${pad(props.startNodeId)} ${pad(props.endNodeId)} ${pad(props.length ?? 100)} ${pad(props.diameter ?? 100)} ${pad(props.roughness ?? 100)} ${pad(props.minorLoss ?? 0)} ${pad(props.status ?? 'Open')} ;`);
         });
         lines.push('');
@@ -124,7 +123,7 @@ export function buildINP(features: Feature[],
         lines.push('[PUMPS]');
         lines.push(';ID              Node1           Node2           Parameters');
         pumps.forEach(f => {
-            const props = f.getProperties() as NetworkFeatureProperties;
+            const props = f.properties;
             // Support Curve or Constant Power
             let param = `POWER ${props.power ?? 50}`;
             if (props.headCurve) param = `HEAD ${props.headCurve}`;
@@ -139,7 +138,7 @@ export function buildINP(features: Feature[],
         lines.push('[VALVES]');
         lines.push(';ID              Node1           Node2           Diameter     Type         Setting      MinorLoss');
         valves.forEach(f => {
-            const props = f.getProperties() as NetworkFeatureProperties;
+            const props = f.properties;
             lines.push(`${pad(getId(f))} ${pad(props.startNodeId)} ${pad(props.endNodeId)} ${pad(props.diameter ?? 50)} ${pad(props.valveType ?? 'PRV')} ${pad(props.setting ?? 0)} ${pad(props.minorLoss ?? 0)} ;`);
         });
         lines.push('');
@@ -218,9 +217,8 @@ export function buildINP(features: Feature[],
         lines.push('[COORDINATES]');
         lines.push(';Node           X-Coord         Y-Coord');
         nodes.forEach(f => {
-            const geom = f.getGeometry() as Point;
-            if (geom) {
-                let coords = geom.getCoordinates();
+            let coords = f.geometry as number[];
+            if (coords && Array.isArray(coords) && Number.isFinite(coords[0])) {
 
                 if (shouldTransform) {
                     try {
@@ -238,16 +236,15 @@ export function buildINP(features: Feature[],
     // --- VERTICES (For bent pipes) ---
     if (pipes.length > 0) {
         const bentPipes = pipes.filter(f => {
-            const geom = f.getGeometry() as LineString;
-            return geom && geom.getCoordinates().length > 2;
+            const geom = f.geometry as number[][];
+            return geom && Array.isArray(geom) && Array.isArray(geom[0]) && geom.length > 2;
         });
 
         if (bentPipes.length > 0) {
             lines.push('[VERTICES]');
             lines.push(';Link           X-Coord         Y-Coord');
             bentPipes.forEach(f => {
-                const geom = f.getGeometry() as LineString;
-                let coords = geom.getCoordinates();
+                let coords = f.geometry as number[][];
 
                 if (shouldTransform) {
                     try {

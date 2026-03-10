@@ -7,9 +7,11 @@ import { useEffect, useState } from 'react';
 import { ElevationService } from '@/lib/services/ElevationService';
 import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
+import { createFeatureFromData } from './map/useMapFeatureSync';
 
 // Helper to prevent React crashes with OL objects
 export const sanitizeProperties = (props: Record<string, any>): Record<string, any> => {
+    if (!props) return {};
     const clean: Record<string, any> = {};
     Object.keys(props).forEach(key => {
         const val = props[key];
@@ -37,7 +39,7 @@ export const usePropertyForm = () => {
     // Sync local state with store selection
     useEffect(() => {
         if (selectedFeature) {
-            setFormData(sanitizeProperties(selectedFeature.getProperties()));
+            setFormData(sanitizeProperties(selectedFeature.properties));
             setHasChanges(false);
         } else {
             setFormData({});
@@ -58,7 +60,7 @@ export const usePropertyForm = () => {
 
     const handleReset = () => {
         if (selectedFeature) {
-            setFormData(selectedFeature.getProperties());
+            setFormData(selectedFeature.properties);
             setHasChanges(false);
         }
     }
@@ -72,7 +74,8 @@ export const usePropertyForm = () => {
 
     const handleZoom = () => {
         if (!map || !selectedFeature) return;
-        const geom = selectedFeature.getGeometry();
+        const olFeature = createFeatureFromData(selectedFeature);
+        const geom = olFeature.getGeometry();
         if (geom) {
             map.getView().fit(geom.getExtent(), { padding: [100, 100, 100, 100], maxZoom: 18, duration: 500 });
         }
@@ -83,9 +86,8 @@ export const usePropertyForm = () => {
         if (!selectedFeature) return;
         setIsLoading(true);
         try {
-            const geometry = selectedFeature.getGeometry();
-            if (geometry instanceof Point) {
-                const elevation = await ElevationService.getElevation(geometry.getCoordinates());
+            if (['junction', 'tank', 'reservoir'].includes(selectedFeature.type)) {
+                const elevation = await ElevationService.getElevation(selectedFeature.geometry as number[]);
                 if (elevation !== null) handleChange("elevation", elevation);
             }
         } catch (e) {
@@ -98,22 +100,15 @@ export const usePropertyForm = () => {
     // --- LINK SPECIFIC ACTIONS ---
     const handleReverse = () => {
         if (!selectedFeature || !selectedFeatureId) return;
-        const geom = selectedFeature.getGeometry();
-        if (geom instanceof LineString) {
-            // 1. Flip Geometry
-            const coords = geom.getCoordinates();
-            geom.setCoordinates(coords.reverse());
 
+        if (['pipe', 'pump', 'valve'].includes(selectedFeature.type)) {
             // 2. Flip Data
-            const newStart = formData.endNodeId || formData.target;
-            const newEnd = formData.startNodeId || formData.source;
+            const newStart = formData.endNodeId || formData.target || formData.toNode;
+            const newEnd = formData.startNodeId || formData.source || formData.fromNode;
 
-            const updates = { startNodeId: newStart, endNodeId: newEnd };
+            const updates = { startNodeId: newStart, endNodeId: newEnd, source: newStart, target: newEnd };
             updateFeature(selectedFeatureId, updates);
             setFormData(prev => ({ ...prev, ...updates }));
-
-            // 3. Force Render
-            selectedFeature.changed();
         }
     };
 

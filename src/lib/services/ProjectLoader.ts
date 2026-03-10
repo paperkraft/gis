@@ -1,5 +1,4 @@
-import { Feature } from 'ol';
-import { FeatureType } from '@/types/network';
+import { FeatureType, NetworkFeatureData } from '@/types/network';
 import { ParsedProjectData } from '../epanet/inpParser';
 
 const DEFAULT_PATTERNS = [{
@@ -8,7 +7,7 @@ const DEFAULT_PATTERNS = [{
 
 export const ProjectLoader = {
     processImport: (data: ParsedProjectData) => {
-        const featureMap = new Map<string, Feature>();
+        const featureMap = new Map<string, NetworkFeatureData>();
 
         // 1. Initialize Counters
         const counters: any = {
@@ -23,17 +22,28 @@ export const ProjectLoader = {
 
         // 2. Process Features & Calculate Counters
         data.features.forEach(f => {
-            const id = f.getId() as string;
-            const type = f.get('type') as FeatureType;
+            const id = f.id;
+            const type = f.type;
 
             if (id) {
-                f.set('id', id);
+                const props = f.properties;
+                const geometryData = f.geometry;
+
                 // Initialize connectivity arrays for nodes
-                if (['junction', 'tank', 'reservoir'].includes(type)) {
-                    f.set('connectedLinks', []);
+                if (['junction', 'tank', 'reservoir'].includes(type) && !props.connectedLinks) {
+                    props.connectedLinks = [];
                 }
 
-                featureMap.set(id, f);
+                const featureData: NetworkFeatureData = {
+                    id,
+                    type,
+                    geometry: geometryData,
+                    properties: { ...props, id, type } as any
+                };
+                // clean up the ol geometry from props if it exists
+                delete featureData.properties.geometry;
+
+                featureMap.set(id, featureData);
 
                 // Update Counters based on existing IDs (e.g., "P-100" -> sets counter to 101)
                 if (type && counters[type] !== undefined) {
@@ -47,19 +57,19 @@ export const ProjectLoader = {
 
         // 3. Rebuild Topology (Connect Nodes <-> Links)
         featureMap.forEach(f => {
-            if (['pipe', 'pump', 'valve'].includes(f.get('type'))) {
-                const linkId = f.getId() as string;
-                const start = f.get('startNodeId') || f.get('source');
-                const end = f.get('endNodeId') || f.get('target');
+            if (['pipe', 'pump', 'valve'].includes(f.type)) {
+                const linkId = f.id;
+                const start = f.properties.startNodeId || f.properties.source;
+                const end = f.properties.endNodeId || f.properties.target;
 
                 [start, end].forEach(nodeId => {
                     if (nodeId) {
                         const node = featureMap.get(nodeId);
                         if (node) {
-                            const links = node.get('connectedLinks') || [];
+                            const links = node.properties.connectedLinks || [];
                             if (!links.includes(linkId)) {
                                 links.push(linkId);
-                                node.set('connectedLinks', links);
+                                node.properties.connectedLinks = links;
                             }
                         }
                     }

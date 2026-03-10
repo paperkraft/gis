@@ -4,7 +4,7 @@ import { useNetworkStore } from "@/store/networkStore";
 import { ProjectSettings } from "@/types/network";
 import { Point } from "ol/geom";
 import { transform } from "ol/proj";
-import { Feature } from "ol";
+import { NetworkFeatureData } from "@/types/network";
 
 export interface ProjectMetadata {
     id: string;
@@ -47,10 +47,8 @@ export class ProjectService {
             const data = project.data;
 
             const { useNetworkStore } = await import("@/store/networkStore");
-            const { Feature } = await import("ol");
-            const { Point, LineString } = await import("ol/geom");
 
-            const features: any[] = [];
+            const features: NetworkFeatureData[] = [];
 
             data.features.forEach((f: any) => {
                 const props = { ...f };
@@ -61,33 +59,34 @@ export class ProjectService {
                     const coords = f.geometry.coordinates; // [[lon, lat], [lon, lat]] (4326)
 
                     // 1. Create Main Component (Point at Midpoint)
-                    // We must transform coordinates individually or after creation
-                    // Let's create geometry in 4326 first, then transform.
                     const midX = (coords[0][0] + coords[1][0]) / 2;
                     const midY = (coords[0][1] + coords[1][1]) / 2;
 
-                    const pointGeom = new Point([midX, midY]).transform('EPSG:4326', 'EPSG:3857');
+                    const pointGeom = transform([midX, midY], 'EPSG:4326', 'EPSG:3857');
 
-                    const mainFeature = new Feature({ geometry: pointGeom });
-                    mainFeature.setId(f.id);
-                    mainFeature.setProperties(props);
-                    features.push(mainFeature);
-
-                    // 2. Create Visual Link (Dashed Line)
-                    const lineGeom = new LineString(coords).transform('EPSG:4326', 'EPSG:3857');
-                    const visualId = `VIS-${f.id}`;
-
-                    const visualFeature = new Feature({ geometry: lineGeom });
-                    visualFeature.setId(visualId);
-                    visualFeature.setProperties({
-                        type: 'visual',
-                        isVisualLink: true,
-                        parentLinkId: f.id,
-                        linkType: f.type,
-                        id: visualId
+                    features.push({
+                        id: f.id,
+                        type: f.type,
+                        geometry: pointGeom,
+                        properties: props
                     });
 
-                    features.push(visualFeature);
+                    // 2. Create Visual Link (Dashed Line)
+                    const lineGeom = coords.map((c: number[]) => transform(c, 'EPSG:4326', 'EPSG:3857'));
+                    const visualId = `VIS-${f.id}`;
+
+                    features.push({
+                        id: visualId,
+                        type: 'visual',
+                        geometry: lineGeom,
+                        properties: {
+                            type: 'visual',
+                            isVisualLink: true,
+                            parentLinkId: f.id,
+                            linkType: f.type,
+                            id: visualId
+                        }
+                    });
 
                     return; // Skip standard processing
                 }
@@ -95,15 +94,17 @@ export class ProjectService {
                 // STANDARD HANDLING (Pipes, Junctions, Tanks)
                 let geom;
                 if (f.geometry.type === 'Point') {
-                    geom = new Point(f.geometry.coordinates).transform('EPSG:4326', 'EPSG:3857');
+                    geom = transform(f.geometry.coordinates, 'EPSG:4326', 'EPSG:3857');
                 } else {
-                    geom = new LineString(f.geometry.coordinates).transform('EPSG:4326', 'EPSG:3857');
+                    geom = f.geometry.coordinates.map((c: number[]) => transform(c, 'EPSG:4326', 'EPSG:3857'));
                 }
 
-                const feature = new Feature({ geometry: geom });
-                feature.setId(f.id);
-                feature.setProperties(props);
-                features.push(feature);
+                features.push({
+                    id: f.id,
+                    type: f.type,
+                    geometry: geom,
+                    properties: props
+                });
             });
 
             console.log('load', data);
@@ -148,7 +149,6 @@ export class ProjectService {
     // --- WRITE (Save/Update) ---
     static async saveCurrentProject(id: string, name?: string) {
         const networkStore = useNetworkStore.getState();
-        const mapStore = useMapStore.getState();
 
         // 1. Get Tracking Sets
         const modifiedIds = networkStore.modifiedIds;
@@ -160,81 +160,69 @@ export class ProjectService {
             return { success: true };
         }
 
-        let rawFeatures: Feature[] = [];
-
-        if (mapStore.vectorSource) {
-            rawFeatures = mapStore.vectorSource.getFeatures();
-        } else {
-            // Fallback to store if headless or map not initialized
-            rawFeatures = Array.from(networkStore.features.values());
-        }
+        const rawFeatures = Array.from(networkStore.features.values());
 
         // Build a Lookup Map of *Current* Features (Critical for Pump/Valve Geometry Reconstruction)
-        const currentFeaturesMap = new Map<string, Feature>();
+        const currentFeaturesMap = new Map<string, NetworkFeatureData>();
         rawFeatures.forEach(f => {
-            const id = f.getId();
-            if (id) currentFeaturesMap.set(id.toString(), f);
+            currentFeaturesMap.set(f.id.toString(), f);
         });
 
         // Filter only Modified Features
-        const featuresToUpsert = rawFeatures.filter(f => {
-            const fid = f.getId();
-            return fid && modifiedIds.has(fid.toString());
-        });
+        const featuresToUpsert = rawFeatures.filter(f => modifiedIds.has(f.id.toString()));
 
         const features = featuresToUpsert
             .filter(f => {
-                const type = f.get('type');
+                const type = f.type;
                 // Filter out Visual Links, Markers, Previews
                 return ['junction', 'tank', 'reservoir', 'pipe', 'pump', 'valve'].includes(type)
-                    && !f.get('isVisualLink')
-                    && !f.get('isVertexMarker')
-                    && !f.get('isPreview');
+                    && !f.properties.isVisualLink
+                    && !f.properties.isVertexMarker
+                    && !f.properties.isPreview;
             })
             .map(f => {
-                const props = f.getProperties();
-                const type = f.get('type');
+                const props = f.properties;
+                const type = f.type;
                 const safeProps = this.deepSanitize(props);
-
-                // Clone & Transform Geometry
-                // Using .clone() ensures we don't break the map view by transforming in place
-                let geometryType = f.getGeometry()?.getType();
-                let coordinates = (f.getGeometry() as any)?.getCoordinates();
 
                 // Normalize IDs
                 const sourceId = props.source || props.startNodeId || props.fromNode || props.properties?.startNodeId;
                 const targetId = props.target || props.endNodeId || props.toNode || props.properties?.endNodeId;
 
+                let geometryType = ['pipe', 'pump', 'valve'].includes(type) ? 'LineString' : 'Point';
+                let coordinates = f.geometry;
+
                 // SPECIAL HANDLING: Pump/Valve (Point -> LineString)
                 // We must use 'currentFeaturesMap' to get the MOVED node positions
                 if (['pipe', 'pump', 'valve'].includes(type) && sourceId && targetId) {
-                    // if (['pump', 'valve'].includes(type) && geometryType === 'Point' && sourceId && targetId) {
                     const sNode = currentFeaturesMap.get(sourceId);
                     const tNode = currentFeaturesMap.get(targetId);
 
                     if (sNode && tNode) {
-                        const sGeom = (sNode.getGeometry() as Point).getCoordinates();
-                        const tGeom = (tNode.getGeometry() as Point).getCoordinates();
+                        const sGeom = sNode.geometry as number[];
+                        const tGeom = tNode.geometry as number[];
 
-                        geometryType = 'LineString';
-                        coordinates = [sGeom, tGeom]; // [Start, End]
+                        if (geometryType === 'LineString' && (!coordinates || !Array.isArray(coordinates[0]))) {
+                            geometryType = 'LineString';
+                            coordinates = [sGeom, tGeom]; // [Start, End]
+                        }
                     }
                 }
 
                 // TRANSFORM: Map (3857) -> DB (4326)
                 // Assuming coordinates are currently in Map Projection (3857)
-                let finalCoords = coordinates;
-                if (coordinates && coordinates.length > 0) {
+                let finalCoords = coordinates as any;
+                if (coordinates) {
                     if (geometryType === 'Point') {
-                        finalCoords = transform(coordinates, 'EPSG:3857', 'EPSG:4326');
+                        finalCoords = transform(coordinates as number[], 'EPSG:3857', 'EPSG:4326');
                     } else if (geometryType === 'LineString') {
-                        finalCoords = coordinates.map((c: number[]) => transform(c, 'EPSG:3857', 'EPSG:4326'));
+                        finalCoords = (coordinates as number[][]).map((c: number[]) => transform(c, 'EPSG:3857', 'EPSG:4326'));
                     }
                 }
 
                 return {
                     ...safeProps,
-                    id: f.getId(),
+                    id: f.id,
                     type: type,
                     source: sourceId,
                     target: targetId,
@@ -289,18 +277,17 @@ export class ProjectService {
             // 2. Create Node Lookup Map (Critical for building Pump/Valve geometries)
             const nodeMap = new Map<string, number[]>();
             data.features.forEach(f => {
-                if (['junction', 'tank', 'reservoir'].includes(f.get('type'))) {
+                if (['junction', 'tank', 'reservoir'].includes(f.type)) {
                     // Coordinates in Source Projection (e.g. 3857 or local)
-                    const coords = (f.getGeometry() as Point).getCoordinates();
-                    nodeMap.set(f.getId() as string, coords);
+                    nodeMap.set(f.id as string, f.geometry as number[]);
                 }
             });
 
             // 3. Prepare Features for DB (Transform to EPSG:4326)
             const serializableFeatures = data.features.map(f => {
-                const props = f.getProperties();
-                const type = f.get('type');
-                const id = f.getId();
+                const props = f.properties;
+                const type = f.type;
+                const id = f.id;
 
                 // Sanitize props
                 const safeProps = this.deepSanitize(props);
@@ -309,13 +296,13 @@ export class ProjectService {
                 const sourceId = props.source || props.startNodeId || props.fromNode;
                 const targetId = props.target || props.endNodeId || props.toNode;
 
-                let geometryType = f.getGeometry()?.getType();
-                let coordinates = (f.getGeometry() as any)?.getCoordinates();
+                let geometryType = ['pipe', 'pump', 'valve'].includes(type) ? 'LineString' : 'Point';
+                let coordinates = f.geometry;
 
                 // FIX: Ensure Links (Pumps/Valves) are LineStrings for DB
                 if (['pump', 'valve', 'pipe'].includes(type)) {
                     // If geometry is missing or just a point (some parsers do this), rebuild it
-                    if (geometryType !== 'LineString' || !coordinates || coordinates.length < 2) {
+                    if (geometryType !== 'LineString' || !coordinates || (coordinates as number[]).length < 2 || !Array.isArray(coordinates[0])) {
                         const start = nodeMap.get(sourceId);
                         const end = nodeMap.get(targetId);
 
@@ -331,12 +318,12 @@ export class ProjectService {
                 }
 
                 // TRANSFORM: Convert to EPSG:4326 (Lat/Lon) for PostGIS
-                let finalCoords = coordinates;
-                if (coordinates && coordinates.length > 0) {
+                let finalCoords = coordinates as any;
+                if (coordinates) {
                     if (geometryType === 'Point') {
-                        finalCoords = transform(coordinates, sourceProjection, 'EPSG:4326');
+                        finalCoords = transform(coordinates as number[], sourceProjection, 'EPSG:4326');
                     } else if (geometryType === 'LineString') {
-                        finalCoords = coordinates.map((c: number[]) =>
+                        finalCoords = (coordinates as number[][]).map((c: number[]) =>
                             transform(c, sourceProjection, 'EPSG:4326')
                         );
                     }

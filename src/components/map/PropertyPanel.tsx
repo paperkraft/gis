@@ -78,7 +78,11 @@ export function PropertyPanel({
 
   const handleZoomToFeature = () => {
     if (!map || !selectedFeature) return;
-    const geometry = selectedFeature.getGeometry();
+    const vectorSource = useMapStore.getState().vectorSource;
+    const feature = vectorSource?.getFeatureById(selectedFeatureId as string);
+    if (!feature) return;
+
+    const geometry = feature.getGeometry();
     if (geometry) {
       map.getView().fit(geometry.getExtent(), {
         padding: [100, 100, 100, 100],
@@ -90,7 +94,12 @@ export function PropertyPanel({
 
   const handleReverseFlow = () => {
     if (!selectedFeature || !selectedFeatureId) return;
-    const geom = selectedFeature.getGeometry();
+
+    const vectorSource = useMapStore.getState().vectorSource;
+    const feature = vectorSource?.getFeatureById(selectedFeatureId as string);
+    if (!feature) return;
+
+    const geom = feature.getGeometry();
     if (
       ["pipe", "pump", "valve"].includes(properties.type) &&
       geom instanceof LineString
@@ -104,7 +113,7 @@ export function PropertyPanel({
         updateFeature(selectedFeatureId, updates);
       });
       setEditedProperties((prev) => ({ ...prev, ...updates }));
-      selectedFeature.changed();
+      feature.changed();
     }
   };
 
@@ -112,7 +121,10 @@ export function PropertyPanel({
     if (!selectedFeature) return;
     setIsFetchingElevation(true);
     try {
-      const geometry = selectedFeature.getGeometry();
+      const vectorSource = useMapStore.getState().vectorSource;
+      const feature = vectorSource?.getFeatureById(selectedFeatureId as string);
+
+      const geometry = feature?.getGeometry();
       if (geometry instanceof Point) {
         const elevation = await ElevationService.getElevation(
           geometry.getCoordinates(),

@@ -23,7 +23,7 @@ const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElement | null>) {
 
-    const [vectorLayer, setVectorLayer] = useState<VectorLayer<any> | null>(null);
+    const [vectorLayer, setVectorLayer] = useState<VectorLayer<VectorSource> | null>(null);
     const { setMap, setVectorSource } = useMapStore();
 
     const initializedRef = useRef(false);
@@ -36,11 +36,8 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
 
         const networkLayer = new VectorLayer({
             source: source,
-            style: (feature) => getFeatureStyle(feature as Feature<Geometry>),
+            style: (feature) => getFeatureStyle(feature as Feature<any>),
             properties: { name: 'network' },
-            updateWhileAnimating: false,
-            updateWhileInteracting: false,
-            declutter: true,
             zIndex: 10,
         });
 

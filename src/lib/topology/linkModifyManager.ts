@@ -151,8 +151,8 @@ export class LinkModifyManager {
         // Update initial coordinate for next move
         this.initialCoordinate = newCoordinate;
 
-        // Trigger redraw
-        this.vectorSource.changed();
+        // Features handles redraw natively when their geometries change
+
     }
 
     private updateConnectedPipes(newStartJunctionCoord: number[], newEndJunctionCoord: number[]) {
@@ -196,23 +196,31 @@ export class LinkModifyManager {
         this.isDragging = false;
         this.map.getViewport().style.cursor = 'default';
 
-        // Update in store
+        // Update in store using batch
         if (this.draggedLink) {
             const store = useNetworkStore.getState();
-            store.updateFeature(this.draggedLink.getId() as string, this.draggedLink);
+            const updatesMap: Record<string, any> = {};
 
-            if (this.startJunction) {
-                store.updateFeature(this.startJunction.getId() as string, this.startJunction);
-            }
+            const addUpdate = (feature: Feature) => {
+                const id = feature.getId() as string;
+                if (!id) return;
+                updatesMap[id] = { geometry: feature.getGeometry() };
+                const len = feature.get('length');
+                if (len !== undefined) updatesMap[id].length = len;
+            };
 
-            if (this.endJunction) {
-                store.updateFeature(this.endJunction.getId() as string, this.endJunction);
-            }
+            addUpdate(this.draggedLink);
+            if (this.startJunction) addUpdate(this.startJunction);
+            if (this.endJunction) addUpdate(this.endJunction);
 
             // Update all connected pipes
             this.connectedPipes.forEach(({ pipe }) => {
-                store.updateFeature(pipe.getId() as string, pipe);
+                addUpdate(pipe);
             });
+
+            if (Object.keys(updatesMap).length > 0) {
+                store.updateFeatures(updatesMap);
+            }
         }
 
         this.cleanup();

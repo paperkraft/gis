@@ -2,13 +2,13 @@ import { Feature } from 'ol';
 import { LineString, Point } from 'ol/geom';
 import { StateCreator } from 'zustand';
 
-import { FeatureType, NetworkFeatureProperties } from '@/types/network';
+import { FeatureType, NetworkFeatureProperties, NetworkFeatureData } from '@/types/network';
 
 import { NetworkState } from '../networkStore';
 
 export interface FeatureSlice {
-    features: Map<string, Feature>;
-    selectedFeature: Feature | null;
+    features: Map<string, NetworkFeatureData>;
+    selectedFeature: NetworkFeatureData | null;
     selectedFeatureId: string | null;
     selectedFeatureIds: string[];
     nextIdCounter: Record<FeatureType, number>;
@@ -19,23 +19,23 @@ export interface FeatureSlice {
     modifiedIds: Set<string>;
 
     // Actions
-    addFeature: (feature: Feature) => void;
-    updateFeature: (id: string, updates: Partial<NetworkFeatureProperties>) => void;
+    addFeature: (feature: NetworkFeatureData) => void;
+    updateFeature: (id: string, updates: Partial<NetworkFeatureProperties> & { geometry?: any }) => void;
     removeFeature: (id: string) => void;
     selectFeature: (id: string | null) => void;
-    setSelectedFeature: (feature: Feature | null) => void;
+    setSelectedFeature: (feature: NetworkFeatureData | null) => void;
 
     // multiple-features
-    addFeatures: (features: Feature[]) => void;
-    updateFeatures: (updates: Record<string, Partial<NetworkFeatureProperties>>) => void;
+    addFeatures: (features: NetworkFeatureData[]) => void;
+    updateFeatures: (updates: Record<string, Partial<NetworkFeatureProperties> & { geometry?: any }>) => void;
     selectFeatures: (ids: string[]) => void;
     clearFeatures: () => void;
 
     // Stuff: Nodes and connections
-    getFeatureById: (id: string) => Feature | undefined;
-    getFeaturesByType: (type: FeatureType) => Feature[];
+    getFeatureById: (id: string) => NetworkFeatureData | undefined;
+    getFeaturesByType: (type: FeatureType) => NetworkFeatureData[];
     getConnectedLinks: (nodeId: string) => string[];
-    findNodeById: (nodeId: string) => Feature | undefined;
+    findNodeById: (nodeId: string) => NetworkFeatureData | undefined;
     updateNodeConnections: (nodeId: string, linkId: string, action: "add" | "remove") => void;
 
     // Tacking
@@ -55,6 +55,7 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
         pump: 1,
         valve: 1,
         pipe: 1,
+        visual: 1,
     },
 
     // Tacking
@@ -65,7 +66,7 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
     // Single Feature action
     addFeature: (feature) => set((state) => {
         const newFeatures = new Map(state.features);
-        const id = feature.getId() as string;
+        const id = feature.id;
         if (id) newFeatures.set(id, feature);
 
         // TRACKING: Add to modified, ensure not in deleted
@@ -88,32 +89,38 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
 
         const { geometry, ...rawProps } = updates;
 
+        const updatedFeature = { ...feature, properties: { ...feature.properties } };
+
         // 1. Apply Geometry
-        if (geometry) applyGeometryUpdate(feature, geometry);
-
-        // 2. Sanitize & Apply Properties
-        const cleanProps = sanitizeProperties(rawProps);
-
-        if (Object.keys(cleanProps).length > 0) {
-            const currentProps = feature.getProperties();
-            // Sanitize current props too (in case DB is already dirty)
-            const safeCurrent = sanitizeProperties(currentProps);
-
-            feature.setProperties({
-                ...safeCurrent,
-                ...cleanProps
-            });
+        if (geometry) {
+            if (geometry.getCoordinates) {
+                updatedFeature.geometry = geometry.getCoordinates();
+            } else {
+                updatedFeature.geometry = geometry;
+            }
         }
 
-        feature.changed(); // Trigger OpenLayers redraw
+        // 2. Sanitize & Apply Properties
+        const cleanProps = sanitizeProperties({ ...rawProps });
+
+        if (Object.keys(cleanProps).length > 0) {
+            updatedFeature.properties = {
+                ...sanitizeProperties(updatedFeature.properties),
+                ...cleanProps
+            } as NetworkFeatureProperties;
+        }
 
         // C. Mark as Modified
         set((state) => {
+            const newFeatures = new Map(state.features);
+            newFeatures.set(id, updatedFeature);
             const newModified = new Set(state.modifiedIds).add(id);
             return {
+                features: newFeatures,
                 hasUnsavedChanges: true,
                 modifiedIds: newModified,
-                version: state.version + 1
+                version: state.version + 1,
+                ...(state.selectedFeatureId === id ? { selectedFeature: updatedFeature } : {})
             };
         });
     },
@@ -131,6 +138,7 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
             features: newFeatures,
             hasUnsavedChanges: true,
             selectedFeatureId: state.selectedFeatureId === id ? null : state.selectedFeatureId,
+            selectedFeature: state.selectedFeatureId === id ? null : state.selectedFeature,
             deletedIds: newDeleted,
             modifiedIds: newModified,
             version: state.version + 1
@@ -153,9 +161,8 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
             const newDeleted = new Set(state.deletedIds);
 
             features.forEach(f => {
-                const id = f.getId() as string;
+                const id = f.id;
                 if (id) {
-                    f.set('id', id);
                     newFeatures.set(id, f);
                     newModified.add(id);
                     newDeleted.delete(id);
@@ -175,40 +182,47 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
     updateFeatures: (updatesMap) => {
         const modifiedIds = new Set(get().modifiedIds);
         let hasChanges = false;
+        const newFeatures = new Map(get().features);
 
         Object.entries(updatesMap).forEach(([id, updates]) => {
-            const feature = get().features.get(id);
+            const feature = newFeatures.get(id);
             if (!feature) return;
 
             const { geometry, ...rawProps } = updates;
+            const updatedFeature = { ...feature, properties: { ...feature.properties } };
 
             if (geometry) {
-                applyGeometryUpdate(feature, geometry);
+                if (geometry.getCoordinates) {
+                    updatedFeature.geometry = geometry.getCoordinates();
+                } else {
+                    updatedFeature.geometry = geometry;
+                }
                 hasChanges = true;
             }
 
             const cleanProps = sanitizeProperties(rawProps);
 
             if (Object.keys(cleanProps).length > 0) {
-                const currentProps = feature.getProperties();
-                const safeCurrent = sanitizeProperties(currentProps);
-
-                feature.setProperties({
-                    ...safeCurrent,
+                updatedFeature.properties = {
+                    ...sanitizeProperties(updatedFeature.properties),
                     ...cleanProps
-                });
+                } as NetworkFeatureProperties;
                 hasChanges = true;
             }
 
-            feature.changed();
-            modifiedIds.add(id);
+            if (hasChanges) {
+                newFeatures.set(id, updatedFeature);
+                modifiedIds.add(id);
+            }
         });
 
         if (hasChanges) {
             set((state) => ({
+                features: newFeatures,
                 hasUnsavedChanges: true,
                 modifiedIds: modifiedIds,
-                version: state.version + 1
+                version: state.version + 1,
+                ...(state.selectedFeatureId && newFeatures.has(state.selectedFeatureId) ? { selectedFeature: newFeatures.get(state.selectedFeatureId) } : {})
             }));
         }
     },
@@ -216,8 +230,8 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
     selectFeatures: (ids) => {
         set({
             selectedFeatureIds: ids,
-            selectedFeatureId: ids.length > 0 ? ids[ids.length - 1] : null,
-            selectedFeature: ids.length === 0 ? null : get().selectedFeature
+            selectedFeatureId: ids.length > 0 ? ids[ids[ids.length - 1] ? ids.length - 1 : 0] : null,
+            selectedFeature: ids.length > 0 ? get().features.get(ids[ids.length - 1]) || null : null
         });
     },
 
@@ -238,17 +252,17 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
 
     getFeatureById: (id) => get().features.get(id),
 
-    getFeaturesByType: (type) => Array.from(get().features.values()).filter((f) => f.get("type") === type),
+    getFeaturesByType: (type) => Array.from(get().features.values()).filter((f) => f.type === type),
 
     getConnectedLinks: (nodeId) => {
         const node = get().getFeatureById(nodeId);
-        return node?.get("connectedLinks") || [];
+        return node?.properties.connectedLinks || [];
     },
 
     findNodeById: (nodeId) => {
         return Array.from(get().features.values()).find((f) =>
-            ["junction", "tank", "reservoir"].includes(f.get("type")) &&
-            f.getId() === nodeId
+            ["junction", "tank", "reservoir"].includes(f.type) &&
+            f.id === nodeId
         );
     },
 
@@ -257,7 +271,7 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
             const node = state.features.get(nodeId);
             if (!node) return {};
 
-            const props = node.getProperties();
+            const props = node.properties;
             let links = props.connectedLinks || [];
 
             if (action === 'add') {
@@ -266,18 +280,25 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
                 links = links.filter((id: string) => id !== linkId);
             }
 
-            // 1. Update the OpenLayers Feature
-            node.set('connectedLinks', links);
-            node.changed();
+            const newFeatures = new Map(state.features);
+            newFeatures.set(nodeId, {
+                ...node,
+                properties: {
+                    ...node.properties,
+                    connectedLinks: links
+                }
+            });
 
             // 2. Mark as Modified so it gets Saved
             const newModified = new Set(state.modifiedIds);
             newModified.add(nodeId);
 
             return {
+                features: newFeatures,
                 hasUnsavedChanges: true, // Trigger "Unsaved Changes" UI
                 modifiedIds: newModified,
-                version: state.version + 1
+                version: state.version + 1,
+                ...(state.selectedFeatureId === nodeId ? { selectedFeature: newFeatures.get(nodeId) } : {})
             };
         });
     },
@@ -311,6 +332,7 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
 
 // Helper: Scrub garbage coordinate keys ("0", "1", "2"...)
 const sanitizeProperties = (props: Record<string, any>) => {
+    if (!props) return {};
     const clean = { ...props };
 
     // Remove "geometry" if it snuck in
@@ -328,22 +350,3 @@ const sanitizeProperties = (props: Record<string, any>) => {
     return clean;
 };
 
-// Helper to safely apply geometry updates
-const applyGeometryUpdate = (feature: Feature, geometryData: any) => {
-    if (!geometryData) return;
-
-    // 1. Handle Array Updates (from Serializer/Loader/Tools)
-    if (Array.isArray(geometryData)) {
-        const currentType = feature.getGeometry()?.getType();
-
-        if (currentType === 'LineString') {
-            feature.setGeometry(new LineString(geometryData));
-        } else if (currentType === 'Point') {
-            feature.setGeometry(new Point(geometryData as number[]));
-        }
-    }
-    // 2. Handle Raw Geometry Objects (Edge case)
-    else if (typeof geometryData === 'object' && geometryData.getCoordinates) {
-        feature.setGeometry(geometryData);
-    }
-};

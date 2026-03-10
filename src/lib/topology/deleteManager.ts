@@ -40,7 +40,16 @@ export class DeleteManager {
 
         const features: Feature[] = [];
         ids.forEach((id: string) => {
-            const f = this.getFeature(id) || store.features.get(id);
+            let f = this.getFeature(id);
+            if (!f) {
+                const storeData = store.features.get(id);
+                if (storeData) {
+                    // Since we need an OL Feature to initiate delete, try to recreate it or just create a mock Feature with the right ID
+                    f = new Feature({ ...storeData.properties, geometry: undefined });
+                    f.setId(id);
+                    f.set('type', storeData.type);
+                }
+            }
             if (f) features.push(f);
         });
         this.initiateDelete(features);
@@ -90,7 +99,7 @@ export class DeleteManager {
             // CASE: NODE DELETE -> Delete Connected Pipes (Cascade)
             if (['junction', 'tank', 'reservoir'].includes(type)) {
                 const storeNode = store.features.get(id);
-                const connectedLinks = storeNode?.get('connectedLinks') || [];
+                const connectedLinks = storeNode?.properties?.connectedLinks || [];
                 connectedLinks.forEach((linkId: string) => {
                     itemsToDelete.add(linkId);
                 });
@@ -103,9 +112,9 @@ export class DeleteManager {
 
                 [startId, endId].forEach(nodeId => {
                     if (itemsToDelete.has(nodeId)) return; // Already deleting this node
-                    const node = store.features.get(nodeId);
-                    if (!node) return;
-                    const conns = node?.get('connectedLinks') || [];
+                    const nodeData = store.features.get(nodeId);
+                    if (!nodeData) return;
+                    const conns = nodeData?.properties?.connectedLinks || [];
                     // Check if node has ONLY this pipe (and maybe other deleted pipes)
                     const activeConns = conns.filter((lid: string) => {
                         const strLid = String(lid);
@@ -195,22 +204,37 @@ export class DeleteManager {
         const midPoint = [(c1[0] + c2[0]) / 2, (c1[1] + c2[1]) / 2];
 
         const newJunction = NetworkFactory.createNode('junction', midPoint);
-        const newJunctionId = newJunction.getId() as string;
+        const newJunctionId = newJunction.id as string;
 
-        this.vectorSource.addFeature(newJunction);
+        const mapJunction = new Feature({
+            geometry: new Point(midPoint),
+            ...newJunction.properties
+        });
+        mapJunction.setId(newJunction.id);
+        mapJunction.set('type', newJunction.type);
+
+        this.vectorSource.addFeature(mapJunction);
         store.addFeature(newJunction);
 
         // 2. Identify Neighbors (The two pipes connecting to the pump)
         const neighborIds = [
-            ...this.getConnectedLinks(startNode),
-            ...this.getConnectedLinks(endNode)
+            ...this.getConnectedLinksStore(startNodeId),
+            ...this.getConnectedLinksStore(endNodeId)
         ].filter(id => id !== linkId);
 
         const neighbors: Feature[] = [];
 
         // 3. Reconnect Neighbors to New Junction
         neighborIds.forEach(neighborId => {
-            const pipeFeature = this.getFeature(neighborId) || store.features.get(neighborId);;
+            let pipeFeature = this.getFeature(neighborId);
+            if (!pipeFeature) {
+                const storeData = store.features.get(neighborId);
+                if (storeData) {
+                    pipeFeature = new Feature({ ...storeData.properties, geometry: undefined });
+                    pipeFeature.setId(neighborId);
+                    pipeFeature.set('type', storeData.type);
+                }
+            }
             if (!pipeFeature) return;
 
             neighbors.push(pipeFeature); // Track for potential merge later
@@ -297,9 +321,17 @@ export class DeleteManager {
 
         // A. If Node: Delete Connected Pipes
         if (['junction', 'tank', 'reservoir'].includes(type)) {
-            const connectedLinks = this.getConnectedLinks(feature);
+            const connectedLinks = this.getConnectedLinksStore(featureId);
             connectedLinks.forEach(linkId => {
-                const linkFeature = this.getFeature(linkId) || store.features.get(linkId);
+                let linkFeature = this.getFeature(linkId);
+                if (!linkFeature) {
+                    const storeData = store.features.get(linkId);
+                    if (storeData) {
+                        linkFeature = new Feature({ ...storeData.properties, geometry: undefined });
+                        linkFeature.setId(linkId);
+                        linkFeature.set('type', storeData.type);
+                    }
+                }
                 if (linkFeature) this.performRecursiveDelete(linkFeature);
             });
         }
@@ -315,12 +347,16 @@ export class DeleteManager {
 
             // Then check if nodes are now orphans
             [startId, endId].forEach(nodeId => {
-                const node = this.getFeature(nodeId) || store.features.get(nodeId);
-                if (node) {
-                    const conns = node.get('connectedLinks') || [];
+                const nodeData = store.features.get(nodeId);
+                if (nodeData) {
+                    const conns = nodeData.properties?.connectedLinks || [];
                     // Since we just disconnected, if length is 0, it's an orphan
                     if (conns.length === 0) {
-                        this.performRecursiveDelete(node);
+                        // Mock Feature for delete
+                        const nodeFeat = new Feature();
+                        nodeFeat.setId(nodeId);
+                        nodeFeat.set('type', nodeData.type);
+                        this.performRecursiveDelete(nodeFeat);
                     }
                 }
             });
@@ -354,12 +390,19 @@ export class DeleteManager {
         return node.get('connectedLinks') || [];
     }
 
+    private getConnectedLinksStore(nodeId: string): string[] {
+        const store = useNetworkStore.getState();
+        const storeNode = store.features.get(nodeId);
+        return storeNode?.properties?.connectedLinks || [];
+    }
+
     private disconnectLinkFromNode(nodeId: string, linkId: string) {
         if (!nodeId) return;
         const store = useNetworkStore.getState();
         store.updateNodeConnections(nodeId, linkId, "remove");
 
-        const nodeFeature = this.getFeature(nodeId) || store.features.get(nodeId);
+        // Try map
+        const nodeFeature = this.getFeature(nodeId);
         if (nodeFeature) {
             const conns = nodeFeature.get("connectedLinks") || [];
             nodeFeature.set("connectedLinks", conns.filter((id: string) => id !== linkId));

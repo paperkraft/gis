@@ -1,12 +1,13 @@
-import { Feature } from 'ol';
 import GeoJSON from 'ol/format/GeoJSON';
 import { generateINP } from '../epanet/inpWriter';
+import { NetworkFeatureData } from '@/types/network';
+import { createFeatureFromData } from '@/hooks/map/useMapFeatureSync';
 
 export class NetworkExporter {
     /**
      * Export features to a file
      */
-    public static export(features: Feature[], format: 'inp' | 'geojson' = 'inp') {
+    public static export(features: NetworkFeatureData[], format: 'inp' | 'geojson' = 'inp') {
         try {
             let content = '';
             let filename = `network_export_${new Date().toISOString().slice(0, 10)}`;
@@ -17,8 +18,8 @@ export class NetworkExporter {
                 filename += '.inp';
             } else if (format === 'geojson') {
                 const writer = new GeoJSON();
-                // Remove internal properties before export if needed, or just export all
-                content = writer.writeFeatures(features, {
+                const olFeatures = features.map(createFeatureFromData);
+                content = writer.writeFeatures(olFeatures, {
                     featureProjection: 'EPSG:3857', // Assuming map is 3857
                     dataProjection: 'EPSG:4326'     // Standard GeoJSON is Lat/Lon
                 });

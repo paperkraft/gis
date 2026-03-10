@@ -87,9 +87,10 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
         }
 
         // 2. Standard Placement
-        const feature = new Feature({ geometry: new Point(coordinate) });
         const id = generateUniqueId(componentType);
 
+        // A. Add to Map Local Source (for instant visual feedback)
+        const feature = new Feature({ geometry: new Point(coordinate) });
         feature.setId(id);
         feature.set('type', componentType);
         feature.set('isNew', true);
@@ -98,9 +99,22 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
             label: `${id}`,
         });
         feature.set('connectedLinks', []);
-
         vectorSource.addFeature(feature);
-        addFeature(feature);
+
+        // B. Add to Store (Data Model)
+        addFeature({
+            id,
+            type: componentType,
+            geometry: coordinate,
+            properties: {
+                ...COMPONENT_TYPES[componentType].defaultProperties,
+                label: `${id}`,
+                connectedLinks: [],
+                isNew: true,
+                type: componentType,
+                id: id
+            } as any
+        });
 
     }, [map, vectorSource, addFeature, generateUniqueId]);
 

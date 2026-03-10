@@ -37,12 +37,12 @@ export function AutoElevationPanel({ isMaximized = false }: PanelProps) {
   const getTargetCount = () => {
     let count = 0;
     features.forEach((f) => {
-      const id = f.getId()?.toString();
-      const type = f.get("type");
+      const id = f.id;
+      const type = f.type;
       if (!id || !["junction", "tank", "reservoir"].includes(type)) return;
       if (useSelection && !selectedFeatureIds.includes(id)) return;
       if (!overwrite) {
-        const ele = f.get("elevation");
+        const ele = f.properties.elevation;
         if (ele !== undefined && ele !== null && ele !== 0) return;
       }
       count++;
@@ -105,8 +105,7 @@ export function AutoElevationPanel({ isMaximized = false }: PanelProps) {
           processed += batch.length;
           setProgress(Math.round((processed / nodesToProcess.length) * 100));
           addLog(
-            `Batch ${Math.ceil(processed / BATCH_SIZE)}: Processed ${
-              batch.length
+            `Batch ${Math.ceil(processed / BATCH_SIZE)}: Processed ${batch.length
             } nodes.`
           );
 

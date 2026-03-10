@@ -18,6 +18,7 @@ import { useUIStore } from "@/store/uiStore";
 import { Button } from "@/components/ui/button";
 import { TABLE_CONFIG } from "@/config/attributeColumns";
 import { useMapStore } from "@/store/mapStore";
+import { createFeatureFromData } from "@/hooks/map/useMapFeatureSync";
 
 // --- TYPES ---
 type Operator = ">" | "<" | "=" | ">=" | "<=" | "!=";
@@ -56,12 +57,12 @@ export function QueryBuilderPanel() {
 
     // Get features of the target type
     const candidates = Array.from(features.values()).filter(
-      (f) => f.getProperties().type === targetType
+      (f) => f.type === targetType
     );
 
     candidates.forEach((f) => {
-      const id = f.getId() as string;
-      const props = f.getProperties();
+      const id = f.id;
+      const props = f.properties;
 
       // Merge Results if available
       let combinedData = { ...props };
@@ -110,11 +111,11 @@ export function QueryBuilderPanel() {
       if (matches.length > 0) {
         if (map) {
           const firstFeature = features.get(matches[0]);
-          const extent = firstFeature?.getGeometry()?.getExtent().slice();
+          const extent = firstFeature ? createFeatureFromData(firstFeature).getGeometry()?.getExtent().slice() : undefined;
           if (extent) {
             matches.forEach((id) => {
               const f = features.get(id);
-              const geom = f?.getGeometry();
+              const geom = f ? createFeatureFromData(f).getGeometry() : undefined;
               if (geom) {
                 const e = geom.getExtent();
                 import("ol/extent").then(({ extend }) => extend(extent, e));

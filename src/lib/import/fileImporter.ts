@@ -3,6 +3,8 @@ import VectorSource from 'ol/source/Vector';
 import { useNetworkStore } from '@/store/networkStore';
 import { parseINP, ParsedProjectData } from '../epanet/inpParser';
 
+import { NetworkFeatureData } from '@/types/network';
+
 export type ImportFormat = 'inp' | 'geojson' | 'shapefile' | 'kml';
 
 export interface ImportOptions {
@@ -11,7 +13,7 @@ export interface ImportOptions {
 
 export interface ImportResult {
     success: boolean;
-    features: Feature[];
+    features: NetworkFeatureData[];
     message: string;
     // Extended fields
     settings?: any;
@@ -92,12 +94,12 @@ export class FileImporter {
 
         // 2. Generate stats
         const stats = {
-            junctions: projectData.features.filter(f => f.get('type') === 'junction').length,
-            tanks: projectData.features.filter(f => f.get('type') === 'tank').length,
-            reservoirs: projectData.features.filter(f => f.get('type') === 'reservoir').length,
-            pipes: projectData.features.filter(f => f.get('type') === 'pipe').length,
-            pumps: projectData.features.filter(f => f.get('type') === 'pump').length,
-            valves: projectData.features.filter(f => f.get('type') === 'valve').length,
+            junctions: projectData.features.filter(f => f.type === 'junction').length,
+            tanks: projectData.features.filter(f => f.type === 'tank').length,
+            reservoirs: projectData.features.filter(f => f.type === 'reservoir').length,
+            pipes: projectData.features.filter(f => f.type === 'pipe').length,
+            pumps: projectData.features.filter(f => f.type === 'pump').length,
+            valves: projectData.features.filter(f => f.type === 'valve').length,
         };
 
         // 3. Wrap in ImportResult
@@ -151,22 +153,18 @@ export class FileImporter {
                 curves: result.curves || [],
                 controls: result.controls || []
             }, true);
-
-            this.vectorSource.clear();
-            this.vectorSource.addFeatures(result.features);
         }
         // CASE B: Simple Geometry Import (GeoJSON/etc) -> Merge/Add
         else {
             // Assign IDs if missing
             const validFeatures = result.features.map(feature => {
-                if (!feature.getId()) {
-                    const type = feature.get('type') || 'junction';
-                    feature.setId(store.generateUniqueId(type));
+                if (!feature.id) {
+                    const type = feature.type || 'junction';
+                    feature.id = store.generateUniqueId(type);
                 }
                 return feature;
             });
             // Batch Add
-            this.vectorSource.addFeatures(validFeatures);
             store.addFeatures(validFeatures); // New bulk action
         }
     }

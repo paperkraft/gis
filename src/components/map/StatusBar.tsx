@@ -5,17 +5,41 @@ import {
   Loader2,
   MousePointer2,
 } from "lucide-react";
-import React from "react";
+import React, { useEffect, useState, useRef } from "react";
+import { toLonLat } from "ol/proj";
 
 import { useMapStore } from "@/store/mapStore";
 import { useNetworkStore } from "@/store/networkStore";
 import { useSimulationStore } from "@/store/simulationStore";
 
 export function StatusBar() {
-  const { coordinates, zoom, projection } = useMapStore();
+  const { map, zoom, projection } = useMapStore();
   const { selectedFeatureId, selectedFeatureIds, features, hasUnsavedChanges } =
     useNetworkStore();
   const { status: simStatus } = useSimulationStore();
+  const [coordinates, setCoordinates] = useState("--.---- --.----");
+  const lastCoordUpdate = useRef(0);
+
+  useEffect(() => {
+    if (!map) return;
+
+    const handlePointerMove = (event: any) => {
+      const now = Date.now();
+      if (now - lastCoordUpdate.current > 50) {
+        const coord = event.coordinate;
+        if (coord) {
+          const [lon, lat] = toLonLat(coord);
+          setCoordinates(`${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`);
+          lastCoordUpdate.current = now;
+        }
+      }
+    };
+
+    map.on("pointermove", handlePointerMove);
+    return () => {
+      map.un("pointermove", handlePointerMove);
+    };
+  }, [map]);
 
   const selectedIds =
     selectedFeatureIds.length > 0

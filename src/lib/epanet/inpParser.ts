@@ -1,5 +1,4 @@
-import { Feature } from 'ol';
-import { ProjectSettings, TimePattern, PumpCurve, NetworkControl, ControlAction } from '@/types/network';
+import { ProjectSettings, TimePattern, PumpCurve, NetworkControl, ControlAction, NetworkFeatureData, FeatureType } from '@/types/network';
 import { transform } from 'ol/proj';
 import { NetworkFactory } from '../topology/networkFactory';
 
@@ -9,7 +8,7 @@ interface INPSection {
 
 // Extended interface to support full project data
 export interface ParsedProjectData {
-    features: Feature[];
+    features: NetworkFeatureData[];
     settings: ProjectSettings;
     patterns: TimePattern[];
     curves: PumpCurve[];
@@ -25,7 +24,7 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
 
     try {
         const sections = parseINPSections(fileContent);
-        const features: Feature[] = [];
+        const features: NetworkFeatureData[] = [];
 
         // 1. Parse Metadata
         const optionsMap = parseOptions(sections['OPTIONS'] || []);
@@ -106,7 +105,7 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
             reportStep: timesMap['REPORT TIMESTEP'] || '1:00',
             reportStart: timesMap['REPORT START'] || '0:00',
             startClock: timesMap['START CLOCKTIME'] || '12:00 AM',
-            
+
             // Pattern
             defaultPattern: optionsMap['PATTERN'] || "1"
         };
@@ -124,7 +123,7 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
                 if (!coord) return null;
 
                 return NetworkFactory.createNode(type, coord, id, propsParser(p));
-            }).filter((f): f is Feature => !!f);
+            }).filter((f): f is NetworkFeatureData => !!f);
         };
 
         // 4. Parse Nodes using (potentially transformed) coordinates
@@ -144,7 +143,7 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
         // 5. Parse Links (Pipes, Pumps, Valves)
 
         // Helper to find nodes
-        const findNode = (id: string) => allNodes.find(n => n.getId() === id);
+        const findNode = (id: string) => allNodes.find(n => n.id === id);
 
         // Pipes
         (sections['PIPES'] || []).forEach(l => {
@@ -153,14 +152,14 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
             const n1 = findNode(p[1]);
             const n2 = findNode(p[2]);
             if (n1 && n2) {
-                const c1 = (n1.getGeometry() as any).getCoordinates();
-                const c2 = (n2.getGeometry() as any).getCoordinates();
+                const c1 = n1.geometry as number[];
+                const c2 = n2.geometry as number[];
 
                 let path = [c1];
                 if (vertices.has(id)) path = path.concat(vertices.get(id)!);
                 path.push(c2);
 
-                const pipe = NetworkFactory.createPipe(path, n1, n2, id, {
+                const pipe = NetworkFactory.createPipe(path, n1.id, n2.id, id, {
                     length: parseFloat(p[3]),
                     diameter: parseFloat(p[4]),
                     roughness: parseFloat(p[5]),
@@ -192,7 +191,7 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
         }));
 
         // 6. Build Connectivity
-        buildConnectivity(allNodes, features.filter(f => ['pipe', 'pump', 'valve'].includes(f.get('type'))));
+        buildConnectivity(allNodes, features.filter(f => ['pipe', 'pump', 'valve'].includes(f.type)));
 
         return { features, settings, patterns, curves, controls };
 
@@ -206,25 +205,25 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
 /**
  * Fixes "Orphan Node" issues by populating the 'connectedLinks' property
  */
-function buildConnectivity(nodes: Feature[], links: Feature[]) {
-    const nodeMap = new Map<string, Feature>();
+function buildConnectivity(nodes: NetworkFeatureData[], links: NetworkFeatureData[]) {
+    const nodeMap = new Map<string, NetworkFeatureData>();
     nodes.forEach(n => {
-        n.set('connectedLinks', []);
-        nodeMap.set(n.getId() as string, n);
+        n.properties.connectedLinks = [];
+        nodeMap.set(n.id, n);
     });
 
     links.forEach(link => {
-        const linkId = link.getId() as string;
-        const startId = link.get('startNodeId');
-        const endId = link.get('endNodeId');
+        const linkId = link.id;
+        const startId = link.properties.startNodeId;
+        const endId = link.properties.endNodeId;
 
         [startId, endId].forEach(nodeId => {
             if (nodeId && nodeMap.has(nodeId)) {
                 const node = nodeMap.get(nodeId)!;
-                const conns = node.get('connectedLinks');
+                const conns = node.properties.connectedLinks || [];
                 if (!conns.includes(linkId)) {
                     conns.push(linkId);
-                    node.set('connectedLinks', conns);
+                    node.properties.connectedLinks = conns;
                 }
             }
         });

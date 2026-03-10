@@ -31,10 +31,10 @@ export function ControlManagerPanel({ isMaximized = false }: PanelProps) {
 
   // --- DATA PREP ---
   const links = Array.from(features.values()).filter((f) =>
-    ["pipe", "pump", "valve"].includes(f.get("type"))
+    ["pipe", "pump", "valve"].includes(f.type)
   );
   const nodes = Array.from(features.values()).filter((f) =>
-    ["junction", "tank", "reservoir"].includes(f.get("type"))
+    ["junction", "tank", "reservoir"].includes(f.type)
   );
 
   const generateNextId = () => {
@@ -57,10 +57,10 @@ export function ControlManagerPanel({ isMaximized = false }: PanelProps) {
 
     const newControl: NetworkControl = {
       id: generateNextId(),
-      linkId: links[0].getId() as string,
+      linkId: links[0].id,
       status: "CLOSED",
       type: "HI LEVEL",
-      nodeId: nodes.length > 0 ? (nodes[0].getId() as string) : undefined,
+      nodeId: nodes.length > 0 ? nodes[0].id : undefined,
       value: 0,
     };
 

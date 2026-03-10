@@ -62,7 +62,7 @@ export function ContextMenu() {
 
     // 1. Filter features belonging to this layer (e.g., 'pipe', 'junction')
     const layerFeatures = Array.from(features.values()).filter(
-      (f) => f.get("type") === id
+      (f) => f.type === id
     );
 
     if (layerFeatures.length === 0) {
@@ -75,7 +75,12 @@ export function ContextMenu() {
     const totalExtent = createEmpty();
     let hasValidGeo = false;
 
-    layerFeatures.forEach((feature) => {
+    layerFeatures.forEach((storeData) => {
+      const featureId = storeData.id;
+      if (!featureId) return;
+      const feature = useMapStore.getState().vectorSource?.getFeatureById(featureId as string);
+      if (!feature) return;
+
       const geometry = feature.getGeometry();
       if (geometry) {
         extend(totalExtent, geometry.getExtent());

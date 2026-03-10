@@ -32,10 +32,10 @@ export function ControlManagerModal({
 
   // Dropdown lists
   const links = Array.from(features.values()).filter((f) =>
-    ["pipe", "pump", "valve"].includes(f.get("type"))
+    ["pipe", "pump", "valve"].includes(f.type)
   );
   const nodes = Array.from(features.values()).filter((f) =>
-    ["junction", "tank", "reservoir"].includes(f.get("type"))
+    ["junction", "tank", "reservoir"].includes(f.type)
   );
 
   if (!isOpen) return null;
@@ -57,10 +57,10 @@ export function ControlManagerModal({
     }
     const newControl: NetworkControl = {
       id: crypto.randomUUID(),
-      linkId: links[0].getId() as string,
+      linkId: links[0].id,
       status: "CLOSED",
       type: "HI LEVEL",
-      nodeId: nodes.length > 0 ? (nodes[0].getId() as string) : undefined,
+      nodeId: nodes.length > 0 ? nodes[0].id : undefined,
       value: 10,
     };
     setLocalControls([...localControls, newControl]);
@@ -105,19 +105,18 @@ export function ControlManagerModal({
             <div className="space-y-3">
               {localControls.map((control) => {
                 const linkExists = links.some(
-                  (l) => l.getId() === control.linkId
+                  (l) => l.id === control.linkId
                 );
                 const nodeExists =
                   !["LOW LEVEL", "HI LEVEL"].includes(control.type) ||
-                  nodes.some((n) => n.getId() === control.nodeId);
+                  nodes.some((n) => n.id === control.nodeId);
                 const isValid = linkExists && nodeExists;
 
                 return (
                   <div
                     key={control.id}
-                    className={`bg-white dark:bg-gray-800 p-4 rounded-lg border shadow-sm flex items-center gap-3 flex-wrap ${
-                      !isValid && "border-red-300"
-                    }`}
+                    className={`bg-white dark:bg-gray-800 p-4 rounded-lg border shadow-sm flex items-center gap-3 flex-wrap ${!isValid && "border-red-300"
+                      }`}
                   >
                     {/* Link Select */}
                     <select
@@ -130,8 +129,8 @@ export function ControlManagerModal({
                       className="text-sm border rounded px-2 py-1 bg-white"
                     >
                       {links.map((l) => (
-                        <option key={l.getId()} value={l.getId()}>
-                          {l.get("label")}
+                        <option key={l.id} value={l.id}>
+                          {l.id}
                         </option>
                       ))}
                     </select>
@@ -178,8 +177,8 @@ export function ControlManagerModal({
                         className="text-sm border rounded px-2 py-1 bg-white"
                       >
                         {nodes.map((n) => (
-                          <option key={n.getId()} value={n.getId()}>
-                            {n.get("label")}
+                          <option key={n.id} value={n.id}>
+                            {n.id}
                           </option>
                         ))}
                       </select>

@@ -62,7 +62,7 @@ export const createProjectSlice: StateCreator<NetworkState, [], [], ProjectSlice
     controls: [],
 
     hasUnsavedChanges: false,
-    nextIdCounter: { junction: 1, tank: 1, reservoir: 1, pipe: 1, pump: 1, valve: 1 },
+    nextIdCounter: { junction: 1, tank: 1, reservoir: 1, pipe: 1, pump: 1, valve: 1, visual: 1 },
 
     updateSettings: (newSettings) => set((state) => ({
         settings: { ...state.settings, ...newSettings },

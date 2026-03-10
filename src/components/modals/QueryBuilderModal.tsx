@@ -14,6 +14,7 @@ import { useNetworkStore } from "@/store/networkStore";
 import { useUIStore } from "@/store/uiStore";
 import { useMapStore } from "@/store/mapStore";
 import { ModalDialog } from "../ui/modal-dialog";
+import { createFeatureFromData } from "@/hooks/map/useMapFeatureSync";
 
 type Operator =
   | "equals"
@@ -59,10 +60,10 @@ export function QueryBuilderModal() {
     const allFeatures = Array.from(features.values());
 
     const matches = allFeatures.filter((f) => {
-      const props = f.getProperties();
+      const props = f.properties;
 
       // Get raw value (handle top-level ID specially)
-      let itemValue = selectedField === "id" ? f.getId() : props[selectedField];
+      let itemValue = selectedField === "id" ? f.id : props[selectedField as keyof typeof props];
 
       // Normalize numbers if field expects number
       const fieldConfig = FIELDS.find((fl) => fl.value === selectedField);
@@ -108,18 +109,18 @@ export function QueryBuilderModal() {
     setMatchCount(matches.length);
 
     if (!previewOnly && matches.length > 0) {
-      const ids = matches.map((f) => f.getId() as string);
+      const ids = matches.map((f) => f.id);
       selectFeatures(ids); // Select in store
 
       // Zoom to extent of all selected
       if (map) {
-        const extent = matches[0].getGeometry()?.getExtent().slice();
+        let extent = createFeatureFromData(matches[0]).getGeometry()?.getExtent().slice();
         if (extent) {
           matches.forEach((f) => {
-            const geom = f.getGeometry();
+            const geom = createFeatureFromData(f).getGeometry();
             if (geom) {
               const e = geom.getExtent();
-              import("ol/extent").then(({ extend }) => extend(extent, e));
+              import("ol/extent").then(({ extend }) => extend(extent!, e));
             }
           });
           map.getView().fit(extent, {
@@ -206,11 +207,10 @@ export function QueryBuilderModal() {
         {/* Result Preview */}
         {matchCount !== null && (
           <div
-            className={`p-3 rounded-lg flex items-center gap-2 text-sm ${
-              matchCount > 0
+            className={`p-3 rounded-lg flex items-center gap-2 text-sm ${matchCount > 0
                 ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300"
                 : "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300"
-            }`}
+              }`}
           >
             {matchCount > 0 ? (
               <CheckCircle2 className="w-4 h-4" />

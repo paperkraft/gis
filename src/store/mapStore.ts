@@ -9,7 +9,6 @@ interface MapState {
     vectorLayer: VectorLayer<VectorSource> | null;
 
     isDrawingPipe: boolean;
-    coordinates: string;
     zoom: number;
     projection: string;
 
@@ -17,7 +16,6 @@ interface MapState {
     setVectorSource: (source: VectorSource) => void;
     setVectorLayer: (layer: VectorLayer<VectorSource>) => void;
 
-    setCoordinates: (coord: string) => void;
     setZoom: (zoom: number) => void;
     setProjection: (proj: string) => void;
     setIsDrawingPipe: (isDrawing: boolean) => void;
@@ -28,7 +26,6 @@ export const useMapStore = create<MapState>((set) => ({
     vectorSource: null,
     vectorLayer: null,
 
-    coordinates: "--.---- --.----",
     isDrawingPipe: false,
     projection: "EPSG:3857",
     zoom: 0,
@@ -39,6 +36,5 @@ export const useMapStore = create<MapState>((set) => ({
 
     setZoom: (zoom) => set({ zoom }),
     setProjection: (proj) => set({ projection: proj }),
-    setCoordinates: (coord) => set({ coordinates: coord }),
     setIsDrawingPipe: (isDrawing) => set({ isDrawingPipe: isDrawing }),
 }));

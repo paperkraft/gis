@@ -1,11 +1,9 @@
-import { Feature } from 'ol';
-import { Point, LineString } from 'ol/geom';
-import { NetworkFeatureProperties, ProjectSettings, TimePattern, PumpCurve, NetworkControl } from '@/types/network';
+import { NetworkFeatureData, NetworkFeatureProperties, ProjectSettings, TimePattern, PumpCurve, NetworkControl } from '@/types/network';
 import { useNetworkStore } from '@/store/networkStore';
 import { transform } from 'ol/proj';
 
-function getId(f: Feature): string {
-    const id = f.getId() || f.get('id');
+function getId(f: NetworkFeatureData): string {
+    const id = f.id;
     return id ? String(id).trim() : 'UNKNOWN_ID';
 }
 
@@ -20,7 +18,7 @@ function pad(val: any, width: number = 16): string {
 }
 
 export function generateINP(
-    features: Feature[],
+    features: NetworkFeatureData[],
     customSettings?: ProjectSettings,
     customPatterns?: TimePattern[],
     customCurves?: PumpCurve[],
@@ -46,7 +44,7 @@ export function generateINP(
 
     // FIX: Case-insensitive type matching
     const getByType = (type: string) => features.filter(f => {
-        const t = f.get('type');
+        const t = f.type;
         return t && t.toString().toLowerCase() === type.toLowerCase();
     });
 
@@ -121,7 +119,7 @@ export function generateINP(
         lines.push('[JUNCTIONS]');
         lines.push(';ID              Elevation    Demand       Pattern');
         junctions.forEach(f => {
-            const props = f.getProperties() as NetworkFeatureProperties;
+            const props = f.properties;
             const pat = hasPattern1 ? "1" : "";
             const elev = props.elevation !== undefined ? props.elevation : 0;
             const dem = props.demand !== undefined ? props.demand : 0;
@@ -134,7 +132,7 @@ export function generateINP(
         lines.push('[RESERVOIRS]');
         lines.push(';ID              Head         Pattern');
         reservoirs.forEach(f => {
-            const props = f.getProperties() as NetworkFeatureProperties;
+            const props = f.properties;
             const head = props.head !== undefined ? props.head : 100;
             lines.push(`${pad(getId(f))} ${pad(head)}                ;`);
         });
@@ -145,7 +143,7 @@ export function generateINP(
         lines.push('[TANKS]');
         lines.push(';ID              Elevation    InitLevel    MinLevel     MaxLevel     Diameter     MinVol       VolCurve');
         tanks.forEach(f => {
-            const props = f.getProperties() as NetworkFeatureProperties;
+            const props = f.properties;
             lines.push(`${pad(getId(f))} ${pad(props.elevation)} ${pad(props.initLevel)} ${pad(props.minLevel)} ${pad(props.maxLevel)} ${pad(props.diameter)} 0            ;`);
         });
         lines.push('');
@@ -155,7 +153,7 @@ export function generateINP(
         lines.push('[PIPES]');
         lines.push(';ID              Node1           Node2           Length       Diameter     Roughness    MinorLoss    Status');
         pipes.forEach(f => {
-            const props = f.getProperties() as NetworkFeatureProperties;
+            const props = f.properties;
             const node1 = props.startNodeId || '0';
             const node2 = props.endNodeId || '0';
             const len = props.length || 10;
@@ -171,7 +169,7 @@ export function generateINP(
         lines.push('[PUMPS]');
         lines.push(';ID              Node1           Node2           Parameters');
         pumps.forEach(f => {
-            const props = f.getProperties() as NetworkFeatureProperties;
+            const props = f.properties;
             const node1 = props.startNodeId || '0';
             const node2 = props.endNodeId || '0';
             const power = props.power || 50;
@@ -184,7 +182,7 @@ export function generateINP(
         lines.push('[VALVES]');
         lines.push(';ID              Node1           Node2           Diameter     Type         Setting      MinorLoss');
         valves.forEach(f => {
-            const props = f.getProperties() as NetworkFeatureProperties;
+            const props = f.properties;
             const node1 = props.startNodeId || '0';
             const node2 = props.endNodeId || '0';
             lines.push(`${pad(getId(f))} ${pad(node1)} ${pad(node2)} ${pad(props.diameter)} ${props.valveType || 'PRV'} ${props.setting || 0} 0`);
@@ -195,35 +193,37 @@ export function generateINP(
     lines.push('[COORDINATES]');
     lines.push(';Node            X-Coord          Y-Coord');
     [...junctions, ...reservoirs, ...tanks].forEach(f => {
-        const geom = f.getGeometry() as Point;
-        let coords = geom.getCoordinates();
+        let coords = f.geometry as number[];
 
-        if (shouldTransform) {
-            try {
-                coords = transform(coords, mapProjection, targetProjection);
-            } catch (e) { }
+        if (coords && coords.length >= 2) {
+            if (shouldTransform) {
+                try {
+                    coords = transform(coords, mapProjection, targetProjection);
+                } catch (e) { }
+            }
+
+            const x = coords[0].toFixed(6);
+            const y = coords[1].toFixed(6);
+            lines.push(`${pad(getId(f))} ${pad(x)} ${pad(y)}`);
         }
-
-        const x = coords[0].toFixed(6);
-        const y = coords[1].toFixed(6);
-        lines.push(`${pad(getId(f))} ${pad(x)} ${pad(y)}`);
     });
     lines.push('');
 
     lines.push('[VERTICES]');
     lines.push(';Link            X-Coord          Y-Coord');
     [...pipes].forEach(f => {
-        const geom = f.getGeometry() as LineString;
-        let coords = geom.getCoordinates();
+        let coords = f.geometry as number[][];
 
-        if (shouldTransform) {
-            try {
-                coords = coords.map(c => transform(c, mapProjection, targetProjection));
-            } catch (e) { }
-        }
+        if (coords && coords.length > 0) {
+            if (shouldTransform) {
+                try {
+                    coords = coords.map(c => transform(c, mapProjection, targetProjection));
+                } catch (e) { }
+            }
 
-        for (let i = 1; i < coords.length - 1; i++) {
-            lines.push(`${pad(getId(f))} ${pad(coords[i][0].toFixed(6))} ${pad(coords[i][1].toFixed(6))}`);
+            for (let i = 1; i < coords.length - 1; i++) {
+                lines.push(`${pad(getId(f))} ${pad(coords[i][0].toFixed(6))} ${pad(coords[i][1].toFixed(6))}`);
+            }
         }
     });
     lines.push('');

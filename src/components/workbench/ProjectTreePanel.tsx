@@ -35,7 +35,7 @@ export function ProjectTreePanel() {
     };
 
     features.forEach((f) => {
-      const type = f.get("type") as string;
+      const type = f.type as string;
       counts[type] = (counts[type] || 0) + 1;
     });
     return counts;
@@ -113,22 +113,22 @@ export function ProjectTreePanel() {
             onToggleVisibility={
               node.layerKey
                 ? (e) => {
-                    e.stopPropagation();
-                    toggleLayerVisibility(node.layerKey!);
-                  }
+                  e.stopPropagation();
+                  toggleLayerVisibility(node.layerKey!);
+                }
                 : undefined
             }
             onContextMenu={
               node.layerKey
                 ? (e) => {
-                    e.preventDefault();
-                    setContextMenu({
-                      x: e.clientX,
-                      y: e.clientY,
-                      type: "layer",
-                      id: node.layerKey!,
-                    });
-                  }
+                  e.preventDefault();
+                  setContextMenu({
+                    x: e.clientX,
+                    y: e.clientY,
+                    type: "layer",
+                    id: node.layerKey!,
+                  });
+                }
                 : undefined
             }
           />

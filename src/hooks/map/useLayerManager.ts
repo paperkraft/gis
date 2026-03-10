@@ -90,38 +90,25 @@ export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
                 }
             });
         }
-
-        // Define Style Function
         vectorLayer.setStyle((feature) => {
-            const styles = [];
+            const baseStyle = getFeatureStyle(feature as Feature) as any;
 
-            // A. Base Static Style
-            const baseStyles = getFeatureStyle(feature as Feature);
-            if (Array.isArray(baseStyles)) styles.push(...baseStyles);
-            else styles.push(baseStyles);
+            if (isFlowAnimating && feature.get("type") === "pipe") {
+                const animationTime = (Date.now() - startTimeRef.current) / 1000 * (flowAnimationSpeed || 1);
 
-            // B. Animated Flow Style
-            if (
-                feature.get('type') === 'pipe' &&
-                isFlowAnimating &&
-                !feature.get('hidden')
-            ) {
-                // Calculate Offset: (Elapsed Time * Speed * 20px/sec)
-                const elapsed = (Date.now() - startTimeRef.current) / 1000;
-                const animationOffset = elapsed * flowAnimationSpeed * 10;
-
-                const animStyles = createCombinedFlowStyles(
+                const flowStyles = createCombinedFlowStyles(
                     feature as Feature,
-                    animationOffset,
+                    animationTime,
                     {
-                        showDashes: ['dashes', 'combined'].includes(flowAnimationStyle),
-                        showParticles: ['particles', 'combined'].includes(flowAnimationStyle),
-                        showGlow: ['glow', 'combined'].includes(flowAnimationStyle),
+                        showDashes: flowAnimationStyle === 'dashes' || flowAnimationStyle === 'combined',
+                        showParticles: flowAnimationStyle === 'particles' || flowAnimationStyle === 'combined',
+                        showGlow: flowAnimationStyle === 'glow' || flowAnimationStyle === 'combined',
                     }
                 );
-                styles.push(...animStyles);
+
+                return Array.isArray(baseStyle) ? [...baseStyle, ...flowStyles] : [baseStyle, ...flowStyles];
             }
-            return styles;
+            return baseStyle;
         });
 
         // Initial redraw to apply visibility changes immediately

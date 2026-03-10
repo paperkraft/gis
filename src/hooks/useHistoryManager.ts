@@ -3,6 +3,8 @@ import { useCallback } from 'react';
 import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
 import { useUIStore } from '@/store/uiStore';
+import { createFeatureFromData } from './map/useMapFeatureSync';
+import { Point, LineString } from 'ol/geom';
 
 export function useHistoryManager() {
     // 1. Store Actions
@@ -31,13 +33,17 @@ export function useHistoryManager() {
 
             if (mapFeature) {
                 // A. Update Existing
-                const newGeom = storeFeature.getGeometry();
-                if (newGeom) mapFeature.setGeometry(newGeom.clone());
-                mapFeature.setProperties(storeFeature.getProperties(), true);
+                let geom;
+                if (storeFeature.type === 'pipe' || storeFeature.type === 'visual') {
+                    geom = new LineString(storeFeature.geometry);
+                } else {
+                    geom = new Point(storeFeature.geometry as number[]);
+                }
+                mapFeature.setGeometry(geom);
+                mapFeature.setProperties(storeFeature.properties, true);
             } else {
                 // B. Add New (Restoring from Delete)
-                mapFeature = storeFeature.clone();
-                mapFeature.setId(id);
+                mapFeature = createFeatureFromData(storeFeature);
                 vectorSource.addFeature(mapFeature);
             }
             if (mapFeature) {

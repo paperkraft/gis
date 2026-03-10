@@ -3,7 +3,7 @@ import { Feature } from 'ol';
 import { Geometry } from 'ol/geom';
 
 export type NodeType = "junction" | "tank" | "reservoir";
-export type LinkType = "pipe" | "pump" | "valve";
+export type LinkType = "pipe" | "pump" | "valve" | "visual";
 export type FeatureType = NodeType | LinkType;
 
 export type FlowUnits = 'CFS' | 'GPM' | 'MGD' | 'IMGD' | 'AFD' | 'LPS' | 'LPM' | 'MLD' | 'CMH' | 'CMD';
@@ -31,6 +31,13 @@ export interface NetworkFeatureProperties {
     autoCreated?: boolean;
     [key: string]: any;
 }
+export interface NetworkFeatureData {
+    id: string;
+    type: FeatureType;
+    properties: NetworkFeatureProperties;
+    geometry: number[] | number[][]; // [x,y] for nodes, [[x,y],...] for links
+}
+
 export interface NetworkFeature extends Feature<Geometry> {
     getProperties(): NetworkFeatureProperties;
     setProperties(properties: NetworkFeatureProperties): void;

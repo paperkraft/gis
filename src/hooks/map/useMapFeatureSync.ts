@@ -1,8 +1,26 @@
 import { useEffect } from 'react';
 import { Vector as VectorLayer } from 'ol/layer';
 import { Vector as VectorSource } from 'ol/source';
+import { Feature } from 'ol';
+import { Point, LineString } from 'ol/geom';
 import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
+import { NetworkFeatureData } from '@/types/network';
+
+// Helper to instantiate OL feature from Data Model
+export function createFeatureFromData(data: NetworkFeatureData): Feature {
+    let geom;
+    if (data.type === 'pipe' || data.type === 'visual') {
+        geom = new LineString(data.geometry);
+    } else {
+        geom = new Point(data.geometry as number[]);
+    }
+
+    const feature = new Feature({ geometry: geom });
+    feature.setId(data.id);
+    feature.setProperties(data.properties);
+    return feature;
+}
 
 export function useMapFeatureSync() {
     const { map } = useMapStore();
@@ -19,7 +37,8 @@ export function useMapFeatureSync() {
         // Perform initial sync
         const initialFeatures = useNetworkStore.getState().features;
         if (source.getFeatures().length === 0 && initialFeatures.size > 0) {
-            source.addFeatures(Array.from(initialFeatures.values()));
+            const olFeatures = Array.from(initialFeatures.values()).map(createFeatureFromData);
+            source.addFeatures(olFeatures);
         }
 
         let lastVersion = useNetworkStore.getState().version;
@@ -37,7 +56,8 @@ export function useMapFeatureSync() {
             if (isFullReload) {
                 source.clear();
                 // To avoid freezing UI entirely, we batch add
-                source.addFeatures(Array.from(state.features.values()));
+                const olFeatures = Array.from(state.features.values()).map(createFeatureFromData);
+                source.addFeatures(olFeatures);
             } else {
                 // Delta Sync
                 // 1. Process deletions
@@ -48,15 +68,33 @@ export function useMapFeatureSync() {
 
                 // 2. Process modified (adds and updates)
                 state.modifiedIds.forEach(id => {
-                    const storeFeature = state.features.get(id);
-                    if (storeFeature) {
+                    const storeFeatureData = state.features.get(id);
+                    if (storeFeatureData) {
                         const mapFeature = source.getFeatureById(id);
                         if (!mapFeature) {
-                            source.addFeature(storeFeature);
-                        } else if (mapFeature !== storeFeature) {
-                            const newGeom = storeFeature.getGeometry();
-                            if (newGeom) mapFeature.setGeometry(newGeom.clone());
-                            mapFeature.setProperties(storeFeature.getProperties());
+                            source.addFeature(createFeatureFromData(storeFeatureData));
+                        } else {
+                            // Update existing feature
+                            // Geometry update (Only if not currently being actively dragged/modified by the user)
+                            let currentGeom = mapFeature.getGeometry();
+                            if (!mapFeature.get('isModifying') && !mapFeature.get('isDragging')) {
+                                if (storeFeatureData.type === 'pipe' || storeFeatureData.type === 'visual') {
+                                    if (currentGeom && currentGeom.getType() === 'LineString') {
+                                        (currentGeom as LineString).setCoordinates(storeFeatureData.geometry as number[][]);
+                                    } else {
+                                        mapFeature.setGeometry(new LineString(storeFeatureData.geometry as number[][]));
+                                    }
+                                } else {
+                                    if (currentGeom && currentGeom.getType() === 'Point') {
+                                        (currentGeom as Point).setCoordinates(storeFeatureData.geometry as number[]);
+                                    } else {
+                                        mapFeature.setGeometry(new Point(storeFeatureData.geometry as number[]));
+                                    }
+                                }
+                            }
+
+                            // Attribute update
+                            mapFeature.setProperties(storeFeatureData.properties);
                             mapFeature.changed();
                         }
                     }

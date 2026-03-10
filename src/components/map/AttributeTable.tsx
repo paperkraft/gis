@@ -50,7 +50,7 @@ const TABS: { id: FeatureType | "all"; label: string; icon: any }[] = [
   { id: "valve", label: "Valves", icon: SquareDot },
 ];
 
-export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
+export function AttributeTable({ isOpen, onClose, vectorSource }: AttributeTableProps) {
   const { features, selectFeature, updateFeature } = useNetworkStore();
   const { results, status: simStatus } = useSimulationStore();
   const { map } = useMapStore();
@@ -77,19 +77,19 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
 
     // Filter logic: If 'all', take everything, otherwise filter by type
     const featureList = Array.from(features.values()).filter(
-      (f) => activeTab === "all" || f.get("type") === activeTab,
+      (f) => activeTab === "all" || f.type === activeTab,
     );
 
     featureList.forEach((feature) => {
-      const id = feature.getId() as string;
-      const type = feature.get("type");
-      const props = feature.getProperties();
+      const id = feature.id as string;
+      const type = feature.type;
+      const props = feature.properties || {};
 
       const row: any = {
+        ...props,
         id: id,
         type: type, // Include type for "All" view
         label: props.label || id,
-        ...props,
       };
 
       if (simStatus === "completed" && results) {
@@ -208,8 +208,8 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
 
   const handleRowClick = (id: string) => {
     selectFeature(id);
-    if (map) {
-      const feature = features.get(id);
+    if (map && vectorSource) {
+      const feature = vectorSource.getFeatureById(id);
       if (feature) {
         const geom = feature.getGeometry();
         if (geom) {
@@ -410,7 +410,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
                 "px-4 py-2.5 text-xs font-semibold text-gray-600 dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center gap-1 select-none shrink-0",
                 col.width,
                 col.isResult &&
-                  "text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10",
+                "text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10",
               )}
             >
               {col.label}
@@ -452,10 +452,10 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
                         "px-4 py-2 text-xs text-gray-700 dark:text-gray-300 font-mono flex items-center shrink-0 relative",
                         col.width,
                         col.isResult &&
-                          "font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50/20 dark:bg-indigo-900/5 group-hover:bg-transparent",
+                        "font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50/20 dark:bg-indigo-900/5 group-hover:bg-transparent",
                         !col.isResult &&
-                          !col.isReadOnly &&
-                          "hover:bg-white dark:hover:bg-gray-800 hover:shadow-inner",
+                        !col.isReadOnly &&
+                        "hover:bg-white dark:hover:bg-gray-800 hover:shadow-inner",
                       )}
                     >
                       {isEditing ? (

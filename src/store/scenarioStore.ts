@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import { SimulationHistory } from './simulationStore';
 import { Feature } from 'ol';
 import GeoJSON from 'ol/format/GeoJSON';
-import { FeatureType } from '@/types/network';
+import { FeatureType, NetworkFeatureData } from '@/types/network';
+import { createFeatureFromData } from '@/hooks/map/useMapFeatureSync';
 
 export interface Scenario {
     id: string;
@@ -29,7 +30,7 @@ interface ScenarioState {
     addScenario: (
         name: string,
         results: SimulationHistory,
-        features: Feature[],
+        features: NetworkFeatureData[],
         counters: Record<FeatureType, number>,
         // patterns: TimePattern[],
         // curves: PumpCurve[],
@@ -53,7 +54,7 @@ export const useScenarioStore = create<ScenarioState>((set) => ({
 
         // 1. Serialize Features
         const writer = new GeoJSON();
-        const geoJSON = writer.writeFeaturesObject(features);
+        const geoJSON = writer.writeFeaturesObject(features.map(createFeatureFromData));
 
         // 2. Deep Copy Logic (Critical to prevent reference mutation)
         const snapshot = {

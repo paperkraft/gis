@@ -5,7 +5,6 @@ import { Mountain, X, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { useNetworkStore } from "@/store/networkStore";
 import { ElevationService } from "@/lib/services/ElevationService";
 import { Button } from "@/components/ui/button";
-import { Point } from "ol/geom";
 import { useHistoryManager } from "@/hooks/useHistoryManager";
 
 interface AutoElevationModalProps {
@@ -37,13 +36,13 @@ export function AutoElevationModal({
       const nodesToUpdate: { id: string; coordinate: number[] }[] = [];
 
       features.forEach((feature) => {
-        const type = feature.get("type");
+        const type = feature.type;
         if (["junction", "tank", "reservoir"].includes(type)) {
-          const geom = feature.getGeometry();
-          if (geom instanceof Point) {
+          const coord = feature.geometry as number[];
+          if (coord && coord.length >= 2) {
             nodesToUpdate.push({
-              id: feature.getId() as string,
-              coordinate: geom.getCoordinates(),
+              id: feature.id,
+              coordinate: coord,
             });
           }
         }

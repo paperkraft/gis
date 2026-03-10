@@ -1,5 +1,5 @@
 import { Feature } from 'ol';
-import { LineString } from 'ol/geom';
+import { LineString, Point } from 'ol/geom';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -117,7 +117,7 @@ export function useMapContextMenu(
         if (targetFeature) {
             const id = targetFeature.getId() as string;
             selectFeature(id);
-            setSelectedFeature(targetFeature);
+            setSelectedFeature(useNetworkStore.getState().features.get(id) || null);
         } else {
             selectFeature(null);
             selectFeatures([]);
@@ -239,7 +239,7 @@ export function useMapContextMenu(
                 if (feature && pipeDrawingManager) {
                     const store = useNetworkStore.getState();
                     const storeNode = store.features.get(feature.getId() as string);
-                    const conns = storeNode?.get('connectedLinks') || [];
+                    const conns = storeNode?.properties?.connectedLinks || [];
 
                     // Safety check: Ensure we have exactly 2 connections
                     if (conns.length === 2) {
@@ -247,13 +247,13 @@ export function useMapContextMenu(
                         const id2 = conns[1];
 
                         // Try Map Source first (best for visuals), Fallback to Store
-                        const pipeA = vectorSource?.getFeatureById(id1) || store.features.get(id1);
-                        const pipeB = vectorSource?.getFeatureById(id2) || store.features.get(id2);
+                        const pipeA = vectorSource?.getFeatureById(id1);
+                        const pipeB = vectorSource?.getFeatureById(id2);
 
                         if (pipeA && pipeB) {
                             pipeDrawingManager.mergePipes(pipeA, pipeB, feature);
                         } else {
-                            toast.error("Merge failed: Could not find connected pipes in memory.");
+                            toast.error("Merge failed: Could not find connected pipes in map source.");
                         }
                     }
                 }
@@ -271,7 +271,17 @@ export function useMapContextMenu(
     // =========================================================
     const createNode = (type: any, coord: number[]) => {
         const newNode = NetworkFactory.createNode(type, coord);
-        if (vectorSource) vectorSource.addFeature(newNode);
+
+        // Add to map
+        const MapFeature = new Feature({
+            geometry: new Point(coord),
+            ...newNode.properties
+        });
+        MapFeature.setId(newNode.id);
+        MapFeature.set('type', newNode.type);
+        if (vectorSource) vectorSource.addFeature(MapFeature);
+
+        // Add to store
         addFeature(newNode);
     };
 
@@ -326,7 +336,7 @@ export function useMapContextMenu(
 
         // We need to check the store for connections
         const storeNode = useNetworkStore.getState().features.get(feature.getId() as string);
-        const connections = storeNode?.get('connectedLinks') || [];
+        const connections = storeNode?.properties?.connectedLinks || [];
 
         // Only allow if exactly 2 pipes are connected
         if (connections.length !== 2) return false;
@@ -335,7 +345,7 @@ export function useMapContextMenu(
         const link1 = store.features.get(connections[0]);
         const link2 = store.features.get(connections[1]);
 
-        return link1?.get('type') === 'pipe' && link2?.get('type') === 'pipe';
+        return link1?.type === 'pipe' && link2?.type === 'pipe';
     };
 
     const closeMenu = useCallback(() => {

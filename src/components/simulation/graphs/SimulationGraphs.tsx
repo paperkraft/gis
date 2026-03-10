@@ -18,7 +18,7 @@ export function SimulationGraphs() {
   const selectedFeature = selectedFeatureId
     ? features.get(selectedFeatureId)
     : null;
-  const isPumpSelected = selectedFeature?.get("type") === "pump";
+  const isPumpSelected = selectedFeature?.type === "pump";
 
   return (
     <div className="flex flex-col h-full bg-white p-2">
@@ -80,11 +80,10 @@ function TabButton({
       title={title}
       className={`
                 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-medium transition-all whitespace-nowrap
-                ${
-                  active
-                    ? "bg-blue-50 text-blue-600 border border-blue-200"
-                    : "text-gray-500 hover:bg-gray-50"
-                }
+                ${active
+          ? "bg-blue-50 text-blue-600 border border-blue-200"
+          : "text-gray-500 hover:bg-gray-50"
+        }
                 ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
             `}
     >

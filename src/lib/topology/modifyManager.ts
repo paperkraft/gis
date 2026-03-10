@@ -71,7 +71,12 @@ export class ModifyManager {
             const link = this.getFeature(linkId);
             if (link) {
                 affected.add(link);
-                const visLine = this.getFeature(`VIS-${linkId}`);
+                let visLine = this.getFeature(`VIS-${linkId}`);
+                if (!visLine) {
+                    visLine = this.vectorSource.getFeatures().find(
+                        f => f.get('isVisualLink') && f.get('parentLinkId') === linkId
+                    ) || null;
+                }
                 if (visLine) affected.add(visLine);
             }
         };
@@ -202,8 +207,15 @@ export class ModifyManager {
                 const type = feature.get('type');
                 const id = feature.getId() as string;
 
-                // If the feature itself moved
+                // Capture final feature positions for Zustand
                 if (!modifiedIds.includes(id)) modifiedIds.push(id);
+                const finalGeom = feature.getGeometry();
+
+                if (finalGeom) {
+                    updatesAccumulator[id] = {
+                        geometry: finalGeom
+                    };
+                }
 
                 if (['junction', 'tank', 'reservoir'].includes(type)) {
                     this.rubberBandNode(feature as Feature, modifiedIds, updatesAccumulator);
@@ -212,7 +224,6 @@ export class ModifyManager {
                     this.rubberBandLink(feature as Feature, modifiedIds, updatesAccumulator);
                 } else if (type === 'pipe') {
                     this.handlePipeMove(feature as Feature, updatesAccumulator);
-                    // Also finalize node positions
                     this.rubberBandNodesFromPipe(feature as Feature, modifiedIds, updatesAccumulator);
                 }
             });
@@ -242,17 +253,27 @@ export class ModifyManager {
 
         const pixel = this.map.getEventPixel(event.originalEvent);
         let bestFeature: Feature | null = null;
-        let foundNode = false;
+        let priority = 0; // 0 = none, 1 = pipe, 2 = node, 3 = device
 
         this.map.forEachFeatureAtPixel(pixel, (feature, layer) => {
-            if (foundNode) return; // Break loop if node already found
+            if (priority === 3) return; // Max priority already found
 
             const type = feature.get('type');
-            if (['junction', 'tank', 'reservoir'].includes(type)) {
-                bestFeature = feature as Feature;
-                foundNode = true; // Priority given to nodes
-            } else if (type === 'pipe' || type === 'pump' || type === 'valve') {
-                if (!bestFeature) bestFeature = feature as Feature;
+            if (['pump', 'valve'].includes(type)) {
+                if (priority < 3) {
+                    bestFeature = feature as Feature;
+                    priority = 3;
+                }
+            } else if (['junction', 'tank', 'reservoir'].includes(type)) {
+                if (priority < 2) {
+                    bestFeature = feature as Feature;
+                    priority = 2;
+                }
+            } else if (type === 'pipe') {
+                if (priority < 1) {
+                    bestFeature = feature as Feature;
+                    priority = 1;
+                }
             }
         }, {
             hitTolerance: 10
@@ -314,19 +335,17 @@ export class ModifyManager {
             const currentCoord = nodeGeom.getCoordinates();
 
             // Only update if the coordinate actually moved 
-            // (to avoid circular triggers during dragging)
             if (currentCoord[0] !== coord[0] || currentCoord[1] !== coord[1]) {
                 nodeGeom.setCoordinates(coord);
+            }
 
-                if (modifiedIds && !modifiedIds.includes(id)) {
-                    modifiedIds.push(id);
+            if (updatesAccumulator) {
+                if (modifiedIds && !modifiedIds.includes(id as string)) {
+                    modifiedIds.push(id as string);
                 }
-
-                if (updatesAccumulator) {
-                    updatesAccumulator[id] = {
-                        geometry: coord
-                    };
-                }
+                updatesAccumulator[id as string] = {
+                    geometry: coord
+                };
             }
         });
     }
@@ -345,32 +364,39 @@ export class ModifyManager {
             if (type === 'pipe') {
                 const geom = link.getGeometry() as LineString;
                 const coords = geom.getCoordinates();
-                let updated = false;
+                let isConnected = false;
+                let coordsChanged = false;
 
-                // Stop circular dependency: Only set coordinates if they ACTUALLY changed
-                if (link.get('startNodeId') === nodeId && (coords[0][0] !== newCoord[0] || coords[0][1] !== newCoord[1])) {
-                    coords[0] = newCoord;
-                    updated = true;
-                } else if (link.get('endNodeId') === nodeId && (coords[coords.length - 1][0] !== newCoord[0] || coords[coords.length - 1][1] !== newCoord[1])) {
-                    coords[coords.length - 1] = newCoord;
-                    updated = true;
-                }
-
-                if (updated) {
-                    geom.setCoordinates(coords);
-                    const newLen = Math.round(geom.getLength());
-                    link.set('length', newLen);
-                    if (modifiedIds) modifiedIds.push(linkId);
-
-                    if (updatesAccumulator) {
-                        updatesAccumulator[linkId] = {
-                            geometry: coords,
-                            length: newLen
-                        };
+                if (link.get('startNodeId') === nodeId) {
+                    isConnected = true;
+                    if (coords[0][0] !== newCoord[0] || coords[0][1] !== newCoord[1]) {
+                        coords[0] = newCoord;
+                        coordsChanged = true;
+                    }
+                } else if (link.get('endNodeId') === nodeId) {
+                    isConnected = true;
+                    if (coords[coords.length - 1][0] !== newCoord[0] || coords[coords.length - 1][1] !== newCoord[1]) {
+                        coords[coords.length - 1] = newCoord;
+                        coordsChanged = true;
                     }
                 }
+
+                if (coordsChanged) {
+                    geom.setCoordinates([...coords]);
+                    link.set('length', Math.round(geom.getLength()));
+                }
+
+                if (isConnected && updatesAccumulator) {
+                    const newLen = Math.round(geom.getLength());
+                    if (modifiedIds && !modifiedIds.includes(linkId)) modifiedIds.push(linkId);
+
+                    updatesAccumulator[linkId] = {
+                        geometry: geom.getCoordinates(),
+                        length: newLen
+                    };
+                }
             } else if (type === 'pump' || type === 'valve') {
-                this.rubberBandLinkVisual(link, nodeId, newCoord, modifiedIds);
+                this.rubberBandLinkVisual(link, nodeId, newCoord, modifiedIds, updatesAccumulator);
             }
         });
     }
@@ -412,22 +438,31 @@ export class ModifyManager {
             const dx = newCoord[0] - midX;
             const dy = newCoord[1] - midY;
 
-            // If almost zero, skip to avoid loop
-            if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) return;
+            let newLCoords = lCoords;
+            // Only move if significantly different
+            if (Math.abs(dx) >= 1e-6 || Math.abs(dy) >= 1e-6) {
+                newLCoords = lCoords.map(coord => [coord[0] + dx, coord[1] + dy]);
+                lGeom.setCoordinates(newLCoords);
+            }
 
-            const newLCoords = lCoords.map(coord => [coord[0] + dx, coord[1] + dy]);
-            lGeom.setCoordinates(newLCoords);
+            if (updatesAccumulator) {
+                if (modifiedIds && !modifiedIds.includes(visualId)) modifiedIds.push(visualId);
+                updatesAccumulator[visualId] = { geometry: newLCoords };
+            }
 
             const moveNode = (nodeId: string, coord: number[]) => {
                 const node = this.getFeature(nodeId);
                 if (node) {
                     const nGeom = node.getGeometry() as Point;
-                    nGeom.setCoordinates(coord);
-
-                    if (modifiedIds && !modifiedIds.includes(nodeId)) {
-                        modifiedIds.push(nodeId);
+                    const cCoord = nGeom.getCoordinates();
+                    if (cCoord[0] !== coord[0] || cCoord[1] !== coord[1]) {
+                        nGeom.setCoordinates(coord);
                     }
+
                     if (updatesAccumulator) {
+                        if (modifiedIds && !modifiedIds.includes(nodeId)) {
+                            modifiedIds.push(nodeId);
+                        }
                         updatesAccumulator[nodeId] = { geometry: coord };
                     }
                     // Trigger pipe rubber-banding
@@ -443,7 +478,7 @@ export class ModifyManager {
         }
     }
 
-    private rubberBandLinkVisual(component: Feature, movedNodeId: string, newCoord: number[], modifiedIds?: string[]) {
+    private rubberBandLinkVisual(component: Feature, movedNodeId: string, newCoord: number[], modifiedIds?: string[], updatesAccumulator?: Record<string, any>) {
         const linkId = component.getId() as string;
         const visualId = `VIS-${linkId}`;
         let visualLine = this.getFeature(visualId);
@@ -462,12 +497,12 @@ export class ModifyManager {
         if (visualLine) {
             if (modifiedIds) modifiedIds.push(linkId);
             const lGeom = visualLine.getGeometry() as LineString;
-            const lCoords = lGeom.getCoordinates();
+            const lCoords = [...lGeom.getCoordinates()];
 
             if (component.get('startNodeId') === movedNodeId) {
-                lCoords[0] = newCoord;
+                lCoords[0] = [...newCoord];
             } else {
-                lCoords[lCoords.length - 1] = newCoord;
+                lCoords[lCoords.length - 1] = [...newCoord];
             }
 
             lGeom.setCoordinates(lCoords);
@@ -475,10 +510,25 @@ export class ModifyManager {
             if (lCoords.length === 2) {
                 if (!component.get('isModifying')) {
                     const componentGeom = component.getGeometry() as Point;
-                    componentGeom.setCoordinates([
+                    const compNewCoord = [
                         (lCoords[0][0] + lCoords[1][0]) / 2,
                         (lCoords[0][1] + lCoords[1][1]) / 2
-                    ]);
+                    ];
+                    componentGeom.setCoordinates(compNewCoord);
+
+                    if (updatesAccumulator) {
+                        const compId = component.getId() as string;
+                        if (modifiedIds && !modifiedIds.includes(compId)) modifiedIds.push(compId);
+                        updatesAccumulator[compId] = { geometry: compNewCoord };
+                    }
+                }
+            }
+
+            if (updatesAccumulator) {
+                const vId = visualLine.getId() as string;
+                if (vId) {
+                    if (modifiedIds && !modifiedIds.includes(vId)) modifiedIds.push(vId);
+                    updatesAccumulator[vId] = { geometry: lCoords };
                 }
             }
         }
@@ -550,29 +600,33 @@ export class ModifyManager {
             const coords1 = [...coords.slice(0, splitIndex + 1), nodeCoord];
             const coords2 = [nodeCoord, ...coords.slice(splitIndex + 1)];
 
-            const p1 = new Feature({ geometry: new LineString(coords1) });
-            p1.setId(pipe1Id);
-            p1.setProperties({
+            const p1Props = {
                 ...originalProps,
-                type: 'pipe',
+                type: 'pipe' as const,
                 id: pipe1Id,
                 startNodeId: startId,
                 endNodeId: nodeId,
                 label: `${pipe1Id}`,
                 length: Math.round(new LineString(coords1).getLength())
-            });
+            };
 
-            const p2 = new Feature({ geometry: new LineString(coords2) });
-            p2.setId(pipe2Id);
-            p2.setProperties({
+            const p1 = new Feature({ geometry: new LineString(coords1) });
+            p1.setId(pipe1Id);
+            p1.setProperties(p1Props);
+
+            const p2Props = {
                 ...originalProps,
-                type: 'pipe',
+                type: 'pipe' as const,
                 id: pipe2Id,
                 startNodeId: nodeId,
                 endNodeId: endId,
                 label: `${pipe2Id}`,
                 length: Math.round(new LineString(coords2).getLength())
-            });
+            };
+
+            const p2 = new Feature({ geometry: new LineString(coords2) });
+            p2.setId(pipe2Id);
+            p2.setProperties(p2Props);
 
             this.vectorSource.removeFeature(pipe);
             this.vectorSource.addFeatures([p1, p2]);
@@ -597,8 +651,18 @@ export class ModifyManager {
             updateFeatureConnections(nodeId, null, pipe2Id);
 
             store.removeFeature(oldPipeId);
-            store.addFeature(p1);
-            store.addFeature(p2);
+            store.addFeature({
+                id: pipe1Id,
+                type: 'pipe',
+                geometry: coords1,
+                properties: p1Props
+            });
+            store.addFeature({
+                id: pipe2Id,
+                type: 'pipe',
+                geometry: coords2,
+                properties: p2Props
+            });
 
             store.updateNodeConnections(startId, oldPipeId, 'remove');
             store.updateNodeConnections(endId, oldPipeId, 'remove');
