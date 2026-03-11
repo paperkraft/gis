@@ -596,8 +596,18 @@ export class PipeDrawingManager {
 
             // 3. Properties (From Template)
             const newProps = { ...template.getProperties() };
-            delete newProps.id; delete newProps.geometry; delete newProps.length;
-            delete newProps.startNodeId; delete newProps.endNodeId; delete newProps.geometryName;
+            // Explicitly remove ALL topology-related fields that might conflict with new endpoints
+            delete newProps.id;
+            delete newProps.geometry;
+            delete newProps.length;
+            delete newProps.startNodeId;
+            delete newProps.endNodeId;
+            delete newProps.source;
+            delete newProps.target;
+            delete newProps.fromNode;
+            delete newProps.toNode;
+            delete newProps.geometryName;
+            delete newProps._ol_kit_parent;
 
             // 4. Create New Pipe
             const newPipeData = NetworkFactory.createPipe(mergedCoords,
@@ -891,11 +901,11 @@ export class PipeDrawingManager {
                     // A. Update Link Endpoints (Point to new Node ID)
                     let modified = false;
                     if (linkData.properties?.startNodeId === oldId) {
-                        store.updateFeature(linkId, { startNodeId: newId });
+                        store.updateFeature(linkId, { startNodeId: newId, source: newId });
                         modified = true;
                     }
                     if (linkData.properties?.endNodeId === oldId) {
-                        store.updateFeature(linkId, { endNodeId: newId });
+                        store.updateFeature(linkId, { endNodeId: newId, target: newId });
                         modified = true;
                     }
 

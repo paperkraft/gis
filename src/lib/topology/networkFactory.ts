@@ -75,6 +75,8 @@ export class NetworkFactory {
                 label: cleanProps.label || id,
                 startNodeId: startNodeId,
                 endNodeId: endNodeId,
+                source: startNodeId,
+                target: endNodeId,
                 length
             }
         };
