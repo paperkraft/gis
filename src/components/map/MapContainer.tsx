@@ -39,6 +39,10 @@ export function MapContainer() {
   const mapRef = useRef<HTMLDivElement>(null);
   const lastSelectedIdRef = useRef<string | null>(null);
   const hasZoomedRef = useRef(false);
+  // Track whether the project data was already in the store when the map first mounted.
+  // We only want to auto-zoom when the project was pre-loaded, NOT when the user
+  // adds the very first feature on a blank project.
+  const initialFeatureCountRef = useRef<number | null>(null);
 
   // Initialize Map & Layers
   const map = useMapStore((state) => state.map);
@@ -52,35 +56,46 @@ export function MapContainer() {
 
   const { activeTool, activeModal, setActiveModal } = useUIStore();
 
+  // Reset on project change
   useEffect(() => {
     hasZoomedRef.current = false;
+    initialFeatureCountRef.current = null;
   }, [projectId]);
+
+  // Capture the feature count at the moment the map becomes ready (i.e. on load).
+  // This snapshot lets us distinguish "features that existed on load" from
+  // "features the user just drew".
+  useEffect(() => {
+    if (!map || initialFeatureCountRef.current !== null) return;
+    initialFeatureCountRef.current = features.size;
+  }, [map, features.size]);
 
   useEffect(() => {
     // Wait until Map, Source, and Data are ready
-    if (!map || !vectorSource || features.size === 0) return;
+    if (!map || !vectorSource) return;
 
-    // Only run if we haven't zoomed yet for this project
-    if (!hasZoomedRef.current) {
-      const timer = setTimeout(() => {
-        // Ensure source actually has features to measure
-        if (vectorSource.getFeatures().length > 0) {
-          const extent = vectorSource.getExtent();
+    // Only auto-zoom if the project had features when it first loaded.
+    // If initialFeatureCount is 0 or null, this is a blank project — skip zoom.
+    if (!initialFeatureCountRef.current || initialFeatureCountRef.current === 0) return;
 
-          // Validate extent (prevents zooming to infinity on empty maps)
-          if (!isEmpty(extent)) {
-            map.getView().fit(extent, {
-              padding: [200, 200, 200, 200], // Keep items away from edges
-              duration: 1000, // Smooth animation
-              maxZoom: 22, // Prevent zooming in too close on single points
-            });
-            hasZoomedRef.current = true; // Mark done
-          }
+    // Only zoom once per project session
+    if (hasZoomedRef.current) return;
+
+    const timer = setTimeout(() => {
+      if (vectorSource.getFeatures().length > 0) {
+        const extent = vectorSource.getExtent();
+        if (!isEmpty(extent)) {
+          map.getView().fit(extent, {
+            padding: [200, 200, 200, 200],
+            duration: 1000,
+            maxZoom: 22,
+          });
+          hasZoomedRef.current = true;
         }
-      }, 100);
+      }
+    }, 100);
 
-      return () => clearTimeout(timer);
-    }
+    return () => clearTimeout(timer);
   }, [map, vectorSource, features.size, projectId]);
 
   // Setup Interactions

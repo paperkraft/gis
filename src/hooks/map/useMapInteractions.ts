@@ -185,30 +185,42 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
             // Point Components (Junctions, Tanks, Reservoirs)
             case 'draw-junction':
             case 'draw-tank':
-            case 'draw-reservoir':
-                // Extract type: 'draw-junction' -> 'junction'
+            case 'draw-reservoir': {
                 const typeStr = activeTool.replace('draw-', '') as FeatureType;
-
-                // Use OL Draw Interaction for "Point" placement
-                // This gives us the crosshair and prevents map panning while drawing
-                const draw = new Draw({
-                    type: 'Point',
-                    source: undefined, // We handle adding manually in placeComponent
-                    stopClick: true    // Stop click bubbling to map
-                });
-
-                draw.on('drawend', (e) => {
-                    const geom = e.feature.getGeometry() as Point;
-                    // We use timeout to ensure the click doesn't trigger selection immediately after
-                    setTimeout(() => {
-                        placeComponent(typeStr, geom.getCoordinates());
-                    }, 0);
-                });
-
-                map.addInteraction(draw);
-                drawInteractionRef.current = draw;
                 map.getViewport().style.cursor = 'crosshair';
+
+                const startPointDraw = () => {
+                    // Clean up any existing draw interaction first
+                    if (drawInteractionRef.current) {
+                        map.removeInteraction(drawInteractionRef.current);
+                        drawInteractionRef.current = null;
+                    }
+
+                    const draw = new Draw({
+                        type: 'Point',
+                        source: undefined,
+                        stopClick: true
+                    });
+
+                    draw.on('drawend', (e) => {
+                        const geom = e.feature.getGeometry() as Point;
+                        setTimeout(() => {
+                            placeComponent(typeStr, geom.getCoordinates());
+                            // Re-start the draw interaction so the user can
+                            // place another feature without re-clicking the toolbar.
+                            if (useUIStore.getState().activeTool === activeTool) {
+                                startPointDraw();
+                            }
+                        }, 0);
+                    });
+
+                    map.addInteraction(draw);
+                    drawInteractionRef.current = draw;
+                };
+
+                startPointDraw();
                 break;
+            }
         }
     }, [activeTool, map, placeComponent, setActiveTool]);
 

@@ -390,7 +390,13 @@ export class PipeDrawingManager {
                 if (this.activeType === 'pump' || this.activeType === 'valve') {
                     if (this.drawInteraction) this.drawInteraction.abortDrawing();
                     this.insertLinkOnPipe(pipeUnderCursor, event.coordinate, this.activeType);
-                    this.stopDrawing();
+                    // Restart drawing so another pump/valve can be placed without re-clicking.
+                    const currentType = this.activeType;
+                    setTimeout(() => {
+                        if (useUIStore.getState().activeTool === `draw-${currentType}`) {
+                            this.startDrawing(currentType);
+                        }
+                    }, 50);
                 }
             }
         };
@@ -427,9 +433,15 @@ export class PipeDrawingManager {
             rawFeatures.forEach(f => this.scratchSource.removeFeature(f));
         }, 0);
 
-        // If 'pump' or 'valve', we usually stop after one.
+        // For pipe: stay in drawing mode for the next segment.
+        // For pump/valve: restart the draw so the user can place another one.
         if (this.activeType !== 'pipe') {
-            this.stopDrawing();
+            const currentType = this.activeType;
+            setTimeout(() => {
+                if (useUIStore.getState().activeTool === `draw-${currentType}`) {
+                    this.startDrawing(currentType);
+                }
+            }, 50);
         }
     }
 
