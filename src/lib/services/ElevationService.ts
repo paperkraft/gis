@@ -15,7 +15,7 @@ export class ElevationService {
         try {
             const [lon, lat] = toLonLat(coordinate);
 
-            const response = await fetch(OPEN_ELEVATION_API, {
+            const response = await fetch(OPEN_ELEVATION_API ?? 'https://api.open-elevation.com/api/v1/lookup', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -60,7 +60,7 @@ export class ElevationService {
 
             // Open-Elevation usually handles batches well, but for massive networks
             // we might need to chunk this. For now, sending all at once.
-            const response = await fetch(OPEN_ELEVATION_API, {
+            const response = await fetch(OPEN_ELEVATION_API ?? 'https://api.open-elevation.com/api/v1/lookup', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
