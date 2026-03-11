@@ -1,6 +1,5 @@
+import { OPEN_ELEVATION_API } from '@/constants/map';
 import { toLonLat } from 'ol/proj';
-
-const OPEN_ELEVATION_API = 'https://api.open-elevation.com/api/v1/lookup';
 
 export interface ElevationResult {
     latitude: number;
@@ -18,11 +17,12 @@ export class ElevationService {
 
             const response = await fetch(OPEN_ELEVATION_API, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    locations: [{ latitude: lat, longitude: lon }]
+                    locations: [{
+                        latitude: Number(lat.toFixed(6)),
+                        longitude: Number(lon.toFixed(6))
+                    }]
                 })
             });
 
@@ -52,7 +52,10 @@ export class ElevationService {
             // Prepare payload
             const locations = items.map(item => {
                 const [lon, lat] = toLonLat(item.coordinate);
-                return { latitude: lat, longitude: lon };
+                return {
+                    latitude: Number(lat.toFixed(6)),
+                    longitude: Number(lon.toFixed(6))
+                };
             });
 
             // Open-Elevation usually handles batches well, but for massive networks
@@ -65,15 +68,18 @@ export class ElevationService {
                 body: JSON.stringify({ locations })
             });
 
-            if (!response.ok) throw new Error('Elevation API failed');
+            if (!response.ok) throw new Error(`Elevation API failed: ${response.statusText}`);
 
             const data = await response.json();
             const resultMap: Record<string, number> = {};
 
-            if (data.results) {
-                data.results.forEach((result: ElevationResult, index: number) => {
-                    const id = items[index].id;
-                    resultMap[id] = result.elevation;
+            if (data.results && Array.isArray(data.results)) {
+                data.results.forEach((result: any, index: number) => {
+                    if (items[index]) {
+                        const id = items[index].id;
+                        // results are returned in the same order as input
+                        resultMap[id] = result.elevation;
+                    }
                 });
             }
 

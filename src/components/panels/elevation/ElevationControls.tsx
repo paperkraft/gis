@@ -38,7 +38,7 @@ export function ElevationControls({
           <span>Elevation Service</span>
         </div>
         <p className="opacity-80 leading-relaxed">
-          Fetches topological data using the OpenTopoData API (SRTM 30m).
+          Fetches topological data using the OpenElevation API.
         </p>
       </div>
 

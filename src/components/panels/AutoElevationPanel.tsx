@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useNetworkStore } from "@/store/networkStore";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { ElevationService } from "@/lib/services/AutoElevation";
+import { identifyNodesForElevation } from "@/lib/services/AutoElevation";
+import { ElevationService } from "@/lib/services/ElevationService";
 
 // Sub-components
 import { ElevationControls } from "./elevation/ElevationControls";
@@ -61,7 +62,7 @@ export function AutoElevationPanel({ isMaximized = false }: PanelProps) {
 
     try {
       // 1. Identify Nodes
-      const nodesToProcess = ElevationService.identifyNodes(
+      const nodesToProcess = identifyNodesForElevation(
         features,
         useSelection,
         selectedFeatureIds,
@@ -85,22 +86,18 @@ export function AutoElevationPanel({ isMaximized = false }: PanelProps) {
         const batch = nodesToProcess.slice(i, i + BATCH_SIZE);
 
         try {
-          // Service Call
-          const results = await ElevationService.fetchBatch(batch);
+          // Service Call - Using centralized ElevationService
+          const results = await ElevationService.getElevations(batch);
 
           // Update Store
-          if (Array.isArray(results)) {
-            results.forEach((res: any, idx: number) => {
-              // OpenTopoData returns array matching input order
-              const originalNode = batch[idx];
-              if (res && res.elevation !== null) {
-                // Round to 2 decimals
-                const elev = Math.round(res.elevation * 100) / 100;
-                updateFeature(originalNode.id, { elevation: elev });
-                updatedCount++;
-              }
-            });
-          }
+          Object.entries(results).forEach(([id, elevation]) => {
+            if (elevation !== undefined && elevation !== null) {
+              // Round to 2 decimals
+              const elev = Math.round(elevation * 100) / 100;
+              updateFeature(id, { elevation: elev });
+              updatedCount++;
+            }
+          });
 
           processed += batch.length;
           setProgress(Math.round((processed / nodesToProcess.length) * 100));
@@ -113,7 +110,7 @@ export function AutoElevationPanel({ isMaximized = false }: PanelProps) {
           await new Promise((r) => setTimeout(r, 100));
         } catch (err) {
           console.error(err);
-          addLog(`Error in batch ${i}: ${(err as Error).message}`);
+          addLog(`Error in batch starting at index ${i}: ${(err as Error).message}`);
         }
       }
 
