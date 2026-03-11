@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { BoundaryLayer } from '@/lib/map/baseLayers';
 import { getFeatureStyle } from '@/lib/styles/featureStyles';
+import { handleZoomToExtent } from '@/lib/interactions/map-controls';
 import { useMapStore } from '@/store/mapStore';
 import TileLayer from 'ol/layer/Tile';
 import { OSM, XYZ } from 'ol/source';
@@ -24,10 +25,11 @@ const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElement | null>) {
 
     const [vectorLayer, setVectorLayer] = useState<VectorLayer<VectorSource> | null>(null);
-    const { setMap, setVectorSource } = useMapStore();
+    const { setMap, setVectorSource, setZoom, setProjection } = useMapStore();
 
     const initializedRef = useRef(false);
 
+    // --- 1. Create Map Instance ---
     useEffect(() => {
         if (!mapTargetRef.current || initializedRef.current) return;
 
@@ -45,7 +47,7 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
             source: new XYZ({
                 url: `https://api.mapbox.com/styles/v1/mapbox/light-v11/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
                 attributions: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a>',
-                tileSize: 512, // Important for High-DPI (Retina) screens
+                tileSize: 512,
             }),
             properties: {
                 isBaseLayer: true,
@@ -104,6 +106,36 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
             initializedRef.current = false;
         };
     }, []);
+
+    // --- 2. Map Events (merged from useMapEvents) ---
+    const map = useMapStore((s) => s.map);
+
+    useEffect(() => {
+        if (!map) return;
+
+        // Initial state
+        const view = map.getView();
+        setZoom(view.getZoom() || 0);
+        setProjection(view.getProjection().getCode());
+
+        // Track zoom changes
+        const handleMoveEnd = () => {
+            const z = map.getView().getZoom();
+            if (z !== undefined) setZoom(z);
+        };
+        map.on('moveend', handleMoveEnd);
+
+        // Fit-to-extent custom events
+        const handleFitToExtent = () => handleZoomToExtent(map);
+        window.addEventListener('triggerFitToExtent', handleFitToExtent);
+        window.addEventListener('fitToExtent', handleFitToExtent);
+
+        return () => {
+            map.un('moveend', handleMoveEnd);
+            window.removeEventListener('triggerFitToExtent', handleFitToExtent);
+            window.removeEventListener('fitToExtent', handleFitToExtent);
+        };
+    }, [map, setZoom, setProjection]);
 
     return {
         vectorLayer,
