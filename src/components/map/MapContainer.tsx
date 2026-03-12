@@ -69,8 +69,8 @@ export function MapContainer() {
         const extent = vectorSource.getExtent();
         if (!isEmpty(extent)) {
           map.getView().fit(extent, {
-            padding: [200, 200, 200, 200],
-            duration: 1000,
+            padding: [100, 100, 100, 100],
+            duration: 500,
             maxZoom: 22,
           });
           hasZoomedRef.current = true;

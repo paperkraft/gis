@@ -1,17 +1,14 @@
 "use client";
 
-import { FileDown, Printer } from "lucide-react";
+import { DownloadCloud, FileDown, Printer } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { handlePrint } from "@/lib/interactions/map-controls";
 import { cn } from "@/lib/utils";
-import { useMapStore } from "@/store/mapStore";
 import { useUIStore } from "@/store/uiStore";
 
-// Import Modals
-import { ExportModal } from "../modals/ExportModal";
-import { ImportModal } from "../modals/ImportModal";
-import { QueryBuilderModal } from "../modals/QueryBuilderModal";
+import { ExportPanel } from "./ExportPanel";
+import { PrintPanel } from "./PrintPanel";
+
 
 // Import Controls
 import { DataControls } from "./controls/DataControls";
@@ -24,17 +21,11 @@ import { StandaloneControl } from "./controls/Shared";
 import { AssetSearch } from "./controls/AssetSearch";
 import { LocationSearch } from "./LocationSearch";
 import { BookmarkPanel } from "./BookmarkPanel";
-import { ExportPanel } from "./ExportPanel";
 
 export function MapControls() {
-  const map = useMapStore((state) => state.map);
 
   const {
     activeModal,
-    importModalOpen,
-    exportModalOpen,
-    setImportModalOpen,
-    setExportModalOpen,
     setShowLocationSearch,
     setActiveModal,
   } = useUIStore();
@@ -87,7 +78,8 @@ export function MapControls() {
         <DataControls activeGroup={activeGroup} onToggle={toggleGroup} />
 
         <StandaloneControl
-          onClick={() => handlePrint(map)}
+          onClick={() => setActiveModal("PRINT_MAP")}
+          isActive={activeModal === "PRINT_MAP"}
           icon={Printer}
           title="Print Map"
         />
@@ -101,22 +93,11 @@ export function MapControls() {
       </div>
 
       {/* Modals and Panel */}
-
       <AssetSearch />
       <BookmarkPanel />
       <LocationSearch />
-      <QueryBuilderModal />
       <ExportPanel />
-
-      <ImportModal
-        isOpen={importModalOpen}
-        onClose={() => setImportModalOpen(false)}
-      />
-
-      <ExportModal
-        isOpen={exportModalOpen}
-        onClose={() => setExportModalOpen(false)}
-      />
+      <PrintPanel />
     </>
   );
 }

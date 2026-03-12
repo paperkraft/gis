@@ -9,23 +9,19 @@ import {
   Upload,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { FileImporter, ImportResult } from "@/lib/import/fileImporter";
 import { cn } from "@/lib/utils";
 import { useMapStore } from "@/store/mapStore";
-
-import { ModalDialog } from "../ui/modal-dialog";
 import { useNetworkStore } from "@/store/networkStore";
-import { useParams } from "next/navigation";
 import { ProjectService } from "@/lib/services/ProjectService";
+import { useUIStore } from "@/store/uiStore";
+import { FloatingPanel } from "./FloatingPanel";
 
-interface ImportModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-export function ImportModal({ isOpen, onClose }: ImportModalProps) {
+export function ImportPanel() {
+  const { activeModal, setActiveModal } = useUIStore();
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -72,19 +68,16 @@ export function ImportModal({ isOpen, onClose }: ImportModalProps) {
         }
       }
 
-      // Pass the projection to the importer method
       const importResult = await importerRef.current.importFile(selectedFile);
       setResult(importResult);
 
-      // Zoom to imported features if successful
       if (importResult.success) {
         networkStore.markUnSaved();
 
         if (projectId) {
-          console.log("Auto-saving imported data...");
           await ProjectService.saveCurrentProject(projectId);
         }
-        // Force a small delay to ensure the render cycle completes
+        
         setTimeout(() => {
           const extent = vectorSource?.getExtent();
           if (extent && extent[0] !== Infinity) {
@@ -110,79 +103,79 @@ export function ImportModal({ isOpen, onClose }: ImportModalProps) {
   const handleClose = () => {
     setSelectedFile(null);
     setResult(null);
-    onClose();
+    setActiveModal("NONE");
   };
 
-  const renderFooter = () => (
-    <>
-      <Button
-        variant="outline"
-        onClick={handleClose}
-        className="hover:bg-white dark:hover:bg-gray-800"
-      >
-        Cancel
-      </Button>
-
-      {selectedFile && !result && (
-        <div className="flex gap-2">
-          <Button
-            onClick={() => handleImport(false)}
-            disabled={importing}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white min-w-[120px]"
-          >
-            {importing ? "Processing..." : "Merge Import"}
-          </Button>
-          <Button
-            onClick={() => handleImport(true)}
-            disabled={importing}
-            variant="destructive"
-            className="min-w-[120px]"
-          >
-            {importing ? "Processing..." : "Clear & Import"}
-          </Button>
-        </div>
-      )}
-      {result && (
-        <Button onClick={handleClose} variant="secondary">
-          Done
-        </Button>
-      )}
-    </>
-  );
-
-  if (!isOpen) return null;
-
   return (
-    <ModalDialog
-      isOpen={isOpen}
-      onClose={handleClose}
+    <FloatingPanel
       title="Import Data"
-      subtitle="Merge external files into current project"
       icon={DownloadCloud}
-      footer={renderFooter()}
-      maxWidth="lg"
+      isOpen={activeModal === "IMPORT_PROJECT"}
+      onClose={handleClose}
+      footer={
+        <div className="flex gap-2 w-full justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClose}
+            className="text-xs"
+          >
+            Cancel
+          </Button>
+
+          {selectedFile && !result && (
+            <>
+              <Button
+                size="sm"
+                onClick={() => handleImport(false)}
+                disabled={importing}
+                className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                {importing ? "Processing..." : "Merge"}
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => handleImport(true)}
+                disabled={importing}
+                variant="destructive"
+                className="text-xs"
+              >
+                {importing ? "Processing..." : "Clear & Import"}
+              </Button>
+            </>
+          )}
+          {result && (
+            <Button size="sm" onClick={handleClose} variant="secondary" className="text-xs">
+              Done
+            </Button>
+          )}
+        </div>
+      }
     >
-      <div className="space-y-6">
-        {/* File Upload Area */}
+      <div className="space-y-4">
+        <p className="text-[11px] text-slate-500 leading-relaxed">
+          Merge external model files (.inp, .geojson) into your current network workspace.
+        </p>
+
         <div
           onClick={() => fileInputRef.current?.click()}
           className={cn(
-            "border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center transition-all cursor-pointer group",
+            "border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-center transition-all cursor-pointer group",
             selectedFile
-              ? "border-blue-500 bg-blue-50/30 dark:bg-blue-900/10"
-              : "border-gray-300 dark:border-gray-700 hover:border-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+              ? "border-blue-500 bg-blue-50/20 dark:bg-blue-900/10"
+              : "border-slate-200 dark:border-slate-800 hover:border-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/50"
           )}
         >
           {selectedFile ? (
-            <div className="flex items-center gap-4 w-full max-w-sm bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded text-blue-600 dark:text-blue-400">
-                <FileText className="w-6 h-6" />
+            <div className="flex items-center gap-3 w-full bg-white dark:bg-slate-900 p-2 rounded border border-slate-200 dark:border-slate-800">
+              <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded text-blue-600 dark:text-blue-400">
+                <FileText className="w-4 h-4" />
               </div>
               <div className="text-left flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200 truncate">
                   {selectedFile.name}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-[9px] text-slate-500 uppercase">
                   {(selectedFile.size / 1024).toFixed(1)} KB
                 </p>
               </div>
@@ -192,20 +185,20 @@ export function ImportModal({ isOpen, onClose }: ImportModalProps) {
                   setSelectedFile(null);
                   setResult(null);
                 }}
-                className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 rounded-lg transition-colors"
+                className="p-1 hover:text-red-500 text-slate-400 transition-colors"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
           ) : (
             <>
-              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Upload className="w-8 h-8 text-gray-400 dark:text-gray-500" />
+              <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                <Upload className="w-5 h-5 text-slate-400" />
               </div>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Click to upload
+              <p className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest">
+                Choose File
               </p>
-              <p className="text-xs text-gray-500 mt-1">.inp, .geojson, .zip</p>
+              <p className="text-[9px] text-slate-400 mt-1">.inp, .geojson, .zip</p>
             </>
           )}
           <input
@@ -217,40 +210,34 @@ export function ImportModal({ isOpen, onClose }: ImportModalProps) {
           />
         </div>
 
-        {/* Import Result Message */}
         {result && (
           <div
             className={cn(
-              "p-4 rounded-xl border flex items-start gap-3",
+              "p-3 rounded-lg border flex items-start gap-2.5 animate-in fade-in slide-in-from-top-2",
               result.success
-                ? "bg-green-50/50 dark:bg-green-900/10 border-green-200"
-                : "bg-red-50/50 border-red-200"
+                ? "bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-800 text-green-800 dark:text-green-300"
+                : "bg-red-50/50 border-red-200 text-red-800"
             )}
           >
             {result.success ? (
-              <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
+              <CheckCircle2 className="w-4 h-4 mt-0.5" />
             ) : (
-              <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+              <AlertCircle className="w-4 h-4 mt-0.5" />
             )}
-            <div className="flex-1">
-              <p
-                className={cn(
-                  "text-sm font-bold mb-1",
-                  result.success ? "text-green-800" : "text-red-800"
-                )}
-              >
-                {result.success ? "Import Successful" : "Import Failed"}
+            <div className="flex-1 min-w-0 text-[11px]">
+              <p className="font-bold mb-0.5">
+                {result.success ? "Success" : "Failed"}
               </p>
-              <p className="text-xs text-gray-600">{result.message}</p>
+              <p className="opacity-80 leading-snug">{result.message}</p>
               {result.stats && (
-                <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="mt-2 grid grid-cols-3 gap-1.5">
                   {Object.entries(result.stats).map(([key, val]) => (
                     <div
                       key={key}
-                      className="bg-white/60 dark:bg-black/20 p-1.5 rounded text-center"
+                      className="bg-white/60 dark:bg-black/20 p-1 rounded text-center"
                     >
-                      <span className="block text-xs font-bold">{val}</span>
-                      <span className="block text-[9px] uppercase text-gray-500">
+                      <span className="block text-[10px] font-bold">{val}</span>
+                      <span className="block text-[8px] uppercase opacity-60">
                         {key}
                       </span>
                     </div>
@@ -261,6 +248,6 @@ export function ImportModal({ isOpen, onClose }: ImportModalProps) {
           </div>
         )}
       </div>
-    </ModalDialog>
+    </FloatingPanel>
   );
 }

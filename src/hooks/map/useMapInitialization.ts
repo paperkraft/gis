@@ -46,6 +46,7 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
         const baseLayer = new TileLayer({
             source: new XYZ({
                 url: `https://api.mapbox.com/styles/v1/mapbox/light-v11/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
+                crossOrigin: 'anonymous',
                 attributions: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a>',
                 tileSize: 512,
             }),
@@ -56,7 +57,9 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
         });
 
         const layer = baseLayer || new TileLayer({
-            source: new OSM(),
+            source: new OSM({
+                crossOrigin: 'anonymous'
+            }),
             zIndex: 0,
             properties: {
                 isBaseLayer: true,

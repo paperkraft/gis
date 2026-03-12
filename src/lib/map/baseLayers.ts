@@ -12,7 +12,9 @@ export const createBaseLayers = (): TileLayer[] => {
 
     // 1. OSM (OpenStreetMap)
     const osmLayer = new TileLayer({
-        source: new OSM(),
+        source: new OSM({
+            crossOrigin: 'anonymous'
+        }),
         visible: true, // Default visible
         properties: { name: 'osm', title: 'OpenStreetMap', type: 'base' },
         zIndex: 0
@@ -34,6 +36,7 @@ export const createBaseLayers = (): TileLayer[] => {
     const satelliteLayer = new TileLayer({
         source: new XYZ({
             url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            crossOrigin: 'anonymous',
             attributions: "Tiles © Esri",
         }),
         visible: false,
@@ -45,6 +48,7 @@ export const createBaseLayers = (): TileLayer[] => {
     const terrainLayer = new TileLayer({
         source: new XYZ({
             url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+            crossOrigin: 'anonymous',
             attributions: "Tiles © Esri",
         }),
         visible: false,

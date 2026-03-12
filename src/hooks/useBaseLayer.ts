@@ -66,10 +66,14 @@ export function useBaseLayer() {
                 console.warn(`Mapbox Token missing. Falling back to OSM for layer: ${layerType}`);
                 // For Satellite, OSM doesn't have a direct equivalent, so we map to OSM Standard (better than blank)
                 // Or you could use a free satellite provider like Esri World Imagery here if you prefer.
-                source = new OSM();
+                source = new OSM({
+                    crossOrigin: 'anonymous'
+                });
             }
             else if (layerType === 'osm') {
-                source = new OSM();
+                source = new OSM({
+                    crossOrigin: 'anonymous'
+                });
             }
             else {
                 // We have a token, or it's a type we can handle
@@ -85,6 +89,7 @@ export function useBaseLayer() {
 
                 source = new XYZ({
                     url: `https://api.mapbox.com/styles/v1/${styleId}/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
+                    crossOrigin: 'anonymous',
                     attributions: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a>',
                     tileSize: 512,
                 });

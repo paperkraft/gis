@@ -73,13 +73,10 @@ interface UIState {
 
     // Modal states
     deleteModalOpen: boolean;
-    importModalOpen: boolean;
-    exportModalOpen: boolean;
 
     showAutoElevation: boolean;
     simulationReportModalOpen: boolean;
     keyboardShortcutsModalOpen: boolean;
-    queryBuilderModalOpen: boolean;
 
     // Panel and Modal
     activeModal: WorkbenchModalType;
@@ -130,9 +127,6 @@ interface UIState {
     setSimulationReportModalOpen: (open: boolean) => void;
     setShowAutoElevation: (open: boolean) => void;
     setDeleteModalOpen: (open: boolean) => void;
-    setImportModalOpen: (open: boolean) => void;
-    setExportModalOpen: (open: boolean) => void;
-    setQueryBuilderModalOpen: (open: boolean) => void;
 
     setActiveModal: (modal: WorkbenchModalType) => void;
     setActivePanel: (panel: WorkbenchPanelType) => void;
@@ -195,9 +189,6 @@ const DEFAULT_STATE = {
     activePanel: 'NONE' as WorkbenchPanelType,
     activeModal: "NONE" as WorkbenchModalType,
 
-    importModalOpen: false,
-    exportModalOpen: false,
-
     showLocationSearch: false,
     showAssetSearch: false,
 
@@ -255,7 +246,6 @@ export const useUIStore = create<UIState>((set, get) => ({
     // Modal actions
     setKeyboardShortcutsModalOpen: (open) => set({ keyboardShortcutsModalOpen: open }),
     setSimulationReportModalOpen: (open) => set({ simulationReportModalOpen: open }),
-    setQueryBuilderModalOpen: (open) => set({ queryBuilderModalOpen: open }),
 
     // Modal and Panel
     setActiveModal: (modal) => set({ activeModal: modal }),
@@ -270,8 +260,6 @@ export const useUIStore = create<UIState>((set, get) => ({
     setFlowAnimationStyle: (style) => set({ flowAnimationStyle: style }),
 
     setDeleteModalOpen: (open) => set({ deleteModalOpen: open }),
-    setImportModalOpen: (open) => set({ importModalOpen: open }),
-    setExportModalOpen: (open) => set({ exportModalOpen: open }),
 
     setMeasurementType: (type) => set({ measurementType: type }),
     setShowPipeArrows: (show) => set({ showPipeArrows: show }),
