@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { ProjectService } from "@/lib/services/ProjectService";
 import { useNetworkStore } from "@/store/networkStore";
 import { Button } from "../ui/button";
+import Logo from "./app-logo";
 
 interface HeaderProps {
   isWorkbench: boolean;
@@ -49,40 +50,35 @@ export const Header = ({
 
   return (
     <>
-      <header className="h-12 bg-background border-b border-slate-200 flex items-center justify-between px-4 z-20 shrink-0">
+      <header className="h-14 bg-background border-b border-slate-200 flex items-center justify-between px-3 z-20 shrink-0">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className="size-8 bg-primary rounded flex items-center justify-center text-white font-bold text-lg">
-              S
-            </div>
-
-            {!isWorkbench && (
-              <span className="font-bold text-base text-slate-900 leading-tight">
-                Sigma ToolBox
-              </span>
-            )}
+            <Logo />
 
             {isWorkbench && (
-              <div className="flex flex-col">
-                <span className="text-xs font-bold text-slate-900 leading-tight truncate max-w-48">
-                  {projectName}
-                </span>
-                <span className="text-[10px] text-slate-400 font-medium truncate max-w-48">
-                  {description}
-                </span>
-              </div>
+              <>
+                <div className="h-6 w-px bg-border mx-2" />
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-foreground leading-tight truncate max-w-48">
+                    {projectName}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-medium truncate max-w-48">
+                    {description}
+                  </span>
+                </div>
+              </>
             )}
           </div>
 
           {isWorkbench && (
             <>
               <div className="h-4 w-px bg-slate-200 mx-2" />
-              <nav className="flex items-center gap-4 text-xs font-medium text-slate-500">
+              <nav className="h-14 flex items-center gap-4 text-xs font-medium text-slate-500">
                 <span
                   className="hover:text-slate-800 cursor-pointer transition-colors"
                   onClick={() => handleBack()}
                 >
-                  Dashboard
+                  My Projects
                 </span>
                 <span className="text-primary border-b-2 border-primary pb-3.5 mt-3.5 cursor-pointer">
                   Workbench
