@@ -32,17 +32,15 @@ export function SetupView() {
 
   const [activeSection, setActiveSection] = useState("control");
   const [statusMsg, setStatusMsg] = useState("Ready to solve.");
-  const [statusColor, setStatusColor] = useState<"blue" | "green" | "red">(
-    "blue"
-  );
+  const [statusColor, setStatusColor] = useState<"blue" | "green" | "red">("blue");
 
   // Local state for form handling
   const [formData, setFormData] = useState({
-    duration: settings.duration,
-    hydraulicStep: settings.hydraulicStep,
+    duration: settings.duration || "24:00",
+    hydraulicStep: settings.hydraulicStep || "1:00",
 
-    units: settings.units,
-    headloss: settings.headloss,
+    units: (settings.units as FlowUnits) || "LPS",
+    headloss: (settings.headloss as HeadlossFormula) || "H-W",
 
     accuracy: settings.accuracy || 0.001,
     maxTrials: settings.maxTrials || 40,
@@ -70,8 +68,8 @@ export function SetupView() {
       duration: formData.duration || "24:00",
       hydraulicStep: formData.hydraulicStep || "1:00",
 
-      units: formData.units as FlowUnits,
-      headloss: formData.headloss as HeadlossFormula,
+      units: formData.units as FlowUnits || "LPS",
+      headloss: formData.headloss as HeadlossFormula || "H-W",
 
       maxTrials: Number(formData.maxTrials) || 0.001,
       accuracy: Number(formData.accuracy) || 40,
@@ -205,13 +203,12 @@ export function SetupView() {
         </SimSection>
 
         <div
-          className={`border rounded p-2 flex gap-2 transition-all ${
-            statusColor === "blue"
-              ? "bg-blue-50 border-blue-100 text-blue-700"
-              : statusColor === "green"
+          className={`border rounded p-2 flex gap-2 transition-all ${statusColor === "blue"
+            ? "bg-blue-50 border-blue-100 text-blue-700"
+            : statusColor === "green"
               ? "bg-green-50 border-green-100 text-green-700"
               : "bg-red-50 border-red-100 text-red-700"
-          }`}
+            }`}
         >
           {statusColor === "green" ? (
             <CheckCircle2 size={14} className="mt-0.5" />
@@ -256,9 +253,8 @@ function SimSection({ title, icon: Icon, isOpen, onToggle, children }: any) {
     <div className="border border-slate-200 rounded-md bg-white overflow-hidden">
       <button
         onClick={onToggle}
-        className={`w-full flex items-center gap-2 px-3 py-2.5 text-left ${
-          isOpen ? "bg-slate-50" : "hover:bg-slate-50"
-        }`}
+        className={`w-full flex items-center gap-2 px-3 py-2.5 text-left ${isOpen ? "bg-slate-50" : "hover:bg-slate-50"
+          }`}
       >
         <div className="p-1 rounded bg-blue-100 text-blue-600">
           <Icon size={12} />
