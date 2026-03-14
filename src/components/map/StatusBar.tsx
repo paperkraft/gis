@@ -14,9 +14,13 @@ import { useSimulationStore } from "@/store/simulationStore";
 
 export function StatusBar() {
   const { map, zoom, projection } = useMapStore();
-  const { selectedFeatureId, selectedFeatureIds, features, hasUnsavedChanges } =
-    useNetworkStore();
-  const { status: simStatus } = useSimulationStore();
+  
+  const selectedFeatureId = useNetworkStore(s => s.selectedFeatureId);
+  const selectedFeatureIds = useNetworkStore(s => s.selectedFeatureIds);
+  const featureCount = useNetworkStore(s => s.features.size);
+  const hasUnsavedChanges = useNetworkStore(s => s.hasUnsavedChanges);
+  
+  const simStatus = useSimulationStore(s => s.status);
   const [coordinates, setCoordinates] = useState("--.---- --.----");
   const lastCoordUpdate = useRef(0);
 
@@ -83,7 +87,7 @@ export function StatusBar() {
         <div className="flex items-center gap-1.5">
           <span className="text-gray-400">Items:</span>
           <span className="text-gray-800 dark:text-gray-200">
-            {features.size}
+            {featureCount}
           </span>
         </div>
       </div>

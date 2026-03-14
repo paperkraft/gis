@@ -19,7 +19,6 @@ import { FlowUnits } from '@/types/network';
 import { ProjectFormFields } from './new-project/ProjectFormFields';
 import { ProjectSuccessView } from './new-project/ProjectSuccessView';
 import { ProjectType, ProjectTypeSelector } from './new-project/ProjectTypeSelector';
-import { processGisData } from '@/lib/gis/gisImporter';
 import shpjs from 'shpjs';
 
 const DEFAULT_FORM_DATA = {

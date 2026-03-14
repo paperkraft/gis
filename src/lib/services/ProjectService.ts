@@ -278,54 +278,51 @@ export class ProjectService {
 
     // --- CREATE FROM FILE ---
     static async createProjectFromFile(name: string, description: string, inpContent: string, sourceProjection: string = 'EPSG:3857'): Promise<string> {
+        let projectId: string | null = null;
         try {
-            // 1. Parse the INP content (Returns OpenLayers Features)
-            const data = parseINP(inpContent, sourceProjection);
+            // 1. Parse the INP content (Specific error for invalid file structure)
+            let data;
+            try {
+                data = parseINP(inpContent, sourceProjection);
+            } catch (pError) {
+                console.error("INP Parse Error:", pError);
+                throw new Error("Invalid INP file structure. Please ensure the file is a valid EPANET network file.");
+            }
 
-            // 2. Create Node Lookup Map (Critical for building Pump/Valve geometries)
+            // 2. Create Node Lookup Map
             const nodeMap = new Map<string, number[]>();
             data.features.forEach(f => {
                 if (['junction', 'tank', 'reservoir'].includes(f.type)) {
-                    // Coordinates in Source Projection (e.g. 3857 or local)
                     nodeMap.set(f.id as string, f.geometry as number[]);
                 }
             });
 
-            // 3. Prepare Features for DB (Transform to EPSG:4326)
+            // 3. Prepare Features for DB
             const serializableFeatures = data.features.map(f => {
                 const props = f.properties;
                 const type = f.type;
                 const id = f.id;
-
-                // Sanitize props
                 const safeProps = this.deepSanitize(props);
 
-                // Normalize IDs
                 const sourceId = props.source || props.startNodeId || props.fromNode;
                 const targetId = props.target || props.endNodeId || props.toNode;
 
                 let geometryType = ['pipe', 'pump', 'valve'].includes(type) ? 'LineString' : 'Point';
                 let coordinates = f.geometry;
 
-                // FIX: Ensure Links (Pumps/Valves) are LineStrings for DB
                 if (['pump', 'valve', 'pipe'].includes(type)) {
-                    // If geometry is missing or just a point (some parsers do this), rebuild it
                     if (geometryType !== 'LineString' || !coordinates || (coordinates as number[]).length < 2 || !Array.isArray(coordinates[0])) {
                         const start = nodeMap.get(sourceId);
                         const end = nodeMap.get(targetId);
-
                         if (start && end) {
                             geometryType = 'LineString';
                             coordinates = [start, end];
                         } else {
-                            console.warn(`Could not rebuild geometry for link ${id}`);
-                            // Fallback to avoid crash, backend will handle/ignore 0,0
                             coordinates = [[0, 0], [0, 0]];
                         }
                     }
                 }
 
-                // TRANSFORM: Convert to EPSG:4326 (Lat/Lon) for PostGIS
                 let finalCoords = coordinates as any;
                 if (coordinates) {
                     if (geometryType === 'Point') {
@@ -343,14 +340,11 @@ export class ProjectService {
                     type: type,
                     source: sourceId,
                     target: targetId,
-                    geometry: {
-                        type: geometryType,
-                        coordinates: finalCoords
-                    }
+                    geometry: { type: geometryType, coordinates: finalCoords }
                 };
             });
 
-            // 5. STEP 1: Create Project Shell (POST)
+            // 4. STEP 1: Create Project Shell
             const payload = {
                 title: name,
                 description,
@@ -370,30 +364,43 @@ export class ProjectService {
                 body: JSON.stringify(payload)
             });
 
-            if (!createRes.ok) throw new Error("Failed to create project shell");
-            const { id } = await createRes.json();
+            if (!createRes.ok) throw new Error("Could not initialize project record on server.");
+            const createData = await createRes.json();
+            projectId = createData.id;
 
-            // 6. STEP 2: Save Spatial Features (PUT)
-            // We reuse the exact same format as saveCurrentProject
+            // 5. STEP 2: Save Spatial Features
+            if (!projectId) throw new Error("Project creation failed (no ID returned).");
+
             const savePayload = {
                 ...payload,
                 modifications: serializableFeatures,
                 deletions: [],
             };
 
-            const saveRes = await fetch(`/api/projects/${id}`, {
+            const saveRes = await fetch(`/api/projects/${projectId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(savePayload)
             });
 
-            if (!saveRes.ok) throw new Error("Failed to save project features");
+            if (!saveRes.ok) {
+                throw new Error("Network features failed to import. Data might be too complex or invalid.");
+            }
 
-            return id;
+            return projectId;
 
-        } catch (e) {
-            console.error("Error creating project from file:", e);
-            throw e;
+        } catch (e: any) {
+            console.error("Critical failure during INP import:", e);
+            
+            // CLEANUP: If project shell was created but data failed to save, delete it
+            if (projectId) {
+                console.log(`Cleaning up partially created project: ${projectId}`);
+                await this.deleteProject(projectId).catch(err => 
+                    console.error("Failed to cleanup orphan project:", err)
+                );
+            }
+            
+            throw e; // Rethrow to let the UI show the toast
         }
     }
 

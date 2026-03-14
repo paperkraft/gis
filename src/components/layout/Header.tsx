@@ -1,4 +1,5 @@
-import { ChevronDown, Loader2, Save } from "lucide-react";
+import { logoutAction } from "@/app/login/actions";
+import { ChevronDown, Loader2, LogOut, Save, User } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import React, { useState } from "react";
 import { toast } from "sonner";
@@ -6,18 +7,28 @@ import { toast } from "sonner";
 import { ProjectService } from "@/lib/services/ProjectService";
 import { useNetworkStore } from "@/store/networkStore";
 import { Button } from "../ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
 import Logo from "./app-logo";
 
 interface HeaderProps {
   isWorkbench: boolean;
   projectName?: string;
   description?: string;
+  user?: { name: string, email: string };
 }
 
 export const Header = ({
   isWorkbench,
   projectName,
   description,
+  user,
 }: HeaderProps) => {
   const params = useParams();
   const projectId = params.id as string;
@@ -46,6 +57,10 @@ export const Header = ({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleLogout = async () => {
+    await logoutAction();
   };
 
   return (
@@ -103,20 +118,36 @@ export const Header = ({
           )}
 
           <div className="h-4 w-px bg-slate-200" />
-          <div className="flex items-center gap-3 cursor-pointer hover:bg-muted py-1 px-2 rounded">
-            <div className="w-8 h-8 rounded-full bg-primary-foreground text-primary flex items-center justify-center font-bold text-xs border border-primary/20">
-              SV
-            </div>
-            <div className="hidden lg:block text-left">
-              <div className="text-sm font-semibold text-slate-700 leading-none">
-                Sannake Vishal
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <div className="flex items-center gap-3 cursor-pointer hover:bg-muted py-1 px-2 rounded outline-none">
+                <div className="w-8 h-8 rounded-full bg-primary-foreground text-primary flex items-center justify-center font-bold text-xs border border-primary/20">
+                  {user?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                </div>
+                <div className="hidden lg:block text-left">
+                  <div className="text-sm font-semibold text-slate-700 leading-none">
+                    {user?.name || 'Guest User'}
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">
+                    {user?.email || 'Professional Plan'}
+                  </div>
+                </div>
+                <ChevronDown size={14} className="text-slate-400" />
               </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">
-                Professional Plan
-              </div>
-            </div>
-            <ChevronDown size={14} className="text-slate-400" />
-          </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="gap-2">
+                <User size={14} /> Profile
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="gap-2 text-red-600 focus:text-red-600 focus:bg-red-50" onClick={handleLogout}>
+                <LogOut size={14} /> Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
     </>

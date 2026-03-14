@@ -1,17 +1,41 @@
 import { db } from "@/db";
-import { projects, nodes, links } from "@/db/schema";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { projects, nodes, links, projectShares } from "@/db/schema";
+import { eq, and, inArray, sql, or, exists } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     try {
         const { id } = await params;
-        const body = await req.json();
 
-        // 1. Deconstruct Delta Payload
+        // Check Access
+        const projectData = await db.query.projects.findFirst({
+            where: and(
+                eq(projects.id, id),
+                or(
+                    eq(projects.ownerId, session.id),
+                    exists(
+                        db.select()
+                            .from(projectShares)
+                            .where(
+                                and(
+                                    eq(projectShares.projectId, id),
+                                    eq(projectShares.userId, session.id)
+                                )
+                            )
+                    )
+                )
+            )
+        });
+
+        if (!projectData) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+        const body = await req.json();
         const { features, deletions, settings, patterns, curves, controls } = body;
 
-        // Separate modified features by type
         const nodeMods = features.filter((f: any) =>
             ['junction', 'tank', 'reservoir'].includes(f.properties?.type)
         );
@@ -20,7 +44,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         );
 
         await db.transaction(async (tx) => {
-            // --- A. UPDATE METADATA (Always Sync) ---
             await tx.update(projects)
                 .set({
                     title: settings.title,
@@ -30,17 +53,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 })
                 .where(eq(projects.id, id));
 
-            // --- B. PROCESS DELETIONS ---
-            // Explicitly delete items the user removed
             if (deletions && deletions.length > 0) {
-                // Delete Links first (FK constraints)
                 await tx.delete(links).where(and(eq(links.projectId, id), inArray(links.id, deletions)));
                 await tx.delete(nodes).where(and(eq(nodes.projectId, id), inArray(nodes.id, deletions)));
             }
 
-            // --- C. PROCESS UPSERTS (Modifications) ---
-
-            // 1. Upsert Nodes
             if (nodeMods.length > 0) {
                 const nodeValues = nodeMods.map((f: any) => ({
                     projectId: id,
@@ -65,11 +82,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                     });
             }
 
-            // 2. Upsert Links
             if (linkMods.length > 0) {
                 const linkValues = linkMods.map((f: any) => {
                     const coords = f.geometry.coordinates;
-                    // Guard against empty coords
                     const wktPoints = (coords.length > 1 ? coords : [[0, 0], [0, 0]])
                         .map((c: number[]) => `${c[0]} ${c[1]}`).join(',');
 

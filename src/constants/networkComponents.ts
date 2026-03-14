@@ -6,7 +6,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
         name: "Junction",
         prefix: "J",
         icon: Circle,
-        color: "#28a745",
+        color: "#6BCC8B",
         description: "Network connection point",
         defaultProperties: {
             elevation: 100,
@@ -20,7 +20,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
         name: "Tank",
         prefix: "T",
         icon: Pentagon,
-        color: "#0066cc",
+        color: "#1D4ED8",
         description: "Water storage facility",
         defaultProperties: {
             capacity: 500000,
@@ -35,7 +35,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
         name: "Reservoir",
         prefix: "R",
         icon: Hexagon,
-        color: "#8b5cf6",
+        color: "#0EA5E9",
         description: "Infinite water source",
         defaultProperties: {
             head: 100,
@@ -48,7 +48,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
         name: "Pump",
         prefix: "PU",
         icon: Triangle,
-        color: "#ef4444",
+        color: "#F43F5E",
         description: "Water pumping facility",
         defaultProperties: {
             capacity: 1000,
@@ -62,7 +62,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
         name: "Valve",
         prefix: "V",
         icon: Square,
-        color: "#f97316",
+        color: "#F59E0B",
         description: "Flow control device",
         defaultProperties: {
             diameter: 8,
@@ -76,7 +76,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
         name: "Pipe",
         prefix: "P",
         icon: Minus,
-        color: "#312e81", //"#0066cc",
+        color: "#334155", //"#0066cc",
         description: "Water transmission line",
         defaultProperties: {
             diameter: 150,

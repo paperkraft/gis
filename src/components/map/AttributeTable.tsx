@@ -51,8 +51,13 @@ const TABS: { id: FeatureType | "all"; label: string; icon: any }[] = [
 ];
 
 export function AttributeTable({ isOpen, onClose, vectorSource }: AttributeTableProps) {
-  const { features, selectFeature, updateFeature } = useNetworkStore();
-  const { results, status: simStatus } = useSimulationStore();
+  const features = useNetworkStore(s => s.features);
+  const selectFeature = useNetworkStore(s => s.selectFeature);
+  const updateFeature = useNetworkStore(s => s.updateFeature);
+
+  const results = useSimulationStore(s => s.results);
+  const simStatus = useSimulationStore(s => s.status);
+
   const { map } = useMapStore();
   const { recordChange } = useHistoryManager();
 

@@ -11,7 +11,7 @@ import CustomToolTip from '../shared/CustomToolTip';
 import { Button } from '../ui/button';
 import { RightPanel } from './RightPanel';
 
-const ProjectList = () => {
+const ProjectList = ({ userId }: { userId: string }) => {
   const route = useRouter();
   const { projectRefreshKey } = useUIStore();
 

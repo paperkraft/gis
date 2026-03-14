@@ -1,26 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { simulationRuns, simulationResults } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { simulationRuns, simulationResults, projects, projectShares } from "@/db/schema";
+import { desc, eq, and, or, exists } from "drizzle-orm";
+import { getSession } from "@/lib/auth";
 
 export async function GET(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     try {
         const projectId = (await params).id;
 
-        // 1. Get the LATEST Run for this project
+        // Check Access
+        const project = await db.query.projects.findFirst({
+            where: and(
+                eq(projects.id, projectId),
+                or(
+                    eq(projects.ownerId, session.id),
+                    exists(
+                        db.select()
+                            .from(projectShares)
+                            .where(
+                                and(
+                                    eq(projectShares.projectId, projectId),
+                                    eq(projectShares.userId, session.id)
+                                )
+                            )
+                    )
+                )
+            )
+        });
+
+        if (!project) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
         const run = await db.query.simulationRuns.findFirst({
             where: eq(simulationRuns.projectId, projectId),
             orderBy: [desc(simulationRuns.executedAt)],
         });
 
-        if (!run) {
-            return NextResponse.json({ found: false });
-        }
+        if (!run) return NextResponse.json({ found: false });
 
-        // 2. Get all Results for this run
         const rows = await db
             .select({
                 id: simulationResults.featureId,
@@ -29,54 +51,31 @@ export async function GET(
             .from(simulationResults)
             .where(eq(simulationResults.runId, run.id));
 
-        if (rows.length === 0) {
-            return NextResponse.json({ found: false });
-        }
+        if (rows.length === 0) return NextResponse.json({ found: false });
 
-        // 3. RECONSTRUCT: Pivot from "Feature-Centric" to "Time-Centric"
         const timestampsSet = new Set<string>();
-        const nodeResults: Record<string, Record<string, any>> = {}; // time -> { nodeId: data }
-        const linkResults: Record<string, Record<string, any>> = {}; // time -> { linkId: data }
+        const nodeResults: Record<string, Record<string, any>> = {};
+        const linkResults: Record<string, Record<string, any>> = {};
 
-        // First pass: Collect all unique timestamps and organize by time
         rows.forEach((row) => {
             const featureId = row.id;
             const timeSeries = row.data as Record<string, any>;
-
             Object.entries(timeSeries).forEach(([tStr, val]) => {
                 timestampsSet.add(tStr);
-
                 if ("p" in val) {
                     if (!nodeResults[tStr]) nodeResults[tStr] = {};
-                    nodeResults[tStr][featureId] = {
-                        pressure: val.p,
-                        head: val.h,
-                        demand: val.d ?? 0
-                    };
+                    nodeResults[tStr][featureId] = { pressure: val.p, head: val.h, demand: val.d ?? 0 };
                 } else if ("f" in val) {
                     if (!linkResults[tStr]) linkResults[tStr] = {};
-                    linkResults[tStr][featureId] = {
-                        flow: val.f,
-                        velocity: val.v,
-                        status: val.s === 1 ? "Open" : "Closed"
-                    };
+                    linkResults[tStr][featureId] = { flow: val.f, velocity: val.v, status: val.s === 1 ? "Open" : "Closed" };
                 }
             });
         });
 
-        // 4. Sort Timestamps
-        const timestamps = Array.from(timestampsSet)
-            .map(Number)
-            .sort((a, b) => a - b);
-
-        // 5. Build Snapshots Array
+        const timestamps = Array.from(timestampsSet).map(Number).sort((a, b) => a - b);
         const snapshots = timestamps.map((t) => {
             const tStr = t.toString();
-            return {
-                time: t,
-                nodes: nodeResults[tStr] || {},
-                links: linkResults[tStr] || {},
-            };
+            return { time: t, nodes: nodeResults[tStr] || {}, links: linkResults[tStr] || {} };
         });
 
         return NextResponse.json({
@@ -93,7 +92,6 @@ export async function GET(
             report: run.report,
             warnings: run.warnings,
         });
-
     } catch (error) {
         console.error("Failed to load simulation:", error);
         return NextResponse.json({ error: "Server Error" }, { status: 500 });

@@ -2,11 +2,14 @@ import { db } from "@/db";
 import { projects } from "@/db/schema";
 import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
 
-// 60 seconds is more than enough now that PostGIS is handling the math natively
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     try {
         const payload = await req.json();
         const { title, description, geojson, settings, projection } = payload;
@@ -14,7 +17,7 @@ export async function POST(req: Request) {
         // 1. Setup UI Variables & Defaults
         // Matches the parameters expected by your stored procedure
         const sourceEpsg = Number(projection) || 4326;
-        const utmSrid = Number(settings?.utmSrid) || 3857; // Default to Web Mercator if UTM not provided
+        const utmSrid = Number(settings?.utmSrid) || 3857;
         const tolerance = Number(settings?.tolerance) || 5;
         const maxPipeLength = Number(settings?.maxPipeLength) || 150;
 
@@ -28,12 +31,12 @@ export async function POST(req: Request) {
 
         // 2. Execute the Database Transaction
         const result = await db.transaction(async (tx) => {
-
             // A. Create Project Record
             const [newProject] = await tx.insert(projects).values({
                 title,
                 description,
-                settings: {}
+                settings: { title, description },
+                ownerId: session.id
             }).returning({ id: projects.id });
 
             const projectId = newProject.id;
@@ -51,7 +54,7 @@ export async function POST(req: Request) {
 
             const featuresStr = JSON.stringify(validFeatures);
 
-            // C. Extract GeoJSON, unpack MultiLineStrings, apply Projection, and load
+            // C. Insert parsed LineStrings into the staging table
             await tx.execute(sql`
                 WITH feature_data AS (
                     SELECT jsonb_array_elements(${featuresStr}::jsonb) AS f
@@ -86,7 +89,7 @@ export async function POST(req: Request) {
                 );
             `);
 
-            // E. Cleanup staging data to prevent table bloat over time
+            // E. Clean up the staging table
             await tx.execute(sql`
                 DELETE FROM raw_lines WHERE project_id = ${projectId}::uuid;
             `);

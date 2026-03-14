@@ -1,5 +1,5 @@
 import { Feature } from 'ol';
-import { Circle as CircleStyle, Fill, RegularShape, Stroke, Style, Text } from 'ol/style';
+import { Circle as CircleStyle, Fill, Icon, RegularShape, Stroke, Style, Text } from 'ol/style';
 import { COMPONENT_TYPES } from '@/constants/networkComponents';
 import { useSimulationStore } from '@/store/simulationStore';
 import { useStyleStore } from '@/store/styleStore';
@@ -9,7 +9,7 @@ import { useMapStore } from '@/store/mapStore';
 import { useUIStore } from '@/store/uiStore';
 import { getColor, hexToRgba } from './helper';
 
-export const getFeatureStyle = (feature: Feature): Style | Style[] => {
+export const getFeatureStyle = (feature: Feature, resolution?: number): Style | Style[] => {
     const featureType = feature.get("type") as FeatureType;
     const isHidden = feature.get("hidden");
     const featureId = feature.getId() as string;
@@ -111,15 +111,34 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
         if (value !== null) labelText = value.toFixed(2);
     }
 
-    // --- APPLY STYLES (Preserving Shapes) ---
-    const textStyle = showLabels ? new Text({
+    // --- APPLY STYLES (Standardized Icons) ---
+    // Hide labels at lower zoom levels (higher resolution) to improve performance
+    const labelThreshold = 10;
+    const isLabelVisible = showLabels && (resolution === undefined || resolution < labelThreshold);
+
+    const textStyle = isLabelVisible ? new Text({
         text: labelText?.toString(),
         font: '10px "Inter", sans-serif',
         fill: new Fill({ color: '#374151' }),
         stroke: new Stroke({ color: '#FFFFFF', width: 3 }),
-        offsetY: featureType === 'pipe' ? 15 : 15,
+        offsetY: featureType === 'pipe' ? 15 : 20, // Increased offset for icons
         overflow: true,
     }) : undefined;
+
+    // Helper for SVG encoded icons
+    const getSvgIcon = (svgString: string, size: [number, number], scale: number = 1) => {
+        const encoded = encodeURIComponent(svgString);
+        return new Style({
+            image: new Icon({
+                src: `data:image/svg+xml;charset=utf-8,${encoded}`,
+                size: size,
+                scale: (pointRadius / 6) * scale, // Scale based on global pointRadius
+                anchor: [0.5, 0.5],
+            }),
+            text: textStyle,
+            zIndex: 100,
+        });
+    };
 
     // PIPE
     if (featureType === "pipe") {
@@ -135,64 +154,41 @@ export const getFeatureStyle = (feature: Feature): Style | Style[] => {
         return baseStyle;
     }
 
-    // TANK (Pentagon)
+    // TANK (Standard Cylinder/Rounded Icon)
     if (featureType === "tank") {
-        return new Style({
-            image: new RegularShape({
-                fill: new Fill({ color: rgbaColor }),
-                stroke: new Stroke({ color: borderRgba, width: pointStrokeWidth }),
-                points: 5,
-                radius: pointRadius + 4,
-                angle: 0,
-            }),
-            text: textStyle,
-            zIndex: 100,
-        });
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+            <path d="M4 6c0-1.657 3.582-3 8-3s8 1.343 8 3v12c0 1.657-3.582 3-8 3s-8-1.343-8-3V6z" fill="${color}" stroke="white" stroke-width="1.5"/>
+            <ellipse cx="12" cy="6" rx="8" ry="3" fill="${color}" stroke="white" stroke-width="1.5" opacity="0.8"/>
+        </svg>`;
+        return getSvgIcon(svg, [24, 24], 0.8);
     }
 
-    // RESERVOIR (Hexagon)
+    // RESERVOIR (Standard Rectangle with Wavy Surface)
     if (featureType === "reservoir") {
-        return new Style({
-            image: new RegularShape({
-                fill: new Fill({ color: rgbaColor }),
-                stroke: new Stroke({ color: borderRgba, width: pointStrokeWidth }),
-                points: 6,
-                radius: pointRadius + 4,
-                angle: 0,
-            }),
-            text: textStyle,
-            zIndex: 100,
-        });
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+            <rect x="3" y="4" width="18" height="16" rx="2" fill="${color}" stroke="white" stroke-width="1.5" />
+            <path d="M3 10c2 0 3 2 6 2s4-2 6-2 3 2 6 2" fill="none" stroke="white" stroke-width="1.5" opacity="0.6"/>
+            <path d="M3 14c2 0 3 2 6 2s4-2 6-2 3 2 6 2" fill="none" stroke="white" stroke-width="1.2" opacity="0.4"/>
+        </svg>`;
+        return getSvgIcon(svg, [24, 24], 0.9);
     }
 
-    // PUMP (Triangle)
+    // PUMP (Circle with Triangle)
     if (featureType === "pump") {
-        return new Style({
-            image: new RegularShape({
-                fill: new Fill({ color: rgbaColor }),
-                stroke: new Stroke({ color: borderRgba, width: pointStrokeWidth }),
-                points: 3,
-                radius: pointRadius + 2,
-                // angle: Math.PI / 4, 
-            }),
-            text: textStyle,
-            zIndex: 150,
-        });
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" fill="${color}" stroke="white" stroke-width="1.5"/>
+            <path d="M10 8l7 4-7 4V8z" fill="white"/>
+        </svg>`;
+        return getSvgIcon(svg, [24, 24], 0.8);
     }
 
-    // VALVE (Diamond / X)
+    // VALVE (Bow-tie Shape)
     if (featureType === "valve") {
-        return new Style({
-            image: new RegularShape({
-                fill: new Fill({ color: rgbaColor }),
-                stroke: new Stroke({ color: borderRgba, width: pointStrokeWidth }),
-                points: 4,
-                radius: pointRadius + 2,
-                angle: Math.PI / 4,
-            }),
-            text: textStyle,
-            zIndex: 150,
-        });
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+             <path d="M4 6l16 12V6L4 18V6z" fill="${color}" stroke="white" stroke-width="1.5"/>
+             <rect x="11" y="4" width="2" height="16" fill="white" opacity="0.5"/>
+        </svg>`;
+        return getSvgIcon(svg, [24, 24], 1.0);
     }
 
     // JUNCTION (Circle - Default)
@@ -240,11 +236,10 @@ export const getSelectedStyle = (feature: Feature): Style[] => {
         }));
     } else if (featureType === "pump") {
         styles.push(new Style({
-            image: new RegularShape({
+            image: new CircleStyle({
+                radius: 20,
                 fill: new Fill({ color: "rgba(250, 204, 21, 0.5)" }),
                 stroke: new Stroke({ color: "rgba(250, 204, 21, 1)", width: 2 }),
-                points: 3,
-                radius: 20,
             }),
             zIndex: 199,
         }));
@@ -255,7 +250,7 @@ export const getSelectedStyle = (feature: Feature): Style[] => {
                 stroke: new Stroke({ color: "rgba(250, 204, 21, 1)", width: 2 }),
                 points: 4,
                 radius: 20,
-                angle: Math.PI / 4,
+                angle: 0, // Changed to match bow-tie better
             }),
             zIndex: 199,
         }));
@@ -264,9 +259,9 @@ export const getSelectedStyle = (feature: Feature): Style[] => {
             image: new RegularShape({
                 fill: new Fill({ color: "rgba(250, 204, 21, 0.5)" }),
                 stroke: new Stroke({ color: "rgba(250, 204, 21, 1)", width: 2 }),
-                points: 5,
+                points: 4,
                 radius: 22,
-                angle: 0,
+                angle: Math.PI / 4,
             }),
             zIndex: 199,
         }));
@@ -275,9 +270,9 @@ export const getSelectedStyle = (feature: Feature): Style[] => {
             image: new RegularShape({
                 fill: new Fill({ color: "rgba(250, 204, 21, 0.5)" }),
                 stroke: new Stroke({ color: "rgba(250, 204, 21, 1)", width: 2 }),
-                points: 6,
-                radius: 22,
-                angle: 0,
+                points: 4,
+                radius: 24,
+                angle: Math.PI / 4,
             }),
             zIndex: 199,
         }));

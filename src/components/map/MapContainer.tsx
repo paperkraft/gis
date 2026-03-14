@@ -45,7 +45,7 @@ export function MapContainer() {
   const { vectorLayer } = useMapInitialization(mapRef);
 
   // Network store
-  const features = useNetworkStore((s) => s.features);
+  const featureCount = useNetworkStore((s) => s.features.size);
   const { activeTool } = useUIStore();
 
   // --- Auto-Zoom on Load ---
@@ -56,8 +56,8 @@ export function MapContainer() {
 
   useEffect(() => {
     if (!map || initialFeatureCountRef.current !== null) return;
-    initialFeatureCountRef.current = features.size;
-  }, [map, features.size]);
+    initialFeatureCountRef.current = featureCount;
+  }, [map, featureCount]);
 
   useEffect(() => {
     if (!map || !vectorSource) return;
@@ -79,7 +79,7 @@ export function MapContainer() {
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [map, vectorSource, features.size, projectId]);
+  }, [map, vectorSource, featureCount, projectId]);
 
   // --- Interactions ---
   const { deleteManager, pipeDrawingManager } = useMapInteractions({

@@ -1,19 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db"; // New DB import
-import { projects, nodes, links } from "@/db/schema";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { db } from "@/db";
+import { projects, nodes, links, projectShares } from "@/db/schema";
+import { and, eq, inArray, sql, or, exists } from "drizzle-orm";
+import { getSession } from "@/lib/auth";
+
+// Helper to check access
+async function checkProjectAccess(projectId: string, userId: string, requiredRole?: string) {
+    const project = await db.query.projects.findFirst({
+        where: and(
+            eq(projects.id, projectId),
+            or(
+                eq(projects.ownerId, userId),
+                exists(
+                    db.select()
+                        .from(projectShares)
+                        .where(
+                            and(
+                                eq(projectShares.projectId, projects.id),
+                                eq(projectShares.userId, userId),
+                                requiredRole ? eq(projectShares.role, requiredRole) : undefined
+                            )
+                        )
+                )
+            )
+        )
+    });
+    return project;
+}
 
 // --- LOAD PROJECT ---
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     try {
         const { id } = await params;
 
-        // 1. Fetch Metadata
-        const projectData = await db.query.projects.findFirst({
-            where: eq(projects.id, id)
-        });
+        // 1. Fetch Metadata with access check
+        const projectData = await checkProjectAccess(id, session.id);
 
-        if (!projectData) return NextResponse.json({ error: "Not found" }, { status: 404 });
+        if (!projectData) return NextResponse.json({ error: "Forbidden or Not found" }, { status: 403 });
 
         // 2. Fetch Nodes (Extract Lat/Lon from PostGIS)
         const dbNodes = await db.select({
@@ -22,7 +48,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             elevation: nodes.elevation,
             baseDemand: nodes.baseDemand,
             properties: nodes.properties,
-            // Convert Geometry back to numbers
             x: sql<number>`ST_X(geom::geometry)`,
             y: sql<number>`ST_Y(geom::geometry)`,
         }).from(nodes).where(eq(nodes.projectId, id));
@@ -37,23 +62,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             diameter: links.diameter,
             roughness: links.roughness,
             properties: links.properties,
-            // Get Geometry as JSON
             geoJSON: sql<string>`ST_AsGeoJSON(geom)::json`
         }).from(links).where(eq(links.projectId, id));
 
-        // 4. Reconstruct "Features" Array for Frontend
-        // (This matches the format your ProjectService expects)
+        // 4. Reconstruct "Features" Array
         const features = [
-
             ...dbNodes.map(n => ({
                 id: n.id,
                 type: n.type,
                 geometry: { type: 'Point', coordinates: [n.x, n.y] },
                 elevation: n.elevation,
                 baseDemand: n.baseDemand,
-                ...n.properties as object // Restore UI props
+                ...n.properties as object
             })),
-
             ...dbLinks.map(l => {
                 const geo: any = l.geoJSON;
                 return {
@@ -89,19 +110,23 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
 // --- SAVE / UPDATE PROJECT ---
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     try {
         const { id } = await params;
-        const body = await req.json();
+        
+        // For editing, we check if owner or shared (ignoring specific role for this dummy logic)
+        const projectData = await checkProjectAccess(id, session.id);
+        if (!projectData) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-        // Deconstruct the frontend payload
+        const body = await req.json();
         const { title, description, modifications, deletions, settings, patterns, curves, controls } = body;
 
-        // Separate nodes and links
         const upsertNodes = modifications.filter((f: any) => ['junction', 'tank', 'reservoir'].includes(f.type));
         const upsertLinks = modifications.filter((f: any) => ['pipe', 'pump', 'valve'].includes(f.type));
 
         await db.transaction(async (tx) => {
-            // 1. Update Metadata
             await tx.update(projects)
                 .set({
                     title,
@@ -111,12 +136,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 })
                 .where(eq(projects.id, id));
 
-            // 2. Process Deletions (Links first to avoid FK constraint violations)
             if (deletions && deletions.length > 0) {
                 await tx.delete(links).where(and(eq(links.projectId, id), inArray(links.id, deletions)));
                 await tx.delete(nodes).where(and(eq(nodes.projectId, id), inArray(nodes.id, deletions)));
             }
-            // 3. Upsert Nodes (Use ON CONFLICT DO UPDATE)
             if (upsertNodes.length > 0) {
                 const nodeValues = upsertNodes.map((n: any) => ({
                     projectId: id,
@@ -131,7 +154,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                 await tx.insert(nodes)
                     .values(nodeValues)
                     .onConflictDoUpdate({
-                        target: [nodes.projectId, nodes.id], // Requires Composite PK defined in schema
+                        target: [nodes.projectId, nodes.id],
                         set: {
                             elevation: sql`excluded.elevation`,
                             baseDemand: sql`excluded.base_demand`,
@@ -141,12 +164,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                     });
             }
 
-            // 4. TOPOLOGY CHECK & Upsert Links
             if (upsertLinks.length > 0) {
-                // We need to ensure source/target nodes exist.
-                // They are either in the DB already OR in the 'upsertNodes' array we just processed.
-
-                // Get list of all Node IDs referenced by these links
                 const requiredNodes = new Set<string>();
                 upsertLinks.forEach((l: any) => {
                     const source = l.source || l.startNodeId || l.properties?.startNodeId;
@@ -155,7 +173,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                     if (target) requiredNodes.add(target);
                 });
 
-                // Check DB for these nodes
                 const existingNodes = await tx.select({ id: nodes.id })
                     .from(nodes)
                     .where(and(
@@ -164,26 +181,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                     ));
 
                 const existingNodeIds = new Set(existingNodes.map(n => n.id));
-
-                // Also check the nodes we JUST upserted in this transaction
                 upsertNodes.forEach((n: any) => existingNodeIds.add(n.id));
 
                 const validLinks = [];
-
                 for (const l of upsertLinks) {
                     const source = l.source || l.startNodeId || l.properties?.startNodeId;
                     const target = l.target || l.endNodeId || l.properties?.endNodeId;
 
-                    // STRICT CHECK
-                    if (!existingNodeIds.has(source) || !existingNodeIds.has(target)) {
-                        console.error(`Topology Error: Link ${l.id} connects to missing nodes (${source} -> ${target})`);
-                        // Option A: Skip this link
-                        continue;
-                        // Option B: Throw error to abort transaction (Recommended for data integrity)
-                        // throw new Error(`Link ${l.id} references missing node.`);
-                    }
+                    if (!existingNodeIds.has(source) || !existingNodeIds.has(target)) continue;
 
-                    // Prepare Link Geometry (WKT)
                     let coords = l.geometry.coordinates;
                     if (!Array.isArray(coords) || coords.length < 2) coords = [[0, 0], [0, 0]];
 
@@ -232,31 +238,27 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
 // DELETE: Delete Project
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     try {
         const { id } = await params;
 
-        // Perform Manual Cascade Delete in a Transaction
+        // ONLY OWNER CAN DELETE
+        const project = await db.query.projects.findFirst({
+            where: and(eq(projects.id, id), eq(projects.ownerId, session.id))
+        });
+        if (!project) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
         await db.transaction(async (tx) => {
-            // 1. Delete all Links associated with this project
             await tx.delete(links).where(eq(links.projectId, id));
-
-            // 2. Delete all Nodes associated with this project
             await tx.delete(nodes).where(eq(nodes.projectId, id));
-
-            // 3. Finally, delete the Project itself
-            const result = await tx.delete(projects)
-                .where(eq(projects.id, id))
-                .returning({ id: projects.id });
-
-            if (result.length === 0) {
-                throw new Error("Project not found");
-            }
+            await tx.delete(projects).where(eq(projects.id, id));
         });
 
         return NextResponse.json({ success: true });
     } catch (error: any) {
         console.error("Delete Error:", error);
-        const status = error.message === "Project not found" ? 404 : 500;
-        return NextResponse.json({ error: error.message || "Failed to delete project" }, { status });
+        return NextResponse.json({ error: "Failed to delete project" }, { status: 500 });
     }
 }

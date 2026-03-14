@@ -35,9 +35,13 @@ export function PropertyPanel({
   properties,
   onDeleteRequest,
 }: PropertyPanelProps) {
-  const { selectedFeatureId, selectedFeature, updateFeature } =
-    useNetworkStore();
-  const { history, results } = useSimulationStore();
+  const selectedFeatureId = useNetworkStore(s => s.selectedFeatureId);
+  const selectedFeature = useNetworkStore(s => s.selectedFeature);
+  const updateFeature = useNetworkStore(s => s.updateFeature);
+
+  const history = useSimulationStore(s => s.history);
+  const results = useSimulationStore(s => s.results);
+  
   const map = useMapStore((state) => state.map);
   const { recordChange } = useHistoryManager();
 

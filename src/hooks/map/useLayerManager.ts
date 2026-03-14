@@ -90,8 +90,8 @@ export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
                 }
             });
         }
-        vectorLayer.setStyle((feature) => {
-            const baseStyle = getFeatureStyle(feature as Feature) as any;
+        vectorLayer.setStyle((feature, resolution) => {
+            const baseStyle = getFeatureStyle(feature as Feature, resolution) as any;
 
             if (isFlowAnimating && feature.get("type") === "pipe") {
                 const animationTime = (Date.now() - startTimeRef.current) / 1000 * (flowAnimationSpeed || 1);

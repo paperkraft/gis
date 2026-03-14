@@ -1,38 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { projects, nodes, links } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { projects, nodes, links, projectShares } from "@/db/schema";
+import { and, eq, sql, or, exists } from "drizzle-orm";
 import { Project, Workspace } from "epanet-js";
 import { buildINPFromDB } from "@/lib/export/inpGenerator";
+import { getSession } from "@/lib/auth";
 
 // EPANET Constants
 const EN_NODECOUNT = 0;
 const EN_LINKCOUNT = 2;
-
 const EN_DEMAND = 9;
 const EN_HEAD = 10;
 const EN_PRESSURE = 11;
-
 const EN_FLOW = 8;
 const EN_VELOCITY = 9;
 const EN_HEADLOSS = 10;
 const EN_STATUS = 11;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const ws = new Workspace();
     const model = new Project(ws);
 
     try {
         const { id } = await params;
 
-        // 1. Fetch Project Data from DB
+        // 1. Fetch Project Data with access check
         const projectData = await db.query.projects.findFirst({
-            where: eq(projects.id, id)
+            where: and(
+                eq(projects.id, id),
+                or(
+                    eq(projects.ownerId, session.id),
+                    exists(
+                        db.select()
+                            .from(projectShares)
+                            .where(
+                                and(
+                                    eq(projectShares.projectId, id),
+                                    eq(projectShares.userId, session.id)
+                                )
+                            )
+                    )
+                )
+            )
         });
 
-        if (!projectData) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+        if (!projectData) return NextResponse.json({ error: "Project not found or forbidden" }, { status: 403 });
 
-        // Fetch Nodes (with coordinates for INP)
+        // Fetch Nodes
         const dbNodes = await db.select({
             id: nodes.id,
             type: nodes.type,
@@ -50,23 +67,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             return NextResponse.json({ error: "Network is empty" }, { status: 400 });
         }
 
-        // 2. Generate INP File
         const inpContent = buildINPFromDB(projectData as any, dbNodes, dbLinks);
 
-        console.log(`🚀 Simulating Project: ${projectData.title} (${dbNodes.length} nodes, ${dbLinks.length} links)`);
-
-        // 3. Setup Virtual Files
-        const inputFileName = "network.inp";
-        const reportFileName = "report.rpt";
-        const outputFileName = "out.bin";
-        ws.writeFile(inputFileName, inpContent);
-
-        // 4. Run Simulation
-        await model.open(inputFileName, reportFileName, outputFileName);
+        ws.writeFile("network.inp", inpContent);
+        await model.open("network.inp", "report.rpt", "out.bin");
 
         const enNodeCount = await model.getCount(EN_NODECOUNT);
         const enLinkCount = await model.getCount(EN_LINKCOUNT);
-        console.log(`📊 EPANET Loaded: ${enNodeCount} Nodes, ${enLinkCount} Links`);
 
         await model.openH();
         await model.initH(0);
@@ -75,14 +82,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const snapshots: any[] = [];
         let tStep = Infinity;
 
-        // 5. Simulation Loop
         do {
             const t = await model.runH();
-
             const nodeResults: Record<string, any> = {};
             const linkResults: Record<string, any> = {};
 
-            // Extract Node Results
             for (let i = 1; i <= enNodeCount; i++) {
                 const nodeId = await model.getNodeId(i);
                 nodeResults[nodeId] = {
@@ -93,7 +97,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 };
             }
 
-            // Extract Link Results
             for (let i = 1; i <= enLinkCount; i++) {
                 const linkId = await model.getLinkId(i);
                 const statusVal = await model.getLinkValue(i, EN_STATUS);
@@ -115,7 +118,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             });
 
             tStep = await model.nextH();
-
         } while (tStep > 0);
 
         await model.closeH();
@@ -130,14 +132,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     } catch (error) {
         console.error("Simulation Failed:", error);
-
-        // Try to read report for more info
-        let details = String(error);
-        try {
-            const report = ws.readFile("report.rpt");
-            if (report) details += "\nEPANET Log:\n" + report;
-        } catch (e) { }
-
-        return NextResponse.json({ error: "Simulation failed", details }, { status: 500 });
+        return NextResponse.json({ error: "Simulation failed" }, { status: 500 });
     }
 }

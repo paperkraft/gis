@@ -1,4 +1,4 @@
-import { pgTable, text, doublePrecision, jsonb, uuid, index, timestamp, integer, primaryKey, foreignKey } from "drizzle-orm/pg-core";
+import { pgTable, text, doublePrecision, jsonb, uuid, index, timestamp, integer, primaryKey, foreignKey, uniqueIndex } from "drizzle-orm/pg-core";
 import { customType } from "drizzle-orm/pg-core";
 
 // Helper for PostGIS
@@ -8,15 +8,37 @@ const geometry = (name: string, type: string) => {
     })(name);
 };
 
+// --- 0. USERS ---
+export const users = pgTable("users", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+    emailIdx: uniqueIndex("email_idx").on(table.email),
+}));
+
 // --- 1. PROJECTS ---
 export const projects = pgTable("projects", {
     id: uuid("id").defaultRandom().primaryKey(),
     title: text("title").notNull(),
     description: text("description"),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: 'cascade' }),
     settings: jsonb("settings"), // Global settings (units, headloss formula)
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// --- 1.1 PROJECT SHARES (Many-to-Many) ---
+export const projectShares = pgTable("project_shares", {
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    role: text("role").default('viewer').notNull(), // 'viewer', 'editor'
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+    pk: primaryKey({ columns: [table.projectId, table.userId] }),
+}));
 
 // --- 2. NODES (Enforce Uniqueness) ---
 export const nodes = pgTable("nodes", {

@@ -45,43 +45,58 @@ export function useMapFeatureSync() {
                 source.addFeatures(olFeatures);
             } else {
                 // Delta Sync
-                // 1. Process deletions
-                state.deletedIds.forEach(id => {
-                    const f = source.getFeatureById(id);
-                    if (f) source.removeFeature(f);
-                });
+                // 1. Process deletions in bulk
+                if (state.deletedIds.size > 0) {
+                    const featuresToRemove: any[] = [];
+                    state.deletedIds.forEach(id => {
+                        const f = source.getFeatureById(id);
+                        if (f) featuresToRemove.push(f);
+                    });
+                    if (featuresToRemove.length > 0) {
+                        featuresToRemove.forEach(f => source.removeFeature(f));
+                    }
+                }
 
                 // 2. Process modified (adds and updates)
-                state.modifiedIds.forEach(id => {
-                    const storeFeatureData = state.features.get(id);
-                    if (storeFeatureData) {
-                        const mapFeature = source.getFeatureById(id);
-                        if (!mapFeature) {
-                            source.addFeature(createFeatureFromData(storeFeatureData));
-                        } else {
-                            const currentGeom = mapFeature.getGeometry();
-                            if (!mapFeature.get('isModifying') && !mapFeature.get('isDragging')) {
-                                if (storeFeatureData.type === 'pipe' || storeFeatureData.type === 'visual') {
-                                    if (currentGeom && currentGeom.getType() === 'LineString') {
-                                        (currentGeom as LineString).setCoordinates(storeFeatureData.geometry as number[][]);
+                if (state.modifiedIds.size > 0) {
+                    const featuresToAdd: any[] = [];
+                    state.modifiedIds.forEach(id => {
+                        const storeFeatureData = state.features.get(id);
+                        if (storeFeatureData) {
+                            const mapFeature = source.getFeatureById(id);
+                            if (!mapFeature) {
+                                featuresToAdd.push(createFeatureFromData(storeFeatureData));
+                            } else {
+                                // Optimized update check: Only update if not currently being interacted with in UI
+                                if (!mapFeature.get('isModifying') && !mapFeature.get('isDragging')) {
+                                    const currentGeom = mapFeature.getGeometry();
+                                    const newCoords = storeFeatureData.geometry;
+
+                                    if (storeFeatureData.type === 'pipe' || storeFeatureData.type === 'visual') {
+                                        if (currentGeom && currentGeom.getType() === 'LineString') {
+                                            (currentGeom as LineString).setCoordinates(newCoords as number[][]);
+                                        } else {
+                                            mapFeature.setGeometry(new LineString(newCoords as number[][]));
+                                        }
                                     } else {
-                                        mapFeature.setGeometry(new LineString(storeFeatureData.geometry as number[][]));
-                                    }
-                                } else {
-                                    if (currentGeom && currentGeom.getType() === 'Point') {
-                                        (currentGeom as Point).setCoordinates(storeFeatureData.geometry as number[]);
-                                    } else {
-                                        mapFeature.setGeometry(new Point(storeFeatureData.geometry as number[]));
+                                        if (currentGeom && currentGeom.getType() === 'Point') {
+                                            (currentGeom as Point).setCoordinates(newCoords as number[]);
+                                        } else {
+                                            mapFeature.setGeometry(new Point(newCoords as number[]));
+                                        }
                                     }
                                 }
-                            }
 
-                            // Attribute update
-                            mapFeature.setProperties(storeFeatureData.properties);
-                            mapFeature.changed();
+                                // Attribute update (only if properties actually changed or were forced)
+                                mapFeature.setProperties(storeFeatureData.properties);
+                            }
                         }
+                    });
+
+                    if (featuresToAdd.length > 0) {
+                        source.addFeatures(featuresToAdd);
                     }
-                });
+                }
             }
             lastVersion = state.version;
         });
