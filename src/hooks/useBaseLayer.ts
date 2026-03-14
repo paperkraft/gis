@@ -4,7 +4,7 @@ import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
 import XYZ from 'ol/source/XYZ';
 import { Stroke } from 'ol/style';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useMapStore } from '@/store/mapStore';
 
@@ -23,29 +23,37 @@ const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 export function useBaseLayer() {
     const map = useMapStore((state) => state.map);
+    const showGrid = useMapStore((state) => state.showGrid);
 
-    const setBaseLayer = useCallback((type: BaseLayerType) => {
+    // --- 1. SYNC GRID VISIBILITY ---
+    useEffect(() => {
         if (!map) return;
         const layers = map.getLayers();
-
-        // 1. MANAGE GRATICULE (GRID)
         let gridLayer = layers.getArray().find(l => l.get('isGrid')) as Graticule;
+        
         if (!gridLayer) {
             gridLayer = new Graticule({
                 strokeStyle: new Stroke({ color: 'rgba(0,0,0,0.1)', width: 1 }),
                 wrapX: false,
                 zIndex: 1,
-                visible: false,
+                visible: showGrid,
             });
             gridLayer.set('isGrid', true);
             map.addLayer(gridLayer);
+        } else {
+            gridLayer.setVisible(showGrid);
         }
+    }, [map, showGrid]);
 
+
+    const setBaseLayer = useCallback((type: BaseLayerType) => {
+        if (!map) return;
+        const layers = map.getLayers();
+
+        // 2. MANAGE BACKGROUND COLOR
         if (type === 'blank') {
-            gridLayer.setVisible(true);
             map.getTargetElement().style.backgroundColor = '#ffffff';
         } else {
-            gridLayer.setVisible(false);
             map.getTargetElement().style.backgroundColor = '#eef0f4';
         }
 

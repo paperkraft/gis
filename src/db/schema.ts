@@ -28,7 +28,9 @@ export const projects = pgTable("projects", {
     settings: jsonb("settings"), // Global settings (units, headloss formula)
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+    updatedAtIdx: index("project_updated_at_idx").on(table.updatedAt),
+}));
 
 // --- 1.1 PROJECT SHARES (Many-to-Many) ---
 export const projectShares = pgTable("project_shares", {

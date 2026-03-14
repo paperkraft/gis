@@ -35,12 +35,37 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     try {
         const { id } = await params;
+        const searchParams = req.nextUrl.searchParams;
+        const isThumbnail = searchParams.get('thumbnail') === 'true';
 
         // 1. Fetch Metadata with access check
         const projectData = await checkProjectAccess(id, session.id);
 
         if (!projectData) return NextResponse.json({ error: "Forbidden or Not found" }, { status: 403 });
 
+        // --- OPTIMIZED THUMBNAIL PATH ---
+        if (isThumbnail) {
+            // Fetch only links (pipes) with simplified geometry
+            const dbLinks = await db.select({
+                id: links.id,
+                type: links.type,
+                geoJSON: sql<string>`ST_AsGeoJSON(ST_SimplifyPreserveTopology(geom, 0.0001))::json`
+            }).from(links).where(eq(links.projectId, id));
+
+            const features = dbLinks.map(l => ({
+                id: l.id,
+                type: l.type,
+                geometry: { type: 'LineString', coordinates: (l.geoJSON as any).coordinates }
+            }));
+
+            return NextResponse.json({
+                id: projectData.id,
+                title: projectData.title,
+                data: { features }
+            });
+        }
+
+        // --- FULL LOAD PATH ---
         // 2. Fetch Nodes (Extract Lat/Lon from PostGIS)
         const dbNodes = await db.select({
             id: nodes.id,

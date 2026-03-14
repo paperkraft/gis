@@ -19,7 +19,13 @@ import { Label } from "@/components/ui/label";
 import { ProjectService } from "@/lib/services/ProjectService";
 import { useUIStore } from "@/store/uiStore";
 
-export function DeleteProjectModal({ activeProject }: { activeProject: any }) {
+export function DeleteProjectModal({
+  activeProject,
+  onOptimisticDelete,
+}: {
+  activeProject: any;
+  onOptimisticDelete?: (id: string) => void;
+}) {
   const { activeModal, setActiveModal, refreshProjects } = useUIStore();
 
   const router = useRouter();
@@ -45,6 +51,7 @@ export function DeleteProjectModal({ activeProject }: { activeProject: any }) {
     setLoading(true);
     try {
       await ProjectService.deleteProject(project.id);
+      onOptimisticDelete?.(project.id);
       toast.success("Project deleted successfully");
       handleClose();
       refreshProjects();
@@ -53,7 +60,6 @@ export function DeleteProjectModal({ activeProject }: { activeProject: any }) {
       console.error(error);
     } finally {
       setLoading(false);
-      router.refresh();
     }
   };
 

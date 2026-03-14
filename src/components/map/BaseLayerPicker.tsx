@@ -3,6 +3,9 @@
 import { Check, Grid3X3, Mountain, Moon, Sun, Satellite } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BaseLayerType, useBaseLayer } from "@/hooks/useBaseLayer";
+import { useMapStore } from "@/store/mapStore";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface BaseLayerPickerProps {
   current: BaseLayerType;
@@ -17,6 +20,7 @@ export function BaseLayerPicker({
   isOpen,
 }: BaseLayerPickerProps) {
   const { setBaseLayer } = useBaseLayer();
+  const { showGrid, setShowGrid } = useMapStore();
 
   if (!isOpen) return null;
 
@@ -122,25 +126,47 @@ export function BaseLayerPicker({
         </LayerOption>
 
         {/* 7. BLANK (Schematic) */}
-        <div className="col-span-3 pt-2 border-t border-slate-200 mt-1">
+        <div className="col-span-3 pt-2 border-t border-slate-200 mt-1 space-y-3">
           <LayerOption
-            label="No Base Map (Grid Only)"
+            label="No Base Map (Blank)"
             active={current === "blank"}
             onClick={() => handleSelect("blank")}
             wide
           >
             <div className="w-full h-full bg-background relative flex items-center gap-3 px-3">
-              <Grid3X3 size={18} />
+              <div className="size-6 bg-slate-50 border border-slate-200 rounded shrink-0" />
               <div className="flex flex-col items-start">
                 <span className="text-xs font-bold text-slate-700">
-                  Schematic Mode
+                  Blank Canvas
                 </span>
-                <span className="text-[9px] text-muted-foreground">
-                  White background with grid
+                <span className="text-[9px] text-muted-foreground leading-tight">
+                  White background for schematic or XY views
                 </span>
               </div>
             </div>
           </LayerOption>
+
+          {/* GRID TOGGLE */}
+          <div className="flex items-center justify-between px-2 py-1.5 bg-slate-50 rounded-md border border-slate-100">
+            <div className="flex items-center gap-2.5">
+              <div className={cn(
+                "p-1.5 rounded bg-white border border-slate-200 shadow-sm",
+                showGrid && "text-primary border-primary/30"
+              )}>
+                <Grid3X3 size={16} />
+              </div>
+              <div className="flex flex-col">
+                <Label htmlFor="grid-toggle" className="text-[11px] font-bold text-slate-700 cursor-pointer">Show Grid</Label>
+                <span className="text-[9px] text-slate-400 leading-none">Overlay reference grid</span>
+              </div>
+            </div>
+            <Switch 
+              id="grid-toggle" 
+              checked={showGrid} 
+              onCheckedChange={setShowGrid}
+              className="scale-75 origin-right"
+            />
+          </div>
         </div>
       </div>
 

@@ -59,7 +59,7 @@ const ProjectList = ({ userId }: { userId: string }) => {
       const getProj = async () => {
         setLoadingThumbnail(true); // Show spinner in thumbnail area
         try {
-          const res = await fetch(`/api/projects/${selectedId}`, {
+          const res = await fetch(`/api/projects/${selectedId}?thumbnail=true`, {
             cache: "no-store",
           });
           if (!res.ok) throw new Error("Err");
@@ -87,6 +87,11 @@ const ProjectList = ({ userId }: { userId: string }) => {
 
   const handleOpenProject = useCallback((id: string) => {
     route.replace(`/workbench/${id}`);
+  }, []);
+
+  const handleOptimisticDelete = useCallback((projectId: string) => {
+    setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    setSelectedId(null);
   }, []);
 
   const filteredProjects = projects.filter((p) => {
@@ -255,6 +260,7 @@ const ProjectList = ({ userId }: { userId: string }) => {
         <RightPanel
           loadingThumbnail={loadingThumbnail}
           features={features}
+          onOptimisticDelete={handleOptimisticDelete}
           activeProject={activeProject}
           handleClose={handleClick}
         />

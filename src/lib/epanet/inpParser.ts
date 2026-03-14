@@ -41,10 +41,17 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
             const firstCoord = coordinates.values().next().value;
             if (firstCoord) {
                 const [x, y] = firstCoord;
-                // If coordinates look like Lat/Lon, assume WGS84
+                // 1. If coordinates look like Lat/Lon, assume WGS84
                 if (x >= -180 && x <= 180 && y >= -90 && y <= 90) {
                     sourceProjection = 'EPSG:4326';
                     console.log("Auto-detected Lat/Lon coordinates (EPSG:4326).");
+                } 
+                // 2. If coordinates are very large (typical for local XY), assume Simple
+                else if (Math.abs(x) > 20000000 || Math.abs(y) > 20000000) {
+                     // Keep as 3857 (Web Mercator) - likely georeferenced but not Lat/Lon
+                } else {
+                    sourceProjection = 'Simple';
+                    console.log("Auto-detected local XY coordinates (Simple).");
                 }
             }
         }

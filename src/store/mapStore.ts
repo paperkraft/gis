@@ -10,6 +10,7 @@ interface MapState {
     vectorLayer: VectorLayer<VectorSource> | null;
 
     isDrawingPipe: boolean;
+    showGrid: boolean; // NEW
     zoom: number;
     projection: string;
 
@@ -21,6 +22,7 @@ interface MapState {
     setDeleteManager: (dm: DeleteManager | null) => void;
 
     setZoom: (zoom: number) => void;
+    setShowGrid: (show: boolean) => void; // NEW
     setProjection: (proj: string) => void;
     setIsDrawingPipe: (isDrawing: boolean) => void;
 }
@@ -32,6 +34,7 @@ export const useMapStore = create<MapState>((set) => ({
     deleteManager: null,
 
     isDrawingPipe: false,
+    showGrid: false, // NEW
     projection: "EPSG:3857",
     zoom: 0,
 
@@ -41,6 +44,7 @@ export const useMapStore = create<MapState>((set) => ({
     setDeleteManager: (dm) => set({ deleteManager: dm }),
 
     setZoom: (zoom) => set({ zoom }),
+    setShowGrid: (show) => set({ showGrid: show }), // NEW
     setProjection: (proj) => set({ projection: proj }),
     setIsDrawingPipe: (isDrawing) => set({ isDrawingPipe: isDrawing }),
 }));

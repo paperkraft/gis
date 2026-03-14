@@ -25,6 +25,7 @@ interface PanelProps {
   loadingThumbnail?: boolean;
   activeProject: any;
   features: any;
+  onOptimisticDelete?: (projectId: string) => void;
   handleClose: () => void;
 }
 
@@ -32,6 +33,7 @@ export const RightPanel = ({
   loadingThumbnail = false,
   activeProject,
   features,
+  onOptimisticDelete,
   handleClose,
 }: PanelProps) => {
   const route = useRouter();
@@ -157,7 +159,12 @@ export const RightPanel = ({
         )}
       </aside>
 
-      {activeProject && <DeleteProjectModal activeProject={activeProject} />}
+      {activeProject && (
+        <DeleteProjectModal
+          onOptimisticDelete={onOptimisticDelete}
+          activeProject={activeProject}
+        />
+      )}
     </>
   );
 };
