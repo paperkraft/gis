@@ -68,7 +68,9 @@ export function ImportPanel() {
         }
       }
 
-      const importResult = await importerRef.current.importFile(selectedFile);
+      const importResult = await importerRef.current.importFile(selectedFile, {
+        merge: !clearExisting
+      });
       setResult(importResult);
 
       if (importResult.success) {

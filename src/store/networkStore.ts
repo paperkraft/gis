@@ -8,6 +8,7 @@ import { ProjectLoader } from '@/lib/services/ProjectLoader';
 import { createFeatureSlice, FeatureSlice } from './slices/featureSlice';
 import { createHistorySlice, HistorySlice } from './slices/historySlice';
 import { createProjectSlice, ProjectSlice } from './slices/projectSlice';
+import { useMapStore } from './mapStore';
 
 export type NetworkState = ProjectSlice & HistorySlice & FeatureSlice & {
     loadProject: (data: ParsedProjectData, isUnsaved?: boolean) => void;
@@ -25,6 +26,15 @@ export const useNetworkStore = create<NetworkState>()((...a) => ({
 
         const processed = ProjectLoader.processImport(data);
         const [set, get] = a;
+
+        // Auto-switch layer for XY projects (based on isGeographic flag from parser)
+        if (data.isGeographic === false) {
+            useMapStore.getState().setBaseLayer('blank');
+            useMapStore.getState().setShowGrid(true);
+        } else if (data.isGeographic === true) {
+            useMapStore.getState().setBaseLayer('light');
+            useMapStore.getState().setShowGrid(false);
+        }
 
         set({
             features: processed.features,

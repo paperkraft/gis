@@ -9,6 +9,7 @@ export type ImportFormat = 'inp' | 'geojson' | 'shapefile' | 'kml';
 
 export interface ImportOptions {
     sourceProjection?: string;
+    merge?: boolean;
 }
 
 export interface ImportResult {
@@ -69,7 +70,7 @@ export class FileImporter {
             }
 
             if (result.success) {
-                this.handleSuccess(result);
+                this.handleSuccess(result, options.merge);
             }
 
             return result;
@@ -138,14 +139,14 @@ export class FileImporter {
         };
     }
 
-    private handleSuccess(result: ImportResult) {
+    private handleSuccess(result: ImportResult, merge: boolean = false) {
         const store = useNetworkStore.getState();
 
         // Use bulk operations to prevent UI freeze
         console.log(`Processing ${result.features.length} features...`);
 
-        // CASE A: Full Project Import (INP) -> Replace Everything
-        if (result.settings) {
+        // CASE A: Full Project Import (INP) -> Replace Everything (only if not merging)
+        if (result.settings && !merge) {
             store.loadProject({
                 features: result.features,
                 settings: { ...result.settings, title: store.settings.title },

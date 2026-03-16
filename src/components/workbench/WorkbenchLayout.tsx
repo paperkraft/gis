@@ -13,7 +13,7 @@ import { AttributeTable } from "../panels/AttributeTablePanel";
 import { MergeConflictModal } from "../modals/MergeConflictModal";
 import { DeleteConfirmation } from "../modals/DeleteConfirmation";
 
-export default function WorkbenchLayout({ children }: { children: ReactNode }) {
+export default function WorkbenchLayout({ children, user }: { children: ReactNode, user?: { name: string, email: string } }) {
   const [isResizing, setIsResizing] = useState(false);
 
   const {
@@ -87,6 +87,7 @@ export default function WorkbenchLayout({ children }: { children: ReactNode }) {
         isWorkbench
         projectName={settings.title}
         description={settings.description}
+        user={user}
       />
 
       <div className="flex-1 relative overflow-hidden">

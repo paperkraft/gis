@@ -1,9 +1,9 @@
 import shp from 'shpjs';
 
 export type GisValidationResult =
-    | { status: 'valid'; message?: string }
-    | { status: 'warning'; message: string }
-    | { status: 'error'; message: string };
+    | { status: 'valid'; message?: string; details?: any }
+    | { status: 'warning'; message: string; details?: any }
+    | { status: 'error'; message: string; details?: any };
 
 // Helper: Check for Nulls/NaNs
 function containsNulls(coords: any): boolean {

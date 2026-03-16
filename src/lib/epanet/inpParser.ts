@@ -13,6 +13,57 @@ export interface ParsedProjectData {
     patterns: TimePattern[];
     curves: PumpCurve[];
     controls: NetworkControl[];
+    isGeographic?: boolean;
+}
+
+/**
+ * Lightweight analysis of INP coordinates for UI feedback
+ */
+export function analyzeInpCoordinates(fileContent: string) {
+    const lines = fileContent.split(/\r?\n/);
+    const sections = parseINPSections(fileContent);
+    const coords = parseCoordinates(sections['COORDINATES'] || []);
+    const sampleCoords: number[][] = [];
+    const iterator = coords.values();
+    for (let i = 0; i < 5; i++) {
+        const next = iterator.next();
+        if (next.done) break;
+        sampleCoords.push(next.value);
+    }
+
+    const bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+    for (const [x, y] of coords.values()) {
+        bounds.minX = Math.min(bounds.minX, x);
+        bounds.maxX = Math.max(bounds.maxX, x);
+        bounds.minY = Math.min(bounds.minY, y);
+        bounds.maxY = Math.max(bounds.maxY, y);
+    }
+
+    const firstCoord = sampleCoords[0];
+    let isGeographic = false;
+    if (firstCoord) {
+        const [x, y] = firstCoord;
+        isGeographic = x >= -180 && x <= 180 && y >= -90 && y <= 90;
+    }
+
+    // Detect Metadata in analysis phase
+    let detectedProjection: string | undefined = undefined;
+    for (let i = 0; i < Math.min(lines.length, 50); i++) {
+        const line = lines[i].trim();
+        if (line.toLowerCase().startsWith(';projection:')) {
+            // Extract everything after the first colon
+            detectedProjection = line.slice(line.indexOf(':') + 1).trim();
+            break;
+        }
+    }
+
+    return {
+        sampleCoords,
+        bounds,
+        isGeographic,
+        nodeCount: coords.size,
+        projection: detectedProjection
+    };
 }
 
 /**
@@ -20,7 +71,7 @@ export interface ParsedProjectData {
  * @param fileContent Raw text content of the INP file
  * @param manualProjection Optional projection string provided by user (e.g., "EPSG:4326")
  */
-export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3857'): ParsedProjectData {
+export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3857', skipTransform: boolean = false): ParsedProjectData {
 
     try {
         const sections = parseINPSections(fileContent);
@@ -36,8 +87,22 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
         // 1. Determine Source Projection
         let sourceProjection = manualProjection;
 
-        // Auto-detection logic if manually set to 'Simple' or default is ambiguous
-        if (sourceProjection === 'EPSG:3857') {
+        // Metadata Detection (Search for ;Projection: in the first 50 lines)
+        const lines = fileContent.split(/\r?\n/);
+        for (let i = 0; i < Math.min(lines.length, 50); i++) {
+            const line = lines[i].trim();
+            if (line.toLowerCase().startsWith(';projection:')) {
+                const detected = line.split(':')[1]?.trim();
+                if (detected) {
+                    sourceProjection = detected;
+                    console.log(`Metadata-detected projection: ${sourceProjection}`);
+                    break;
+                }
+            }
+        }
+
+        // Auto-detection logic if manually set to 'Simple' or default is ambiguous and no metadata found
+        if (sourceProjection === manualProjection && sourceProjection === 'EPSG:3857') {
             const firstCoord = coordinates.values().next().value;
             if (firstCoord) {
                 const [x, y] = firstCoord;
@@ -62,7 +127,7 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
         // If source is different from map, transform. 
         // Note: We do not transform 'Simple' (Cartesian) as it has no projection definition, 
         // but for GIS display we treat it as 3857 to render it "somewhere".
-        if (sourceProjection !== mapProjection && sourceProjection !== 'Simple') {
+        if (!skipTransform && sourceProjection !== mapProjection && sourceProjection !== 'Simple') {
             console.log(`Transforming from ${sourceProjection} to ${mapProjection}...`);
 
             // Transform Node Coordinates
@@ -114,7 +179,8 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
             startClock: timesMap['START CLOCKTIME'] || '12:00 AM',
 
             // Pattern
-            defaultPattern: optionsMap['PATTERN'] || "1"
+            defaultPattern: optionsMap['PATTERN'] || "1",
+            isGeographic: sourceProjection !== 'Simple'
         };
 
         const patterns = parsePatterns(sections['PATTERNS'] || []);
@@ -134,9 +200,44 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
         };
 
         // 4. Parse Nodes using (potentially transformed) coordinates
+        
+        // --- ROBUST NODE DISCOVERY ---
+        // Ensure ALL node IDs referenced in any link section are in our coordinates map
+        const allLinkSections = [...(sections['PIPES'] || []), ...(sections['PUMPS'] || []), ...(sections['VALVES'] || [])];
+        allLinkSections.forEach(line => {
+            const p = line.split(/\s+/);
+            const n1 = p[1];
+            const n2 = p[2];
+            if (n1 && !coordinates.has(n1)) {
+                // Discover n1: Use partner n2 coord if available, else [0,0]
+                const fallback = coordinates.get(n2) || [0, 0];
+                coordinates.set(n1, [...fallback]);
+                console.log(`Discovered missing node ${n1} from link. Assigning fallback coord from ${n2}`);
+            }
+            if (n2 && !coordinates.has(n2)) {
+                // Discover n2: Use partner n1 coord if available, else [0,0]
+                const fallback = coordinates.get(n1) || [0, 0];
+                coordinates.set(n2, [...fallback]);
+                console.log(`Discovered missing node ${n2} from link. Assigning fallback coord from ${n1}`);
+            }
+        });
+
+        // Collect IDs that are explicitly defined as Tanks or Reservoirs
+        const tankIds = new Set((sections['TANKS'] || []).map(l => l.split(/\s+/)[0]));
+        const reservoirIds = new Set((sections['RESERVOIRS'] || []).map(l => l.split(/\s+/)[0]));
+
         const junctions = createNodeHelper(sections['JUNCTIONS'] || [], 'junction', p => ({
             elevation: parseFloat(p[1]), demand: parseFloat(p[2] || '0')
         }));
+        
+        // Add discovered nodes that are NOT in the JUNCTIONS section
+        const definedJunctionIds = new Set(junctions.map(j => j.id));
+        for (const [id, coord] of coordinates) {
+            if (!definedJunctionIds.has(id) && !tankIds.has(id) && !reservoirIds.has(id)) {
+                junctions.push(NetworkFactory.createNode('junction', coord, id, { elevation: 0, demand: 0 }));
+            }
+        }
+
         const tanks = createNodeHelper(sections['TANKS'] || [], 'tank', p => ({
             elevation: parseFloat(p[1]), initLevel: parseFloat(p[2]), minLevel: parseFloat(p[3]), maxLevel: parseFloat(p[4]), diameter: parseFloat(p[5])
         }));
@@ -148,6 +249,9 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
         features.push(...allNodes);
 
         // 5. Parse Links (Pipes, Pumps, Valves)
+        // Offset logic for overlapping endpoints
+        const isLatLon = sourceProjection === 'EPSG:4326';
+        const offsetVal = isLatLon ? 0.000005 : 0.5;
 
         // Helper to find nodes
         const findNode = (id: string) => allNodes.find(n => n.id === id);
@@ -161,6 +265,12 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
             if (n1 && n2) {
                 const c1 = n1.geometry as number[];
                 const c2 = n2.geometry as number[];
+
+                // Offset OVERLAPPING nodes for visibility
+                if (Math.abs(c1[0] - c2[0]) < 0.000001 && Math.abs(c1[1] - c2[1]) < 0.000001) {
+                    c2[0] += offsetVal;
+                    c2[1] += offsetVal;
+                }
 
                 let path = [c1];
                 if (vertices.has(id)) path = path.concat(vertices.get(id)!);
@@ -185,6 +295,15 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
                 const n2 = findNode(p[2]);
 
                 if (n1 && n2) {
+                    const c1 = n1.geometry as number[];
+                    const c2 = n2.geometry as number[];
+                    
+                    // Offset OVERLAPPING nodes for visibility
+                    if (Math.abs(c1[0] - c2[0]) < 0.000001 && Math.abs(c1[1] - c2[1]) < 0.000001) {
+                        c2[0] += offsetVal;
+                        c2[1] += offsetVal;
+                    }
+
                     const [component, visual] = NetworkFactory.createComplexLink(type, n1, n2, id, propsParser(p));
                     features.push(component);
                     features.push(visual); // Factory guarantees this exists and has ID
@@ -200,7 +319,7 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
         // 6. Build Connectivity
         buildConnectivity(allNodes, features.filter(f => ['pipe', 'pump', 'valve'].includes(f.type)));
 
-        return { features, settings, patterns, curves, controls };
+        return { features, settings, patterns, curves, controls, isGeographic: sourceProjection !== 'Simple' };
 
     } catch (error) {
         throw new Error(`INP parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);

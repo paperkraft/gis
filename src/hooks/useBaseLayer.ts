@@ -24,13 +24,15 @@ const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 export function useBaseLayer() {
     const map = useMapStore((state) => state.map);
     const showGrid = useMapStore((state) => state.showGrid);
+    const baseLayer = useMapStore((state) => state.baseLayer);
+    const setBaseLayerStore = useMapStore((state) => state.setBaseLayer);
 
     // --- 1. SYNC GRID VISIBILITY ---
     useEffect(() => {
         if (!map) return;
         const layers = map.getLayers();
         let gridLayer = layers.getArray().find(l => l.get('isGrid')) as Graticule;
-        
+
         if (!gridLayer) {
             gridLayer = new Graticule({
                 strokeStyle: new Stroke({ color: 'rgba(0,0,0,0.1)', width: 1 }),
@@ -45,8 +47,15 @@ export function useBaseLayer() {
         }
     }, [map, showGrid]);
 
+    // --- 2. SYNC BASE LAYER FROM STORE ---
+    useEffect(() => {
+        if (map && baseLayer) {
+            applyBaseLayer(baseLayer);
+        }
+    }, [map, baseLayer]);
 
-    const setBaseLayer = useCallback((type: BaseLayerType) => {
+
+    const applyBaseLayer = useCallback((type: BaseLayerType) => {
         if (!map) return;
         const layers = map.getLayers();
 
@@ -132,5 +141,5 @@ export function useBaseLayer() {
 
     }, [map]);
 
-    return { setBaseLayer };
+    return { setBaseLayer: setBaseLayerStore };
 }

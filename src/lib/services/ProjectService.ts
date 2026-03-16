@@ -93,10 +93,14 @@ export class ProjectService {
 
                 // STANDARD HANDLING (Pipes, Junctions, Tanks)
                 let geom;
+                const isGeographic = data.settings.isGeographic !== false;
+
                 if (f.geometry.type === 'Point') {
-                    geom = transform(f.geometry.coordinates, 'EPSG:4326', 'EPSG:3857');
+                    geom = isGeographic ? transform(f.geometry.coordinates, 'EPSG:4326', 'EPSG:3857') : f.geometry.coordinates;
                 } else {
-                    geom = f.geometry.coordinates.map((c: number[]) => transform(c, 'EPSG:4326', 'EPSG:3857'));
+                    geom = isGeographic 
+                        ? f.geometry.coordinates.map((c: number[]) => transform(c, 'EPSG:4326', 'EPSG:3857'))
+                        : f.geometry.coordinates;
                 }
 
                 features.push({
@@ -220,11 +224,17 @@ export class ProjectService {
                 // TRANSFORM: Map (3857) -> DB (4326)
                 // Assuming coordinates are currently in Map Projection (3857)
                 let finalCoords = coordinates as any;
+                const isGeographic = networkStore.settings.isGeographic !== false && networkStore.settings.projection !== 'Simple';
+
                 if (coordinates) {
                     if (geometryType === 'Point') {
-                        finalCoords = transform(coordinates as number[], 'EPSG:3857', 'EPSG:4326');
+                        finalCoords = isGeographic 
+                            ? transform(coordinates as number[], 'EPSG:3857', 'EPSG:4326')
+                            : coordinates;
                     } else if (geometryType === 'LineString') {
-                        finalCoords = (coordinates as number[][]).map((c: number[]) => transform(c, 'EPSG:3857', 'EPSG:4326'));
+                        finalCoords = isGeographic 
+                            ? (coordinates as number[][]).map((c: number[]) => transform(c, 'EPSG:3857', 'EPSG:4326'))
+                            : coordinates;
                     }
                 }
 
@@ -276,131 +286,30 @@ export class ProjectService {
         }
     }
 
-    // --- CREATE FROM FILE ---
+    // --- CREATE FROM FILE (Server-Side) ---
     static async createProjectFromFile(name: string, description: string, inpContent: string, sourceProjection: string = 'EPSG:3857'): Promise<string> {
-        let projectId: string | null = null;
         try {
-            // 1. Parse the INP content (Specific error for invalid file structure)
-            let data;
-            try {
-                data = parseINP(inpContent, sourceProjection);
-            } catch (pError) {
-                console.error("INP Parse Error:", pError);
-                throw new Error("Invalid INP file structure. Please ensure the file is a valid EPANET network file.");
-            }
-
-            // 2. Create Node Lookup Map
-            const nodeMap = new Map<string, number[]>();
-            data.features.forEach(f => {
-                if (['junction', 'tank', 'reservoir'].includes(f.type)) {
-                    nodeMap.set(f.id as string, f.geometry as number[]);
-                }
-            });
-
-            // 3. Prepare Features for DB
-            const serializableFeatures = data.features.map(f => {
-                const props = f.properties;
-                const type = f.type;
-                const id = f.id;
-                const safeProps = this.deepSanitize(props);
-
-                const sourceId = props.source || props.startNodeId || props.fromNode;
-                const targetId = props.target || props.endNodeId || props.toNode;
-
-                let geometryType = ['pipe', 'pump', 'valve'].includes(type) ? 'LineString' : 'Point';
-                let coordinates = f.geometry;
-
-                if (['pump', 'valve', 'pipe'].includes(type)) {
-                    if (geometryType !== 'LineString' || !coordinates || (coordinates as number[]).length < 2 || !Array.isArray(coordinates[0])) {
-                        const start = nodeMap.get(sourceId);
-                        const end = nodeMap.get(targetId);
-                        if (start && end) {
-                            geometryType = 'LineString';
-                            coordinates = [start, end];
-                        } else {
-                            coordinates = [[0, 0], [0, 0]];
-                        }
-                    }
-                }
-
-                let finalCoords = coordinates as any;
-                if (coordinates) {
-                    if (geometryType === 'Point') {
-                        finalCoords = transform(coordinates as number[], sourceProjection, 'EPSG:4326');
-                    } else if (geometryType === 'LineString') {
-                        finalCoords = (coordinates as number[][]).map((c: number[]) =>
-                            transform(c, sourceProjection, 'EPSG:4326')
-                        );
-                    }
-                }
-
-                return {
-                    ...safeProps,
-                    id: id,
-                    type: type,
-                    source: sourceId,
-                    target: targetId,
-                    geometry: { type: geometryType, coordinates: finalCoords }
-                };
-            });
-
-            // 4. STEP 1: Create Project Shell
-            const payload = {
-                title: name,
-                description,
-                settings: {
-                    ...data.settings,
-                    title: name,
-                    description,
-                    patterns: data.patterns[0] || [],
-                    curves: data.curves[0] || [],
-                    controls: data.controls[0] || []
-                }
-            }
-
-            const createRes = await fetch('/api/projects', {
+            const res = await fetch('/api/projects/import', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({
+                    title: name,
+                    description,
+                    inpContent,
+                    sourceProjection
+                })
             });
 
-            if (!createRes.ok) throw new Error("Could not initialize project record on server.");
-            const createData = await createRes.json();
-            projectId = createData.id;
-
-            // 5. STEP 2: Save Spatial Features
-            if (!projectId) throw new Error("Project creation failed (no ID returned).");
-
-            const savePayload = {
-                ...payload,
-                modifications: serializableFeatures,
-                deletions: [],
-            };
-
-            const saveRes = await fetch(`/api/projects/${projectId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(savePayload)
-            });
-
-            if (!saveRes.ok) {
-                throw new Error("Network features failed to import. Data might be too complex or invalid.");
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || "Failed to import project on server.");
             }
 
-            return projectId;
-
+            const data = await res.json();
+            return data.id;
         } catch (e: any) {
             console.error("Critical failure during INP import:", e);
-            
-            // CLEANUP: If project shell was created but data failed to save, delete it
-            if (projectId) {
-                console.log(`Cleaning up partially created project: ${projectId}`);
-                await this.deleteProject(projectId).catch(err => 
-                    console.error("Failed to cleanup orphan project:", err)
-                );
-            }
-            
-            throw e; // Rethrow to let the UI show the toast
+            throw e;
         }
     }
 

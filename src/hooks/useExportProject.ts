@@ -1,44 +1,59 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
+import { useParams } from 'next/navigation';
 import { useNetworkStore } from '@/store/networkStore';
-import { buildINP } from '@/lib/epanet/inpBuilder';
 import { createFeatureFromData } from '@/lib/utils/featureUtils';
 import GeoJSON from 'ol/format/GeoJSON';
 
 export function useExportProject() {
-    const { features, settings, patterns, curves, controls } = useNetworkStore();
+    const { features, settings } = useNetworkStore();
+    const params = useParams();
+    const id = params.id as string;
 
-    const exportToINP = useCallback(() => {
+    const exportToINP = useCallback(async () => {
         try {
             if (features.size === 0) {
                 toast.error("Network is empty. Nothing to export.");
                 return;
             }
 
-            // toast.loading("Generating INP file...");
+            if (!id) {
+                toast.error("Project ID not found in URL.");
+                return;
+            }
 
-            // 1. Build the INP Content string
-            const featureList = Array.from(features.values());
+            toast.loading("Preparing export...", { id: 'export-inp' });
 
-            const fileContent = buildINP(
-                featureList,
-                patterns,
-                curves,
-                controls,
-                settings
-            );
+            const response = await fetch(`/api/projects/${id}/export`);
 
-            downloadFile(fileContent, 'inp', settings.title);
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error || "Export failed on server");
+            }
 
-            // toast.dismiss();
-            toast.success("INP Export complete");
+            const blob = await response.blob();
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = `${settings.title.replace(/\s+/g, '_')}.inp`;
 
-        } catch (error) {
+            if (contentDisposition && contentDisposition.includes('filename=')) {
+                filename = contentDisposition.split('filename=')[1].replace(/"/g, '');
+            }
+
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+
+            toast.success("INP Export complete", { id: 'export-inp' });
+
+        } catch (error: any) {
             console.error("Export Failed:", error);
-            toast.dismiss();
-            toast.error("Export failed", { description: "Check console for details." });
+            toast.error("Export failed", { id: 'export-inp', description: error.message || "Check console for details." });
         }
-    }, [features, settings, patterns, curves, controls]);
+    }, [features.size, id, settings.title]);
 
     // --- 2. NEW GEOJSON EXPORT ---
     const exportToGeoJSON = useCallback(() => {

@@ -95,6 +95,7 @@ export interface ProjectSettings {
     startClock?: string;       // e.g. "12:00 AM"
 
     defaultPattern?: string;   // e.g. "1", "Pat-A", etc.
+    isGeographic?: boolean;
 }
 export interface TimePattern {
     id: string;

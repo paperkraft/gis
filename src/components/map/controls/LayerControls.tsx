@@ -1,6 +1,6 @@
 "use client";
 
-import { Compass, MapPinnedIcon, RotateCcw, RotateCw } from "lucide-react";
+import { Compass, Grid, MapPinnedIcon, RotateCcw, RotateCw } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import {
@@ -19,6 +19,8 @@ interface LayerControlsProps {
 
 export function LayerControls({ activeGroup, onToggle }: LayerControlsProps) {
   const map = useMapStore((state) => state.map);
+  const showGrid = useMapStore((state) => state.showGrid);
+  const setShowGrid = useMapStore((state) => state.setShowGrid);
   const [rotation, setRotation] = useState(0);
 
   useEffect(() => {
@@ -41,8 +43,15 @@ export function LayerControls({ activeGroup, onToggle }: LayerControlsProps) {
       label="Layer Controls"
       activeGroup={activeGroup}
       onToggle={onToggle}
-      isActiveGroup={rotation !== 0}
+      isActiveGroup={rotation !== 0 || showGrid}
     >
+      <ToolBtn
+        onClick={() => setShowGrid(!showGrid)}
+        isActive={showGrid}
+        icon={Grid}
+        title="Toggle Grid"
+      />
+
       <ToolBtn
         onClick={() => handleResetNorth(map)}
         isActive={rotation !== 0}

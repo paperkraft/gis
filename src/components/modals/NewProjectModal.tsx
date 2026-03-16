@@ -12,6 +12,7 @@ import {
 import { GisValidationResult, validateGisFile } from '@/lib/gis/gisValidator';
 import { AutoProjection } from '@/lib/gis/locationToZone';
 import { ProjectService } from '@/lib/services/ProjectService';
+import { analyzeInpCoordinates } from '@/lib/epanet/inpParser';
 import { useUIStore } from '@/store/uiStore';
 import { FlowUnits } from '@/types/network';
 
@@ -153,7 +154,41 @@ export function NewProjectModal() {
         return;
       }
       const reader = new FileReader();
-      reader.onload = (e) => setFileContent(e.target?.result as string);
+      reader.onload = (e) => {
+          const content = e.target?.result as string;
+          setFileContent(content);
+          
+          // Trigger Analysis for UI feedback
+          setValidating(true);
+          try {
+              const analysis = analyzeInpCoordinates(content);
+              setValidationResult({
+                  status: analysis.isGeographic ? 'valid' : 'warning',
+                  message: analysis.isGeographic ? "Detected Geographic coordinates." : "Detected non-geographic (projected) coordinates.",
+                  details: analysis
+              });
+
+              if (analysis.projection) {
+                const sridMatch = analysis.projection.match(/EPSG:(\d+)/i);
+                if (sridMatch) {
+                  const srid = parseInt(sridMatch[1], 10);
+                  setSelectedEPSG(srid);
+                  setValidationResult({
+                    status: 'valid',
+                    message: `Found projection metadata: EPSG:${srid}. This system will be used for coordinates.`,
+                    details: analysis
+                  });
+                  toast.success(`Automatically detected projection: EPSG:${srid}`);
+                  setShowProjectionSelect(false); // Hide selector if auto-detected
+                }
+              } else if (!analysis.isGeographic) {
+                setShowProjectionSelect(true);
+              }
+          } catch (err) {
+              setValidationResult({ status: 'error', message: "Invalid INP file structure." });
+          }
+          setValidating(false);
+      };
       reader.readAsText(file);
     }
 
@@ -250,10 +285,13 @@ export function NewProjectModal() {
           return;
         }
 
+        const sourceProj = selectedEPSG ? `EPSG:${selectedEPSG}` : (validationResult?.details?.isGeographic ? 'EPSG:4326' : 'Simple');
+
         projectId = await ProjectService.createProjectFromFile(
           formData.title,
           formData.description || "Imported from INP file",
-          fileContent
+          fileContent,
+          sourceProj
         );
       }
 
@@ -264,6 +302,7 @@ export function NewProjectModal() {
           description: formData.description,
           projection: formData.projection,
           units: formData.units as FlowUnits,
+          isGeographic: formData.projection !== 'Simple'
         };
 
         projectId = await ProjectService.createProjectFromSettings(
@@ -334,6 +373,7 @@ export function NewProjectModal() {
                 validating={validating}
                 validationResult={validationResult}
                 showProjectionSelect={showProjectionSelect}
+                selectedEPSG={selectedEPSG}
                 onProjectionFound={handleProjectionFound}
                 getProjection={getProjection}
               />

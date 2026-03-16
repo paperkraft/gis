@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, FileArchive, FileCode2, Loader2, MapPin, Search, UploadCloud, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, FileArchive, FileCode2, LayoutList, Loader2, MapPin, Maximize2, Search, UploadCloud, XCircle } from 'lucide-react';
 import React, { useState } from 'react';
 
 import { FormGroup } from '@/components/form-controls/FormGroup';
@@ -28,22 +28,30 @@ interface ProjectFormFieldsProps {
     validating?: boolean;
     validationResult?: GisValidationResult | null;
     showProjectionSelect?: boolean;
+    selectedEPSG?: number;
     onProjectionFound?: (proj: AutoProjection) => void;
     getProjection?: (srid: number) => void;
 }
 
 export function ProjectFormFields({
     projectType, formData, setFormData, importFile, fileInputRef, handleFileSelect,
-    validating, validationResult, showProjectionSelect,
+    validating, validationResult, showProjectionSelect, selectedEPSG,
     onProjectionFound, getProjection
 
 }: ProjectFormFieldsProps) {
 
     // Local state for the search
     const [locationQuery, setLocationQuery] = useState("");
-    const [projection, setProjection] = useState<number>();
+    const [projection, setProjection] = useState<number | undefined>(selectedEPSG);
     const [isSearching, setIsSearching] = useState(false);
     const [foundZone, setFoundZone] = useState<AutoProjection | null>(null);
+
+    // Sync local projection with prop (for auto-detection)
+    React.useEffect(() => {
+        if (selectedEPSG !== undefined) {
+            setProjection(selectedEPSG);
+        }
+    }, [selectedEPSG]);
 
     const handleLocationSearch = async () => {
         if (!locationQuery.trim()) return;
@@ -53,6 +61,7 @@ export function ProjectFormFields({
         try {
             const result = await getProjectionFromLocation(locationQuery);
             setFoundZone(result);
+            setProjection(+result.code);
             if (onProjectionFound) onProjectionFound(result);
         } catch (error) {
             toast.error("Location not found. Try a major city name.");
@@ -182,81 +191,165 @@ export function ProjectFormFields({
                                     {/* Validation Result */}
                                     {validationResult && (
                                         <div className={cn(
-                                            "p-2 text-[10px] flex gap-2 items-start leading-snug animate-in slide-in-from-top-2 fade-in duration-300",
-                                            validationResult.status === 'error' ? "bg-red-50 border-red-200 text-red-700" :
-                                                validationResult.status === 'warning' ? "bg-amber-50 border-amber-200 text-amber-700" :
-                                                    "bg-green-50 border-green-200 text-green-700"
+                                            "mt-2 p-2 rounded border flex gap-2 items-start text-left min-w-40 animate-in fade-in zoom-in-95",
+                                            validationResult.status === 'error' ? "bg-red-50 border-red-100 text-red-700" :
+                                                validationResult.status === 'warning' ? "bg-amber-50 border-amber-100 text-amber-700" :
+                                                    "bg-green-50 border-green-100 text-green-700 shadow-sm"
                                         )}>
-                                            <div className='flex gap-1'>
-                                                <div className="shrink-0">
-                                                    {validationResult.status === 'error' ? <XCircle size={14} /> :
-                                                        validationResult.status === 'warning' ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
-                                                </div>
-                                                <span className="font-bold block mb-0.5">
+                                            <div className="shrink-0 mt-0.5">
+                                                {validationResult.status === 'error' ? <XCircle size={14} /> :
+                                                    validationResult.status === 'warning' ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-bold leading-none mb-1">
                                                     {validationResult.status === 'error' ? 'Invalid File' :
-                                                        validationResult.status === 'warning' ? 'Projection Warning :' : 'Valid Geometry'}
+                                                        validationResult.status === 'warning' ? 'Projection Warning' : 'Valid Geometry'}
                                                 </span>
-                                                {validationResult.message}
+                                                <span className="text-[9px] leading-tight opacity-90">{validationResult.message}</span>
                                             </div>
                                         </div>
                                     )}
                                 </div>
                             ) : (
-                                <div className="flex flex-col items-center">
-                                    <UploadCloud size={32} className="mb-2" />
-                                    <span className="text-xs font-medium">{uploadLabel}</span>
-                                    <span className="text-[10px] opacity-70 mt-1">{uploadDesc}</span>
+                                <div className="flex flex-col items-center p-4">
+                                    <UploadCloud size={32} className="mb-2 opacity-50 group-hover:opacity-100 transition-opacity" />
+                                    <span className="text-xs font-semibold">{uploadLabel}</span>
+                                    <span className="text-[10px] opacity-60 mt-0.5">{uploadDesc}</span>
                                 </div>
                             )}
                         </div>
 
-                        {projectType === 'gis' && showProjectionSelect && (
-                            <>
-                                <ProjectionSelect value={projection} onChange={(v) => { setProjection(v); getProjection?.(v) }} />
-
-                                <div className="hidden p-3 bg-blue-50 border border-blue-100 rounded-md animate-in fade-in zoom-in-95 space-y-2">
-                                    <div>
-                                        <h6 className="text-[11px] font-bold text-primary uppercase tracking-wide">
-                                            Identify Project Location
-                                        </h6>
-                                        <p className="text-[10px] text-primary leading-relaxed">
-                                            We detected local coordinates.<br />Enter the city/region name to automatically fix the projection.
-                                        </p>
+                        {/* Coordinate Inspector (epanetjs style) */}
+                        {importFile && validationResult?.details && (
+                            <div className="hidden mt-4 p-3 bg-slate-50/50 border border-slate-200 rounded-xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-700">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <LayoutList size={14} className="text-slate-500" />
+                                        <h6 className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Metadata Inspector</h6>
                                     </div>
-
-                                    <div className="flex gap-2">
-                                        <FormInput
-                                            label=""
-                                            name="location-search"
-                                            value={locationQuery}
-                                            onChange={(v) => setLocationQuery(v)}
-                                            placeholder="e.g. Kolhapur, Maharashtra, India"
-                                            onKeyDown={(e) => e.key === 'Enter' && handleLocationSearch()}
-                                            className='w-full'
-                                        />
-                                        <Button
-                                            size="sm"
-                                            onClick={handleLocationSearch}
-                                            disabled={isSearching}
-                                            className='size-7.5'
-                                        // className="bg-blue-600 text-white hover:bg-blue-700"
-                                        >
-                                            {isSearching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-                                        </Button>
+                                    <div className={cn(
+                                        "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase",
+                                        validationResult.details.isGeographic ? "bg-green-100 text-green-700 border border-green-200" : "bg-amber-100 text-amber-700 border border-amber-200"
+                                    )}>
+                                        {validationResult.details.isGeographic ? "Geographic (Lat/Lon)" : "Projected (Meters)"}
                                     </div>
-
-                                    {foundZone && (
-                                        <div className="flex items-start gap-2 text-[10px] text-green-700 bg-green-100/50 p-2 rounded border border-green-500">
-                                            <MapPin size={14} className="shrink-0 mt-0.5" />
-                                            <div>
-                                                <span className="font-bold block">Detected: UTM Zone {foundZone.zone}{foundZone.hemisphere} - {foundZone.code}</span>
-                                                <span className="block line-clamp-1">{foundZone.locationName}</span>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
-                            </>
 
+                                <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+                                    <table className="w-full text-[10px]">
+                                        <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
+                                            <tr>
+                                                <th className="px-2 py-1.5 text-left font-semibold">Sample Node</th>
+                                                <th className="px-2 py-1.5 text-right font-semibold">X / Lon</th>
+                                                <th className="px-2 py-1.5 text-right font-semibold">Y / Lat</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {validationResult.details.sampleCoords.map((c: any, i: number) => (
+                                                <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                                    <td className="px-2 py-1 text-slate-400 font-mono">#{i + 1}</td>
+                                                    <td className="px-2 py-1 text-right font-mono text-slate-600 tabular-nums">{c[0].toFixed(3)}</td>
+                                                    <td className="px-2 py-1 text-right font-mono text-slate-600 tabular-nums">{c[1].toFixed(3)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="p-2 bg-white border border-slate-200 rounded-lg shadow-sm">
+                                        <div className="flex items-center gap-1.5 mb-1 opacity-50">
+                                            <Maximize2 size={10} className="text-slate-900" />
+                                            <span className="text-[9px] font-bold uppercase tracking-tighter">X-Range</span>
+                                        </div>
+                                        <div className="text-[10px] font-mono font-bold text-slate-700 tabular-nums">
+                                            {validationResult.details.bounds.minX.toFixed(0)} — {validationResult.details.bounds.maxX.toFixed(0)}
+                                        </div>
+                                    </div>
+                                    <div className="p-2 bg-white border border-slate-200 rounded-lg shadow-sm">
+                                        <div className="flex items-center gap-1.5 mb-1 opacity-50">
+                                            <Maximize2 size={10} className="rotate-90 text-slate-900" />
+                                            <span className="text-[9px] font-bold uppercase tracking-tighter">Y-Range</span>
+                                        </div>
+                                        <div className="text-[10px] font-mono font-bold text-slate-700 tabular-nums">
+                                            {validationResult.details.bounds.minY.toFixed(0)} — {validationResult.details.bounds.maxY.toFixed(0)}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Projection Handler */}
+                        {(projectType === 'gis' || projectType === 'import') && showProjectionSelect && (
+                            <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                                <div className="flex items-center justify-between p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-[9px] font-bold text-blue-600 uppercase tracking-tighter">Source SRS</span>
+                                        <span className="text-[11px] font-bold text-blue-900 leading-none">
+                                            {projection ? `EPSG:${projection}` : "Local (Identifying...)"}
+                                        </span>
+                                    </div>
+                                    <ArrowRight className="text-blue-300" size={16} />
+                                    <div className="flex flex-col gap-1 text-right">
+                                        <span className="text-[9px] font-bold text-blue-600 uppercase tracking-tighter">Target (Map)</span>
+                                        <span className="text-[11px] font-bold text-blue-900 leading-none">EPSG:4326 (WGS 84)</span>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider ml-1">Manual Selection</label>
+                                        <ProjectionSelect value={projection} onChange={(v) => { setProjection(v); getProjection?.(v) }} />
+                                    </div>
+
+                                    <div className="relative flex items-center py-1 opacity-60">
+                                        <div className="flex-grow border-t border-slate-200"></div>
+                                        <span className="flex-shrink mx-3 text-[9px] font-bold text-slate-400 uppercase tracking-tighter">OR</span>
+                                        <div className="flex-grow border-t border-slate-200"></div>
+                                    </div>
+
+                                    <div className="p-3 bg-blue-50/80 border border-blue-100 rounded-xl animate-in fade-in zoom-in-95 space-y-3 shadow-sm">
+                                        <div>
+                                            <h6 className="text-[10px] font-bold text-blue-700 uppercase tracking-wide">
+                                                Identify Project Location
+                                            </h6>
+                                            <p className="text-[9px] text-blue-600 leading-relaxed mt-0.5">
+                                                Search for a city or region to auto-detect the coordinate system.
+                                            </p>
+                                        </div>
+
+                                        <div className="flex gap-2">
+                                            <FormInput
+                                                label=""
+                                                name="location-search"
+                                                value={locationQuery}
+                                                onChange={(v) => setLocationQuery(v)}
+                                                placeholder="e.g. Pune, Maharashtra, India"
+                                                onKeyDown={(e) => e.key === 'Enter' && handleLocationSearch()}
+                                                className='w-full bg-white/80'
+                                            />
+                                            <Button
+                                                size="sm"
+                                                onClick={handleLocationSearch}
+                                                disabled={isSearching}
+                                                className="size-9 shrink-0 bg-blue-600 hover:bg-blue-700 text-white"
+                                            >
+                                                {isSearching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                                            </Button>
+                                        </div>
+
+                                        {foundZone && (
+                                            <div className="flex items-start gap-2 text-[10px] text-green-700 bg-green-50 p-2 rounded border border-green-200 animate-in zoom-in-95">
+                                                <MapPin size={14} className="shrink-0 mt-0.5 text-green-600" />
+                                                <div>
+                                                    <span className="font-bold block">Detected: UTM Zone {foundZone.zone}{foundZone.hemisphere} ({foundZone.code})</span>
+                                                    <span className="block opacity-80 italic">{foundZone.locationName}</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                         )}
                     </FormGroup>
                 )}

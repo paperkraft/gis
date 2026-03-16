@@ -3,6 +3,7 @@ import Map from "ol/Map";
 import VectorSource from "ol/source/Vector";
 import VectorLayer from "ol/layer/Vector";
 import type { DeleteManager } from "@/lib/topology/deleteManager";
+import { BaseLayerType } from "@/hooks/useBaseLayer";
 
 interface MapState {
     map: Map | null;
@@ -13,6 +14,7 @@ interface MapState {
     showGrid: boolean; // NEW
     zoom: number;
     projection: string;
+    baseLayer: BaseLayerType;
 
     setMap: (map: Map) => void;
     setVectorSource: (source: VectorSource) => void;
@@ -24,6 +26,7 @@ interface MapState {
     setZoom: (zoom: number) => void;
     setShowGrid: (show: boolean) => void; // NEW
     setProjection: (proj: string) => void;
+    setBaseLayer: (type: BaseLayerType) => void;
     setIsDrawingPipe: (isDrawing: boolean) => void;
 }
 
@@ -36,6 +39,7 @@ export const useMapStore = create<MapState>((set) => ({
     isDrawingPipe: false,
     showGrid: false, // NEW
     projection: "EPSG:3857",
+    baseLayer: 'light',
     zoom: 0,
 
     setMap: (map) => set({ map }),
@@ -46,5 +50,6 @@ export const useMapStore = create<MapState>((set) => ({
     setZoom: (zoom) => set({ zoom }),
     setShowGrid: (show) => set({ showGrid: show }), // NEW
     setProjection: (proj) => set({ projection: proj }),
+    setBaseLayer: (type) => set({ baseLayer: type }),
     setIsDrawingPipe: (isDrawing) => set({ isDrawingPipe: isDrawing }),
 }));

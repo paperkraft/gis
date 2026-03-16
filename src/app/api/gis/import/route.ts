@@ -32,10 +32,17 @@ export async function POST(req: Request) {
         // 2. Execute the Database Transaction
         const result = await db.transaction(async (tx) => {
             // A. Create Project Record
+            const projString = projection ? (String(projection).startsWith('EPSG:') ? projection : `EPSG:${projection}`) : 'EPSG:4326';
             const [newProject] = await tx.insert(projects).values({
                 title,
                 description,
-                settings: { title, description },
+                settings: { 
+                    ...settings, 
+                    title, 
+                    description,
+                    projection: projString,
+                    isGeographic: projString !== 'Simple' && projString !== 'EPSG:Simple'
+                },
                 ownerId: session.id
             }).returning({ id: projects.id });
 
