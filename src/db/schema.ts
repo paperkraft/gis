@@ -100,6 +100,7 @@ export const simulationRuns = pgTable("simulation_runs", {
     // The full EPANET output log
     report: text("report"),
     warnings: jsonb("warnings"),
+    inputData: jsonb("input_data"), // store parameters/scenario used for this run
 });
 
 export const simulationResults = pgTable("simulation_results", {
@@ -113,7 +114,9 @@ export const simulationResults = pgTable("simulation_results", {
 
     // The "Lite" Time Series (Only Report Steps)
     timeSeries: jsonb("time_series"),
-});
+}, (table) => ({
+    runFeatureIdx: index("run_feature_idx").on(table.runId, table.featureId),
+}));
 
 // --- 5. BOOKMARKS ---
 export const bookmarks = pgTable("bookmarks", {
