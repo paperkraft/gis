@@ -81,9 +81,9 @@ export const ProjectLoader = {
             features: featureMap,
             counters,
             settings: data.settings,
-            patterns: data.settings.patterns || DEFAULT_PATTERNS,
-            curves: data.settings.curves || [],
-            controls: data.controls || [],
+            patterns: data.patterns || data.settings?.patterns || DEFAULT_PATTERNS,
+            curves: data.curves || data.settings?.curves || [],
+            controls: data.controls || data.settings?.controls || [],
         };
     }
 }

@@ -13,23 +13,51 @@ import { useNetworkStore } from '@/store/networkStore';
 export { sanitizeProperties } from '@/lib/utils/sanitize';
 
 export const usePropertyForm = () => {
-    const { version, selectedFeature, selectedFeatureId, updateFeature, removeFeature } = useNetworkStore();
+    const { version, selectedFeature, selectedFeatureId, updateFeature, removeFeature, patterns, curves, settings } = useNetworkStore();
     const map = useMapStore(state => state.map);
 
     // Local state for form editing
     const [formData, setFormData] = useState<Record<string, any>>({});
     const [hasChanges, setHasChanges] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
 
     // Sync local state with store selection
     useEffect(() => {
-        if (selectedFeature) {
+        // 1. If feature changed (user selected another component), always reset
+        if (selectedFeatureId !== lastSelectedId) {
+            if (selectedFeature) {
+                const initialData = sanitizeProperties(selectedFeature.properties);
+                
+                // --- ELEVATION INHERITANCE (One-time) ---
+                if (['pump', 'valve'].includes(selectedFeature.type) && !initialData.elevation) {
+                    const startId = initialData.startNodeId || initialData.source;
+                    const endId = initialData.endNodeId || initialData.target;
+                    
+                    const features = useNetworkStore.getState().features;
+                    const startNode = startId ? features.get(startId) : null;
+                    const endNode = endId ? features.get(endId) : null;
+                    
+                    const elevations = [startNode?.properties?.elevation, endNode?.properties?.elevation].filter(e => typeof e === 'number');
+                    if (elevations.length > 0) {
+                        const avgElev = elevations.reduce((a, b) => a + b, 0) / elevations.length;
+                        initialData.elevation = parseFloat(avgElev.toFixed(2));
+                        updateFeature(selectedFeatureId!, { elevation: initialData.elevation });
+                    }
+                }
+
+                setFormData(initialData);
+                setHasChanges(false);
+            } else {
+                setFormData({});
+            }
+            setLastSelectedId(selectedFeatureId);
+        } 
+        // 2. If same feature but store changed AND we don't have local edits, sync to keep up
+        else if (!hasChanges && selectedFeature) {
             setFormData(sanitizeProperties(selectedFeature.properties));
-            setHasChanges(false);
-        } else {
-            setFormData({});
         }
-    }, [selectedFeatureId, selectedFeature, version]);
+    }, [selectedFeatureId, selectedFeature, version, hasChanges, lastSelectedId]);
 
     const handleChange = (key: string, value: any) => {
         setFormData(prev => ({ ...prev, [key]: value }));
@@ -173,6 +201,9 @@ export const usePropertyForm = () => {
         handleDelete,
         handleZoom,
         handleAutoElevate,
-        handleReverse
+        handleReverse,
+        patterns,
+        curves,
+        settings
     };
 };

@@ -105,7 +105,7 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
 
         if (Object.keys(cleanProps).length > 0) {
             updatedFeature.properties = {
-                ...sanitizeProperties(updatedFeature.properties),
+                ...updatedFeature.properties,
                 ...cleanProps
             } as NetworkFeatureProperties;
         }
@@ -334,19 +334,7 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
 const sanitizeProperties = (props: Record<string, any>) => {
     if (!props) return {};
     const clean = { ...props };
-
-    // Remove "geometry" if it snuck in
     delete clean.geometry;
-
-    // Remove numeric keys that result from array spreading
-    // e.g. { "0": [x,y], "1": [x,y] }
-    Object.keys(clean).forEach(key => {
-        // Check if key is a number (e.g. "0", "15")
-        if (!isNaN(Number(key))) {
-            delete clean[key];
-        }
-    });
-
     return clean;
 };
 

@@ -227,7 +227,7 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
         const reservoirIds = new Set((sections['RESERVOIRS'] || []).map(l => l.split(/\s+/)[0]));
 
         const junctions = createNodeHelper(sections['JUNCTIONS'] || [], 'junction', p => ({
-            elevation: parseFloat(p[1]), demand: parseFloat(p[2] || '0')
+            elevation: parseFloat(p[1]), demand: parseFloat(p[2] || '0'), pattern: p[3] || undefined
         }));
         
         // Add discovered nodes that are NOT in the JUNCTIONS section
@@ -242,7 +242,7 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
             elevation: parseFloat(p[1]), initLevel: parseFloat(p[2]), minLevel: parseFloat(p[3]), maxLevel: parseFloat(p[4]), diameter: parseFloat(p[5])
         }));
         const reservoirs = createNodeHelper(sections['RESERVOIRS'] || [], 'reservoir', p => ({
-            head: parseFloat(p[1])
+            head: parseFloat(p[1]), pattern: p[2] || undefined
         }));
 
         const allNodes = [...junctions, ...tanks, ...reservoirs];

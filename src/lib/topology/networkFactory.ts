@@ -2,6 +2,8 @@ import { FeatureType, NetworkFeatureData } from '@/types/network';
 import { useNetworkStore } from '@/store/networkStore';
 import { COMPONENT_TYPES } from '@/constants/networkComponents';
 import { transform } from 'ol/proj';
+import { getLength } from 'ol/sphere';
+import { LineString } from 'ol/geom';
 
 export class NetworkFactory {
 
@@ -53,12 +55,19 @@ export class NetworkFactory {
         // CLEANUP PROPERTIES
         const { geometry, ...cleanProps } = props;
 
-        // Estimate length roughly (Euclidean distance, should use ol/sphere getLength in real scenario)
+        // Estimate length accurately (Geodetic distance)
+        const isGeographic = store.settings.isGeographic !== false && store.settings.projection !== 'Simple';
         let calcLength = 0;
-        for (let i = 0; i < finalCoordinates.length - 1; i++) {
-            const dx = finalCoordinates[i + 1][0] - finalCoordinates[i][0];
-            const dy = finalCoordinates[i + 1][1] - finalCoordinates[i][1];
-            calcLength += Math.sqrt(dx * dx + dy * dy);
+        if (isGeographic) {
+            const lineGeom = new LineString(finalCoordinates);
+            calcLength = getLength(lineGeom, { projection: 'EPSG:3857' });
+        } else {
+            // Euclidean fallback for local XY projects
+            for (let i = 0; i < finalCoordinates.length - 1; i++) {
+                const dx = finalCoordinates[i + 1][0] - finalCoordinates[i][0];
+                const dy = finalCoordinates[i + 1][1] - finalCoordinates[i][1];
+                calcLength += Math.sqrt(dx * dx + dy * dy);
+            }
         }
 
         const length = props.length || Math.round(calcLength);

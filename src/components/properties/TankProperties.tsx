@@ -2,6 +2,7 @@ import { Mountain, RefreshCw } from "lucide-react";
 
 import { FormGroup } from "@/components/form-controls/FormGroup";
 import { FormInput } from "@/components/form-controls/FormInput";
+import { FormSelect } from "@/components/form-controls/FormSelect";
 import { usePropertyForm } from "@/hooks/usePropertyForm";
 
 import { SaveActions } from "../form-controls/SaveActions";
@@ -21,6 +22,7 @@ export function TankProperties() {
     handleZoom,
     handleAutoElevate,
     selectedFeatureId,
+    curves,
   } = usePropertyForm();
 
   if (!selectedFeatureId) return null;
@@ -131,6 +133,21 @@ export function TankProperties() {
             type="number"
           />
         </div>
+
+        <FormSelect
+          label="Volume Curve"
+          value={formData.volCurve || ""}
+          onChange={(v) => handleChange("volCurve", v)}
+          options={[
+            { label: "None", value: "" },
+            ...curves
+              .filter((c: any) => c.type === "VOLUME")
+              .map((c: any) => ({
+                label: c.description || c.id,
+                value: c.id,
+              })),
+          ]}
+        />
       </FormGroup>
 
       <SaveActions onSave={onSave} disabled={!hasChanges} />

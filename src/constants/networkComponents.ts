@@ -38,7 +38,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
         color: "#0EA5E9",
         description: "Infinite water source",
         defaultProperties: {
-            head: 100,
+            head: 180,
             elevation: 150,
             status: "active",
         },
@@ -51,7 +51,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
         color: "#F43F5E",
         description: "Water pumping facility",
         defaultProperties: {
-            capacity: 1000,
+            power: 50,
             headGain: 50,
             efficiency: 80,
             status: "open",

@@ -49,25 +49,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
         if (!projectData) return NextResponse.json({ error: "Project not found or forbidden" }, { status: 403 });
 
-        // Fetch Nodes
-        const dbNodes = await db.select({
-            id: nodes.id,
-            type: nodes.type,
-            elevation: nodes.elevation,
-            baseDemand: nodes.baseDemand,
-            properties: nodes.properties,
-            x: sql<number>`ST_X(geom::geometry)`,
-            y: sql<number>`ST_Y(geom::geometry)`,
-        }).from(nodes).where(eq(nodes.projectId, id));
+        // 1.1 Support Body Data for live simulation (unsaved changes)
+        const body = await req.json().catch(() => ({}));
+        const { nodes: bodyNodes, links: bodyLinks, settings: bodySettings } = body;
 
-        // Fetch Links
-        const dbLinks = await db.select().from(links).where(eq(links.projectId, id));
+        let finalNodes, finalLinks, finalSettings;
 
-        if (dbNodes.length === 0) {
+        if (bodyNodes && bodyLinks && bodySettings) {
+            finalNodes = bodyNodes;
+            finalLinks = bodyLinks;
+            finalSettings = bodySettings;
+        } else {
+            // Fetch Nodes from DB
+            finalNodes = await db.select({
+                id: nodes.id,
+                type: nodes.type,
+                properties: nodes.properties,
+                x: sql<number>`ST_X(geom::geometry)`,
+                y: sql<number>`ST_Y(geom::geometry)`,
+            }).from(nodes).where(eq(nodes.projectId, id));
+
+            // Fetch Links from DB
+            finalLinks = await db.select().from(links).where(eq(links.projectId, id));
+
+            finalSettings = projectData.settings || {};
+        }
+
+        if (finalNodes.length === 0) {
             return NextResponse.json({ error: "Network is empty" }, { status: 400 });
         }
 
-        const inpContent = buildINPFromDB(projectData as any, dbNodes, dbLinks);
+        const inpContent = buildINPFromDB(finalSettings, finalNodes, finalLinks);
 
         ws.writeFile("network.inp", inpContent);
         await model.open("network.inp", "report.rpt", "out.bin");

@@ -3,25 +3,32 @@ import { transform } from "ol/proj";
 import { NetworkControl, NetworkFeatureData, ProjectSettings, PumpCurve, TimePattern } from "@/types/network";
 
 const pad = (val: any, width: number = 16) => {
-    let str = (val !== undefined && val !== null) ? String(val) : '0';
-    if (str.length >= width) return str + ' ';
-    return str.padEnd(width, ' ');
+    if (val === undefined || val === null || val === "") return "".padEnd(width, " ");
+    let str = String(val);
+    if (str === "NaN" || str === "Infinity") str = "0";
+    if (str.length >= width) return str + " ";
+    return str.padEnd(width, " ");
 };
 
 // Helper to get ID safely
 const getId = (f: NetworkFeatureData): string => {
     const id = f.id;
-    return id ? String(id).trim() : 'UNKNOWN';
+    return id ? String(id).trim() : "UNKNOWN";
 };
 
-// Helper to ensure "HH:MM" format if user passed just a number like "24"
-const formatTime = (val: string | number) => {
-    if (typeof val === 'number') return `${val}:00`;
+// Helper to ensure "HH:MM" format
+const formatTime = (val: any) => {
     if (!val) return "0:00";
-    return val.includes(':') ? val : `${val}:00`;
+    if (typeof val === "number") return `${val}:00`;
+    let str = String(val).trim();
+    if (str.includes(":")) return str;
+    let n = parseFloat(str);
+    if (!isNaN(n)) return `${n}:00`;
+    return "0:00";
 };
 
-export function buildINP(features: NetworkFeatureData[],
+export function buildINP(
+    features: NetworkFeatureData[],
     patterns: TimePattern[] = [],
     curves: PumpCurve[] = [],
     controls: NetworkControl[] = [],
@@ -39,22 +46,29 @@ export function buildINP(features: NetworkFeatureData[],
         safePatterns.push({
             id: defaultPatternId,
             description: "Default",
-            multipliers: Array(24).fill(1.0)
+            multipliers: Array(24).fill(1.0),
         });
     }
 
-    // Filter features by type (Case-insensitive check)
-    const getByType = (type: string) => features.filter(f => {
-        const t = f.type;
-        return t && String(t).toLowerCase() === type.toLowerCase();
-    });
+    const patternIds = new Set(safePatterns.map(p => p.id));
+    const curveIds = new Set(curves.map(c => c.id));
 
-    const junctions = getByType('junction');
-    const reservoirs = getByType('reservoir');
-    const tanks = getByType('tank');
-    const pipes = getByType('pipe');
-    const pumps = getByType('pump');
-    const valves = getByType('valve');
+    const getPattern = (p: any) => (p && patternIds.has(String(p))) ? String(p) : "";
+    const getCurve = (c: any) => (c && curveIds.has(String(c))) ? String(c) : "";
+
+    // Filter features by type (Case-insensitive check)
+    const getByType = (type: string) =>
+        features.filter(f => {
+            const t = f.type;
+            return t && String(t).toLowerCase() === type.toLowerCase();
+        });
+
+    const junctions = getByType("junction");
+    const reservoirs = getByType("reservoir");
+    const tanks = getByType("tank");
+    const pipes = getByType("pipe");
+    const pumps = getByType("pump");
+    const valves = getByType("valve");
 
     // Collect all IDs for validation (used in Controls)
     const allIds = new Set(features.map(getId));
@@ -74,11 +88,11 @@ export function buildINP(features: NetworkFeatureData[],
         lines.push('[JUNCTIONS]');
         lines.push(';ID              Elevation    Demand       Pattern');
         junctions.forEach(f => {
-            const props = f.properties;
-            // Use '1' as default pattern if none specified
-            // const pattern = props.pattern || (defaultPatternId ? "1" : "");
-            const pattern = props.pattern || defaultPatternId
-            lines.push(`${pad(getId(f))} ${pad(props.elevation ?? 0)} ${pad(props.demand ?? 0)} ${pad(pattern)} ;`);
+            const props = f.properties || {};
+            const elev = props.elevation ?? 0;
+            const demand = props.demand ?? 0;
+            const pattern = getPattern(props.pattern || defaultPatternId);
+            lines.push(`${pad(getId(f))} ${pad(elev)} ${pad(demand)} ${pad(pattern)} ;`);
         });
         lines.push('');
     }
@@ -88,10 +102,17 @@ export function buildINP(features: NetworkFeatureData[],
         lines.push('[RESERVOIRS]');
         lines.push(';ID              Head         Pattern');
         reservoirs.forEach(f => {
-            const props = f.properties;
-            // Head is often stored in 'head' or 'elevation'
-            const head = props.head !== undefined ? props.head : (props.elevation ?? 100);
-            lines.push(`${pad(getId(f))} ${pad(head)} ${pad(props.headPattern || "")} ;`);
+            const props = f.properties || {};
+            // If head is specifically 0 or unset but elevation is provided, 
+            // the user likely forgot to set Total Head. Fallback to elevation.
+            // Absolute Head must be >= Elevation.
+            const head = Math.max(props.head ?? 0, props.elevation ?? 0);
+            
+            // If still 0, use a safe default to prevent negative pressure at start
+            const finalHead = head > 0 ? head : 100;
+
+            const pattern = getPattern(props.pattern || props.headPattern);
+            lines.push(`${pad(getId(f))} ${pad(finalHead)} ${pad(pattern)} ;`);
         });
         lines.push('');
     }
@@ -101,8 +122,10 @@ export function buildINP(features: NetworkFeatureData[],
         lines.push('[TANKS]');
         lines.push(';ID              Elevation    InitLevel    MinLevel     MaxLevel     Diameter     MinVol       VolCurve');
         tanks.forEach(f => {
-            const props = f.properties;
-            lines.push(`${pad(getId(f))} ${pad(props.elevation ?? 0)} ${pad(props.initLevel ?? 10)} ${pad(props.minLevel ?? 0)} ${pad(props.maxLevel ?? 20)} ${pad(props.diameter ?? 50)} ${pad(props.minVol ?? 0)} ${pad(props.volCurve || "")} ;`);
+            const props = f.properties || {};
+            const elev = props.elevation ?? 0;
+            const volCurve = getCurve(props.volCurve);
+            lines.push(`${pad(getId(f))} ${pad(elev)} ${pad(props.initLevel ?? props.initialLevel ?? 10)} ${pad(props.minLevel ?? 0)} ${pad(props.maxLevel ?? 20)} ${pad(props.diameter ?? 50)} ${pad(props.minVol ?? 0)} ${pad(volCurve)} ;`);
         });
         lines.push('');
     }
@@ -112,8 +135,10 @@ export function buildINP(features: NetworkFeatureData[],
         lines.push('[PIPES]');
         lines.push(';ID              Node1           Node2           Length       Diameter     Roughness    MinorLoss    Status');
         pipes.forEach(f => {
-            const props = f.properties;
-            lines.push(`${pad(getId(f))} ${pad(props.startNodeId)} ${pad(props.endNodeId)} ${pad(props.length ?? 100)} ${pad(props.diameter ?? 100)} ${pad(props.roughness ?? 100)} ${pad(props.minorLoss ?? 0)} ${pad(props.status ?? 'Open')} ;`);
+            const props = f.properties || {};
+            const node1 = props.startNodeId || props.sourceNodeId || '0';
+            const node2 = props.endNodeId || props.targetNodeId || '0';
+            lines.push(`${pad(getId(f))} ${pad(node1)} ${pad(node2)} ${pad(props.length ?? 100)} ${pad(props.diameter ?? 100)} ${pad(props.roughness ?? 100)} ${pad(props.minorLoss ?? 0)} ${pad(props.status ?? 'Open')} ;`);
         });
         lines.push('');
     }
@@ -123,12 +148,21 @@ export function buildINP(features: NetworkFeatureData[],
         lines.push('[PUMPS]');
         lines.push(';ID              Node1           Node2           Parameters');
         pumps.forEach(f => {
-            const props = f.properties;
-            // Support Curve or Constant Power
-            let param = `POWER ${props.power ?? 50}`;
-            if (props.headCurve) param = `HEAD ${props.headCurve}`;
+            const props = f.properties || {};
+            const node1 = props.startNodeId || props.sourceNodeId || '0';
+            const node2 = props.endNodeId || props.targetNodeId || '0';
+            
+            // Support Curve or Constant Power. Only use Curve if it exists in the project.
+            const pumpCurve = getCurve(props.curve || props.headCurve);
+            
+            // Fallback to Power if no curve. 
+            // CRITICAL: Ensure power is NOT 0 (fallback to 50kW)
+            const powerValue = props.power || 50; 
+            let param = `POWER ${powerValue}`;
+            
+            if (pumpCurve && pumpCurve !== "CONST") param = `HEAD ${pumpCurve}`;
 
-            lines.push(`${pad(getId(f))} ${pad(props.startNodeId)} ${pad(props.endNodeId)} ${param} ;`);
+            lines.push(`${pad(getId(f))} ${pad(node1)} ${pad(node2)} ${param} ;`);
         });
         lines.push('');
     }
@@ -138,8 +172,10 @@ export function buildINP(features: NetworkFeatureData[],
         lines.push('[VALVES]');
         lines.push(';ID              Node1           Node2           Diameter     Type         Setting      MinorLoss');
         valves.forEach(f => {
-            const props = f.properties;
-            lines.push(`${pad(getId(f))} ${pad(props.startNodeId)} ${pad(props.endNodeId)} ${pad(props.diameter ?? 50)} ${pad(props.valveType ?? 'PRV')} ${pad(props.setting ?? 0)} ${pad(props.minorLoss ?? 0)} ;`);
+            const props = f.properties || {};
+            const node1 = props.startNodeId || props.sourceNodeId || '0';
+            const node2 = props.endNodeId || props.targetNodeId || '0';
+            lines.push(`${pad(getId(f))} ${pad(node1)} ${pad(node2)} ${pad(props.diameter ?? 50)} ${pad(props.valveType ?? 'PRV')} ${pad(props.setting ?? 0)} ${pad(props.minorLoss ?? 0)} ;`);
         });
         lines.push('');
     }
@@ -252,9 +288,19 @@ export function buildINP(features: NetworkFeatureData[],
                     } catch (e) { }
                 }
 
-                // Skip first and last (start/end nodes)
+                // Skip first and last (start/end nodes) and duplicates
+                let lastX: string | null = null;
+                let lastY: string | null = null;
+
                 for (let i = 1; i < coords.length - 1; i++) {
-                    lines.push(`${pad(getId(f))} ${pad(coords[i][0].toFixed(2))} ${pad(coords[i][1].toFixed(2))}`);
+                    const x = coords[i][0].toFixed(2);
+                    const y = coords[i][1].toFixed(2);
+                    
+                    if (x === lastX && y === lastY) continue;
+                    
+                    lines.push(`${pad(getId(f))} ${pad(x)} ${pad(y)}`);
+                    lastX = x;
+                    lastY = y;
                 }
             });
             lines.push('');
@@ -262,35 +308,32 @@ export function buildINP(features: NetworkFeatureData[],
     }
 
     lines.push('[OPTIONS]');
-    lines.push(`Units              ${settings?.units || 'LPS'}`);
-    lines.push(`Headloss           ${settings?.headloss || 'H-W'}`);
-
-    lines.push(`Demand Multiplier  ${settings?.demandMultiplier ?? 1.0}`);
-
-    lines.push(`Specific Gravity   ${settings?.specificGravity || 1.0}`);
-    lines.push(`Viscosity          ${settings?.viscosity || 1.0}`);
-    lines.push(`Trials             ${settings?.maxTrials || 40}`);
-    lines.push(`Accuracy           ${settings?.accuracy || 0.001}`);
+    lines.push(`UNITS              ${settings?.units || 'LPS'} ; Flow Units`);
+    lines.push(`HEADLOSS           ${settings?.headloss || 'H-W'} ; Headloss Formula`);
+    lines.push(`DEMAND MULTIPLIER  ${settings?.demandMultiplier ?? 1.0} ; Global Multiplier`);
+    lines.push(`SPECIFIC GRAVITY   ${settings?.specificGravity || 1.0}`);
+    lines.push(`VISCOSITY          ${settings?.viscosity || 1.0}`);
+    lines.push(`TRIALS             ${settings?.maxTrials || 40}`);
+    lines.push(`ACCURACY           ${settings?.accuracy || 0.001}`);
 
     // Default Engine Settings
     lines.push('CHECKFREQ          2');
     lines.push('MAXCHECK           10');
     lines.push('DAMPLIMIT          0');
-    lines.push('UNBALANCED         Continue 10');
-    // lines.push('PATTERN            1');
+    lines.push('UNBALANCED         CONTINUE 10');
     lines.push(`PATTERN            ${defaultPatternId}`);
     lines.push('');
 
     // lines.push(`Duration           ${options?.duration || 24}:00`);
     // lines.push(`Hydraulic Timestep ${options?.timeStep || "1:00"}`);
     lines.push('[TIMES]');
-    lines.push(`Duration           ${formatTime(settings?.duration || "24:00")}`);
-    lines.push(`Hydraulic Timestep ${formatTime(settings?.hydraulicStep || "1:00")}`);
-    lines.push(`Pattern Timestep   ${formatTime(settings?.patternStep || "1:00")}`);
-    lines.push(`Report Timestep    ${formatTime(settings?.reportStep || "1:00")}`);
-    lines.push(`Report Start       ${formatTime(settings?.reportStart || "0:00")}`);
-    lines.push(`Start ClockTime    ${settings?.startClock || "12:00 AM"}`);
-    lines.push('Statistic          None');
+    lines.push(`DURATION           ${formatTime(settings?.duration || "24:00")}`);
+    lines.push(`HYDRAULIC TIMESTEP ${formatTime(settings?.hydraulicStep || "1:00")}`);
+    lines.push(`PATTERN TIMESTEP   ${formatTime(settings?.patternStep || "1:00")}`);
+    lines.push(`REPORT TIMESTEP    ${formatTime(settings?.reportStep || "1:00")}`);
+    lines.push(`REPORT START       ${formatTime(settings?.reportStart || "0:00")}`);
+    lines.push(`START CLOCKTIME    ${settings?.startClock || "12:00 AM"}`);
+    lines.push('STATISTIC          NONE');
     lines.push('');
 
     lines.push('[END]');

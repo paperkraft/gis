@@ -33,7 +33,7 @@ self.onmessage = async (event: MessageEvent<WorkerInput>) => {
         model.open(inputFileName, reportFileName, outputFileName);
 
         // 4. Metadata Extraction
-        const nodeCount = model.getCount(1); // 1 = Nodes
+        const nodeCount = model.getCount(0); // 0 = Nodes (Total), 1 = Tanks/Res
         const linkCount = model.getCount(2); // 2 = Links
 
         const nodeIds: string[] = [];
@@ -55,6 +55,7 @@ self.onmessage = async (event: MessageEvent<WorkerInput>) => {
 
         // Initialize Hydraulic Analysis
         model.openH();
+        model.initH(0); // 0 = Default initialization
 
         while (tStep > 0) {
             // A. Run single time step
@@ -65,11 +66,11 @@ self.onmessage = async (event: MessageEvent<WorkerInput>) => {
             const nodeResults: Record<string, any> = {};
             for (let i = 1; i <= nodeCount; i++) {
                 const id = nodeIds[i - 1];
-                // 11 = Pressure, 10 = Demand, 8 = Head
+                // Indices for EN_DEMAND=9, EN_HEAD=10, EN_PRESSURE=11
                 nodeResults[id] = {
                     pressure: model.getNodeValue(i, 11),
-                    demand: model.getNodeValue(i, 10),
-                    head: model.getNodeValue(i, 8)
+                    demand: model.getNodeValue(i, 9),
+                    head: model.getNodeValue(i, 10)
                 };
             }
 
@@ -77,12 +78,12 @@ self.onmessage = async (event: MessageEvent<WorkerInput>) => {
             const linkResults: Record<string, any> = {};
             for (let i = 1; i <= linkCount; i++) {
                 const id = linkIds[i - 1];
-                // 8 = Flow, 9 = Velocity, 10 = Headloss, 11 = Status
+                // Indices for EN_FLOW=8, EN_VELOCITY=9, EN_HEADLOSS=10, EN_STATUS=11
                 linkResults[id] = {
                     flow: model.getLinkValue(i, 8),
                     velocity: model.getLinkValue(i, 9),
                     headloss: model.getLinkValue(i, 10),
-                    status: model.getLinkValue(i, 11) === 1 ? 'Open' : 'Closed'
+                    status: model.getLinkValue(i, 11) >= 1 ? 'Open' : 'Closed'
                 };
             }
 

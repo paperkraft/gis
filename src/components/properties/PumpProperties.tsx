@@ -18,6 +18,9 @@ export function PumpProperties() {
     handleDelete,
     handleZoom,
     selectedFeatureId,
+    curves,
+    handleAutoElevate,
+    patterns,
   } = usePropertyForm();
 
   if (!selectedFeatureId) return null;
@@ -52,8 +55,13 @@ export function PumpProperties() {
           value={formData.curve || "CURVE-1"}
           onChange={(v) => handleChange("curve", v)}
           options={[
-            { label: "Curve-1 (Std)", value: "CURVE-1" },
             { label: "Constant Power", value: "CONST" },
+            ...curves
+              .filter((c: any) => c.type === "PUMP")
+              .map((c: any) => ({
+                label: c.description || c.id,
+                value: c.id,
+              })),
           ]}
         />
 

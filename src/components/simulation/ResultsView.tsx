@@ -1,8 +1,8 @@
 "use client";
 
 import {
-    AlertTriangle, ArrowLeft, BarChart3, ChevronLeft, ChevronRight, Download, FileText, Layers,
-    Pause, Play, RefreshCcw, Save, Terminal, Timer
+  AlertTriangle, ArrowLeft, BarChart3, ChevronLeft, ChevronRight, Download, FileText, Layers,
+  Pause, Play, RefreshCcw, Save, Terminal, Timer
 } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import React, { useEffect, useMemo, useState } from 'react';

@@ -22,6 +22,8 @@ export function ReservoirProperties() {
     handleZoom,
     handleAutoElevate,
     selectedFeatureId,
+    patterns,
+    settings,
   } = usePropertyForm();
 
   if (!selectedFeatureId) return null;
@@ -85,11 +87,14 @@ export function ReservoirProperties() {
 
         <FormSelect
           label="Head Pattern"
-          value={formData.headPattern || "NONE"}
-          onChange={(v) => handleChange("headPattern", v)}
+          value={formData.pattern || ""}
+          onChange={(v) => handleChange("pattern", v)}
           options={[
-            { value: "NONE", label: "Node (Fixed Head)" },
-            { value: "TIDAL", label: "Tidal Variation" },
+            { value: "", label: "None (Fixed Head)" },
+            ...patterns.map((p: any) => ({
+              label: p.description || p.id,
+              value: p.id,
+            })),
           ]}
         />
       </FormGroup>

@@ -22,6 +22,8 @@ export function JunctionProperties() {
     handleChange,
     handleDelete,
     handleAutoElevate,
+    patterns,
+    settings,
   } = usePropertyForm();
 
   if (!selectedFeatureId) return null;
@@ -86,9 +88,17 @@ export function JunctionProperties() {
 
         <FormSelect
           label="Demand Pattern"
-          value={formData.pattern || "1"}
+          value={formData.pattern || settings?.defaultPattern || "1"}
           onChange={(v) => handleChange("pattern", v)}
-          options={[{ value: "1", label: "Default Pattern" }]}
+          options={[
+            { value: settings?.defaultPattern || "1", label: `Default Pattern (${settings?.defaultPattern || "1"})` },
+            ...patterns
+              .filter((p: any) => p.id !== settings?.defaultPattern)
+              .map((p: any) => ({
+                label: p.description || p.id,
+                value: p.id,
+              })),
+          ]}
         />
       </FormGroup>
       <SaveActions onSave={onSave} disabled={!hasChanges} />
