@@ -49,10 +49,6 @@ export const nodes = pgTable("nodes", {
 
     type: text("type").notNull(), // 'junction', 'tank', 'reservoir'
 
-    // Core Hydraulic Columns (Indexed)
-    elevation: doublePrecision("elevation").default(0),
-    baseDemand: doublePrecision("base_demand").default(0),
-
     // JSONB for UI (color, icon) and minor props
     properties: jsonb("properties"),
 
@@ -73,10 +69,6 @@ export const links = pgTable("links", {
     // Topology: These MUST exist in the nodes table
     sourceNodeId: text("source_node_id").notNull(),
     targetNodeId: text("target_node_id").notNull(),
-
-    length: doublePrecision("length").default(0),
-    diameter: doublePrecision("diameter").default(0),
-    roughness: doublePrecision("roughness").default(100),
 
     properties: jsonb("properties"),
     geom: geometry("geom", "LineString"),

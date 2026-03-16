@@ -70,8 +70,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const dbNodes = await db.select({
             id: nodes.id,
             type: nodes.type,
-            elevation: nodes.elevation,
-            baseDemand: nodes.baseDemand,
             properties: nodes.properties,
             x: sql<number>`ST_X(geom::geometry)`,
             y: sql<number>`ST_Y(geom::geometry)`,
@@ -83,9 +81,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             type: links.type,
             source: links.sourceNodeId,
             target: links.targetNodeId,
-            length: links.length,
-            diameter: links.diameter,
-            roughness: links.roughness,
             properties: links.properties,
             geoJSON: sql<string>`ST_AsGeoJSON(geom)::json`
         }).from(links).where(eq(links.projectId, id));
@@ -96,8 +91,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                 id: n.id,
                 type: n.type,
                 geometry: { type: 'Point', coordinates: [n.x, n.y] },
-                elevation: n.elevation,
-                baseDemand: n.baseDemand,
                 ...n.properties as object
             })),
             ...dbLinks.map(l => {
@@ -106,9 +99,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                     id: l.id,
                     type: l.type,
                     geometry: { type: 'LineString', coordinates: geo.coordinates },
-                    length: l.length,
-                    diameter: l.diameter,
-                    roughness: l.roughness,
                     source: l.source,
                     target: l.target,
                     ...l.properties as object
@@ -170,8 +160,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                     projectId: id,
                     id: n.id,
                     type: n.type,
-                    elevation: n.elevation || 0,
-                    baseDemand: n.baseDemand || 0,
                     properties: n,
                     geom: sql`ST_SetSRID(ST_MakePoint(${n.geometry.coordinates[0]}, ${n.geometry.coordinates[1]}), 4326)`
                 }));
@@ -181,8 +169,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                     .onConflictDoUpdate({
                         target: [nodes.projectId, nodes.id],
                         set: {
-                            elevation: sql`excluded.elevation`,
-                            baseDemand: sql`excluded.base_demand`,
                             properties: sql`excluded.properties`,
                             geom: sql`excluded.geom`
                         }
@@ -227,9 +213,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                         type: l.type,
                         sourceNodeId: source,
                         targetNodeId: target,
-                        length: l.length || 0,
-                        diameter: l.diameter || 0,
-                        roughness: l.roughness || 100,
                         properties: l,
                         geom: sql`ST_GeomFromText(${wkt}, 4326)`
                     });
@@ -243,9 +226,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                             set: {
                                 sourceNodeId: sql`excluded.source_node_id`,
                                 targetNodeId: sql`excluded.target_node_id`,
-                                length: sql`excluded.length`,
-                                diameter: sql`excluded.diameter`,
-                                roughness: sql`excluded.roughness`,
                                 properties: sql`excluded.properties`,
                                 geom: sql`excluded.geom`
                             }
