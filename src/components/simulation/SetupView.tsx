@@ -44,6 +44,15 @@ export function SetupView() {
 
     accuracy: settings.accuracy || 0.001,
     maxTrials: settings.maxTrials || 40,
+
+    patternStep: settings.patternStep || "1:00",
+    reportStep: settings.reportStep || "1:00",
+    reportStart: settings.reportStart || "0:00",
+    startClock: settings.startClock || "12:00 AM",
+    statistic: settings.statistic || "NONE",
+
+    specificGravity: settings.specificGravity || 1.0,
+    viscosity: settings.viscosity || 1.0,
   });
 
   useEffect(() => {
@@ -56,6 +65,15 @@ export function SetupView() {
 
       accuracy: settings.accuracy || 0.001,
       maxTrials: settings.maxTrials || 40,
+
+      patternStep: settings.patternStep || "1:00",
+      reportStep: settings.reportStep || "1:00",
+      reportStart: settings.reportStart || "0:00",
+      startClock: settings.startClock || "12:00 AM",
+      statistic: settings.statistic || "NONE",
+
+      specificGravity: settings.specificGravity || 1.0,
+      viscosity: settings.viscosity || 1.0,
     });
   }, [settings]);
 
@@ -67,12 +85,20 @@ export function SetupView() {
     updateSettings({
       duration: formData.duration || "24:00",
       hydraulicStep: formData.hydraulicStep || "1:00",
+      patternStep: formData.patternStep || "1:00",
+      reportStep: formData.reportStep || "1:00",
+      reportStart: formData.reportStart || "0:00",
+      startClock: formData.startClock || "12:00 AM",
+      statistic: formData.statistic as any || "NONE",
 
       units: formData.units as FlowUnits || "LPS",
       headloss: formData.headloss as HeadlossFormula || "H-W",
 
-      maxTrials: Number(formData.maxTrials) || 0.001,
-      accuracy: Number(formData.accuracy) || 40,
+      specificGravity: Number(formData.specificGravity) || 1.0,
+      viscosity: Number(formData.viscosity) || 1.0,
+
+      maxTrials: Number(formData.maxTrials) || 40,
+      accuracy: Number(formData.accuracy) || 0.001,
     });
 
     setTimeout(async () => {
@@ -135,22 +161,41 @@ export function SetupView() {
             setActiveSection(activeSection === "control" ? "" : "control")
           }
         >
-          <FormGroup label="Duration">
-            <div className="grid grid-cols-2 gap-3">
-              <FormInput
-                label="Total Hrs"
-                value={formData.duration}
-                onChange={(v) => setFormData({ ...formData, duration: v })}
-                placeholder="24:00"
-              />
-              <FormInput
-                label="Hydraulic Step"
-                value={formData.hydraulicStep}
-                onChange={(v) => setFormData({ ...formData, hydraulicStep: v })}
-                placeholder="1:00"
-              />
-            </div>
-          </FormGroup>
+          <div className="space-y-3">
+            <FormGroup label="Simulation Duration">
+              <div className="grid grid-cols-2 gap-3">
+                <FormInput
+                  label="Total Duration"
+                  value={formData.duration}
+                  onChange={(v) => setFormData({ ...formData, duration: v })}
+                  placeholder="24:00"
+                />
+                <FormInput
+                  label="Start Clock"
+                  value={formData.startClock}
+                  onChange={(v) => setFormData({ ...formData, startClock: v })}
+                  placeholder="12:00 AM"
+                />
+              </div>
+            </FormGroup>
+
+            <FormGroup label="Timesteps">
+              <div className="grid grid-cols-2 gap-3">
+                <FormInput
+                  label="Hydraulic Step"
+                  value={formData.hydraulicStep}
+                  onChange={(v) => setFormData({ ...formData, hydraulicStep: v })}
+                  placeholder="1:00"
+                />
+                <FormInput
+                  label="Pattern Step"
+                  value={formData.patternStep}
+                  onChange={(v) => setFormData({ ...formData, patternStep: v })}
+                  placeholder="1:00"
+                />
+              </div>
+            </FormGroup>
+          </div>
         </SimSection>
 
         <SimSection
@@ -160,20 +205,41 @@ export function SetupView() {
           isOpen={activeSection === "hydraulics"}
           onToggle={() => toggleSection("hydraulics")}
         >
-          <FormGroup label="System Properties">
-            <FormSelect
-              label="Flow Units"
-              value={formData.units}
-              onChange={(v) => setFormData({ ...formData, units: v })}
-              options={flowUnitOptions}
-            />
-            <FormSelect
-              label="Head Loss Model"
-              value={formData.headloss}
-              onChange={(v) => setFormData({ ...formData, headloss: v })}
-              options={headLossUnitOptions}
-            />
-          </FormGroup>
+          <div className="space-y-3">
+            <FormGroup label="System Properties">
+              <FormSelect
+                label="Flow Units"
+                value={formData.units}
+                onChange={(v) => setFormData({ ...formData, units: v })}
+                options={flowUnitOptions}
+              />
+              <FormSelect
+                label="Head Loss Model"
+                value={formData.headloss}
+                onChange={(v) => setFormData({ ...formData, headloss: v })}
+                options={headLossUnitOptions}
+              />
+            </FormGroup>
+
+            <FormGroup label="Fluid Properties">
+              <div className="grid grid-cols-2 gap-3">
+                <FormInput
+                  label="Spec. Gravity"
+                  value={formData.specificGravity}
+                  onChange={(v) => setFormData({ ...formData, specificGravity: v })}
+                  type="number"
+                  step="0.01"
+                />
+                <FormInput
+                  label="Rel. Viscosity"
+                  value={formData.viscosity}
+                  onChange={(v) => setFormData({ ...formData, viscosity: v })}
+                  type="number"
+                  step="0.01"
+                />
+              </div>
+            </FormGroup>
+          </div>
         </SimSection>
 
         <SimSection
@@ -183,23 +249,56 @@ export function SetupView() {
           isOpen={activeSection === "options"}
           onToggle={() => toggleSection("options")}
         >
-          <FormGroup label="Convergence">
-            <div className="grid grid-cols-2 gap-3">
-              <FormInput
-                label="Accuracy"
-                value={formData.accuracy}
-                onChange={(v) => setFormData({ ...formData, accuracy: v })}
-                type="number"
-                step="0.001"
-              />
-              <FormInput
-                label="Max Trials"
-                value={formData.maxTrials}
-                onChange={(v) => setFormData({ ...formData, maxTrials: v })}
-                type="number"
-              />
-            </div>
-          </FormGroup>
+          <div className="space-y-3">
+            <FormGroup label="Report Options">
+              <div className="grid grid-cols-2 gap-3">
+                <FormInput
+                  label="Report Step"
+                  value={formData.reportStep}
+                  onChange={(v) => setFormData({ ...formData, reportStep: v })}
+                  placeholder="1:00"
+                />
+                <FormInput
+                  label="Report Start"
+                  value={formData.reportStart}
+                  onChange={(v) => setFormData({ ...formData, reportStart: v })}
+                  placeholder="0:00"
+                />
+              </div>
+              <div className="mt-3">
+                <FormSelect
+                  label="Output Statistic"
+                  value={formData.statistic}
+                  onChange={(v) => setFormData({ ...formData, statistic: v })}
+                  options={[
+                    { label: "None", value: "NONE" },
+                    { label: "Average", value: "AVERAGE" },
+                    { label: "Minimum", value: "MINIMUM" },
+                    { label: "Maximum", value: "MAXIMUM" },
+                    { label: "Range", value: "RANGE" },
+                  ]}
+                />
+              </div>
+            </FormGroup>
+
+            <FormGroup label="Convergence">
+              <div className="grid grid-cols-2 gap-3">
+                <FormInput
+                  label="Accuracy"
+                  value={formData.accuracy}
+                  onChange={(v) => setFormData({ ...formData, accuracy: v })}
+                  type="number"
+                  step="0.0001"
+                />
+                <FormInput
+                  label="Max Trials"
+                  value={formData.maxTrials}
+                  onChange={(v) => setFormData({ ...formData, maxTrials: v })}
+                  type="number"
+                />
+              </div>
+            </FormGroup>
+          </div>
         </SimSection>
 
         <div

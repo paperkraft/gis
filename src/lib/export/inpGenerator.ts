@@ -273,7 +273,15 @@ export function buildINPFromDB(
     lines.push(`REPORT TIMESTEP    ${formatTime(settings.reportStep || "1:00")}`);
     lines.push(`REPORT START       ${formatTime(settings.reportStart || "0:00")}`);
     lines.push(`START CLOCKTIME    ${settings.startClock || "12:00 AM"}`);
-    lines.push("STATISTIC          NONE");
+    lines.push(`STATISTIC          ${settings.statistic || "NONE"}`);
+    lines.push("");
+
+    lines.push("[REPORT]");
+    lines.push("STATUS             YES");
+    lines.push("SUMMARY            YES");
+    lines.push("NODES              ALL");
+    lines.push("LINKS              ALL");
+    lines.push("");
     lines.push("");
 
     lines.push("[END]");

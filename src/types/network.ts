@@ -95,6 +95,7 @@ export interface ProjectSettings {
     startClock?: string;       // e.g. "12:00 AM"
 
     defaultPattern?: string;   // e.g. "1", "Pat-A", etc.
+    statistic?: 'NONE' | 'AVERAGE' | 'MINIMUM' | 'MAXIMUM' | 'RANGE';
     isGeographic?: boolean;
 }
 export interface TimePattern {

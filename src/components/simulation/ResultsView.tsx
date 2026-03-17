@@ -16,6 +16,7 @@ import { FormGroup } from '../form-controls/FormGroup';
 import { FormSelect } from '../form-controls/FormSelect';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
 export function ResultsView() {
   const params = useParams();
@@ -41,6 +42,7 @@ export function ResultsView() {
   const { setActiveModal } = useUIStore();
 
   const [showLog, setShowLog] = useState(false);
+  const [activeTab, setActiveTab] = useState("log");
   const hasWarnings = warnings && warnings.length > 0;
 
   const handleDownloadLog = () => {
@@ -63,6 +65,17 @@ export function ResultsView() {
     const a = document.createElement("a");
     a.href = url;
     a.download = `simulation_log_${Date.now()}.txt`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadRpt = () => {
+    if (!report) return;
+    const blob = new Blob([report], { type: "text/plain" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `report_${Date.now()}.rpt`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -397,54 +410,81 @@ export function ResultsView() {
 
       {/* --- REPORT DIALOG --- */}
       <Dialog open={showLog} onOpenChange={setShowLog}>
-        <DialogContent className="max-w-xl max-h-[80vh] flex flex-col p-0 gap-0 overflow-hidden">
-          <DialogHeader className="p-4 border-b bg-slate-50">
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
+          <DialogHeader className="p-4 border-b bg-slate-50 flex flex-row items-center justify-between space-y-0">
             <DialogTitle className="flex items-center gap-2 text-sm font-bold text-slate-700">
               <Terminal size={16} className="text-slate-500" /> Simulation
-              Output Log
+              Output
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto bg-slate-900 p-4 font-mono text-[11px] text-slate-300 leading-relaxed custom-scrollbar">
-            {/* Warnings Section (Highlighted) */}
-            {warnings && warnings.length > 0 && (
-              <div className="mb-6 p-3 bg-amber-900/30 border border-amber-700/50 rounded text-amber-200">
-                <div className="font-bold mb-2 flex items-center gap-2 text-amber-400 border-b border-amber-700/50 pb-1">
-                  <AlertTriangle size={14} />
-                  <span>Detected Warnings ({warnings.length})</span>
-                </div>
-                <ul className="list-disc pl-4 space-y-1">
-                  {warnings.map((w, i) => (
-                    <li key={i}>{w}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Full Report Text */}
-            <div className="whitespace-pre-wrap">
-              {report || (
-                <span className="italic opacity-50 text-slate-500">
-                  No report generated.
-                </span>
-              )}
+          <Tabs value={activeTab} className="flex flex-col flex-1 overflow-hidden" onValueChange={setActiveTab}>
+            <div className="px-4 py-2 border-b bg-slate-50/50">
+              <TabsList className="bg-slate-200/50">
+                <TabsTrigger value="log" className="text-[11px] h-7 px-4">Log Summary</TabsTrigger>
+                <TabsTrigger value="report" className="text-[11px] h-7 px-4">Full Report (.rpt)</TabsTrigger>
+              </TabsList>
             </div>
-          </div>
 
-          <div className="p-3 bg-slate-50 border-t flex justify-end">
+            <TabsContent value="log" className="flex-1 min-h-0 overflow-y-auto bg-slate-900 p-4 font-mono text-[11px] text-slate-300 leading-relaxed custom-scrollbar m-0">
+               {/* Warnings Section (Highlighted) */}
+               {warnings && warnings.length > 0 && (
+                <div className="mb-6 p-3 bg-amber-900/30 border border-amber-700/50 rounded text-amber-200">
+                  <div className="font-bold mb-2 flex items-center gap-2 text-amber-400 border-b border-amber-700/50 pb-1">
+                    <AlertTriangle size={14} />
+                    <span>Detected Warnings ({warnings.length})</span>
+                  </div>
+                  <ul className="list-disc pl-4 space-y-1">
+                    {warnings.map((w, i) => (
+                      <li key={i}>{w}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              <div className="whitespace-pre-wrap">
+                {report && report.includes('Analysis begun') ? report.split('Analysis begun')[0] : "Simulation completed."}
+                {warnings && warnings.length > 0 ? "\nSee warnings above for details." : "\nNo critical issues detected during analysis."}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="report" className="flex-1 min-h-0 overflow-y-auto bg-slate-900 p-4 font-mono text-[11px] text-slate-400 leading-relaxed custom-scrollbar m-0">
+              <div className="whitespace-pre-wrap font-mono">
+                {report || (
+                  <span className="italic opacity-50 text-slate-500">
+                    No report generated.
+                  </span>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <div className="p-3 bg-slate-50 border-t flex justify-between items-center">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadLog}
+                disabled={!report}
+                className="h-8 text-xs gap-2"
+              >
+                <Download size={14} /> Download Log (.txt)
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadRpt}
+                disabled={!report}
+                className="h-8 text-xs gap-2"
+              >
+                <FileText size={14} /> Download Report (.rpt)
+              </Button>
+            </div>
             <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownloadLog}
-              disabled={!report}
-              className="h-8 text-xs gap-2"
-            >
-              <Download size={14} /> Download .txt
-            </Button>
-            <Button
-              variant="outline"
+              variant="default"
               size="sm"
               onClick={() => setShowLog(false)}
+              className="h-8 px-6"
             >
               Close
             </Button>
