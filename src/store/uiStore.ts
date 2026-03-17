@@ -100,7 +100,7 @@ interface UIState {
     isFlowAnimating: boolean;
     flowAnimationSpeed: number;
     flowAnimationStyle: FlowAnimationStyle;
-    styleSettingsModalOpen: boolean;
+    showDisplayPanel: boolean;
 
     // Context Menu & Styling State
     contextMenu: ContextMenuState | null;
@@ -155,7 +155,7 @@ interface UIState {
     setIsFlowAnimating: (animating: boolean) => void;
     setFlowAnimationSpeed: (speed: number) => void;
     setFlowAnimationStyle: (style: FlowAnimationStyle) => void;
-    setStyleSettingsModalOpen: (open: boolean) => void;
+    setShowDisplayPanel: (open: boolean) => void;
 
     // Actions - Tab navigation
     setContextMenu: (menu: ContextMenuState | null) => void;
@@ -219,7 +219,7 @@ const DEFAULT_STATE = {
     showVertices: false,
 
     isSnappingEnabled: true,
-    styleSettingsModalOpen: false,
+    showDisplayPanel: false,
 
     contextMenu: null,
     mergeContext: null,
@@ -267,7 +267,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     setShowVertices: (show) => set({ showVertices: show }),
 
     setIsSnappingEnabled: (enabled) => set({ isSnappingEnabled: enabled }),
-    setStyleSettingsModalOpen: (open) => set({ styleSettingsModalOpen: open }),
+    setShowDisplayPanel: (open) => set({ showDisplayPanel: open }),
 
     // Map control actions
     setActiveTool: (tool) => {

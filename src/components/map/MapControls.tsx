@@ -1,6 +1,6 @@
 "use client";
 
-import { DownloadCloud, FileDown, Printer } from "lucide-react";
+import { DownloadCloud, FileDown, Monitor, Printer } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -16,16 +16,20 @@ import { AnimationGroup } from "./controls/AnimationGroup";
 import { EditingControls } from "./controls/EditingControls";
 import { MeasurementGroup } from "./controls/MeasurementGroup";
 import { LayerControls } from "./controls/LayerControls";
-import { NavigationControls } from "./controls/NavigationControls";
-import { StandaloneControl } from "./controls/Shared";
 import { AssetSearch } from "./controls/AssetSearch";
 import { LocationSearch } from "./LocationSearch";
 import { BookmarkPanel } from "./BookmarkPanel";
+import { DisplayPanel } from "./DisplayPanel";
+import { NavigationControls } from "./controls/NavigationControls";
+import { StandaloneControl } from "./controls/Shared";
 
 export function MapControls() {
 
   const {
     activeModal,
+    showLocationSearch,
+    showDisplayPanel,
+    setShowDisplayPanel,
     setShowLocationSearch,
     setActiveModal,
   } = useUIStore();
@@ -72,6 +76,14 @@ export function MapControls() {
       >
         <NavigationControls activeGroup={activeGroup} onToggle={toggleGroup} />
         <LayerControls activeGroup={activeGroup} onToggle={toggleGroup} />
+
+        <StandaloneControl
+          onClick={() => setShowDisplayPanel(!showDisplayPanel)}
+          isActive={showDisplayPanel}
+          icon={Monitor}
+          title="Display Settings"
+        />
+
         <EditingControls activeGroup={activeGroup} onToggle={toggleGroup} />
         <MeasurementGroup activeGroup={activeGroup} onToggle={toggleGroup} />
         <AnimationGroup activeGroup={activeGroup} onToggle={toggleGroup} />
@@ -96,6 +108,7 @@ export function MapControls() {
       <AssetSearch />
       <BookmarkPanel />
       <LocationSearch />
+      <DisplayPanel />
       <ExportPanel />
       <PrintPanel />
     </>
