@@ -9,6 +9,8 @@ import { SaveActions } from "../form-controls/SaveActions";
 import { FeatureHeader } from "./FeatureHeader";
 import { TopologyInfo } from "./TopologyInfo";
 import { toast } from "sonner";
+import { useState } from "react";
+import { ResultChart } from "../simulation/ResultChart";
 
 export function ReservoirProperties() {
   const {
@@ -24,7 +26,11 @@ export function ReservoirProperties() {
     selectedFeatureId,
     patterns,
     settings,
+    history,
+    currentTimeIndex
   } = usePropertyForm();
+
+  const [graphType, setGraphType] = useState<"head" | "demand">("head");
 
   if (!selectedFeatureId) return null;
 
@@ -100,6 +106,31 @@ export function ReservoirProperties() {
       </FormGroup>
 
       <SaveActions onSave={onSave} disabled={!hasChanges} />
+
+      {history && (
+        <FormGroup label="Simulation Results">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] font-medium text-slate-500">Feature Trend</span>
+            <select 
+              value={graphType} 
+              onChange={(e) => setGraphType(e.target.value as any)}
+              className="text-[10px] bg-white border border-slate-200 rounded px-1 py-0.5"
+            >
+              <option value="head">Total Head (m)</option>
+              <option value="demand">Net Inflow (LPS)</option>
+            </select>
+          </div>
+          <ResultChart
+            featureId={selectedFeatureId}
+            type="node"
+            history={history}
+            dataType={graphType}
+            activeIndex={currentTimeIndex}
+            color={graphType === 'head' ? '#8b5cf6' : '#ec4899'}
+            unit={graphType === 'head' ? 'm' : 'LPS'}
+          />
+        </FormGroup>
+      )}
     </div>
   );
 }

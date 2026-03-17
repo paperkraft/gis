@@ -10,13 +10,14 @@ import { useNetworkStore } from '@/store/networkStore';
 import { useScenarioStore } from '@/store/scenarioStore';
 import { useSimulationStore } from '@/store/simulationStore';
 import { FormSelect } from '../form-controls/FormSelect';
+import { useEffect } from 'react';
 
 export function SimulationGraphs() {
   const { history, currentTimeIndex } = useSimulationStore();
   const { scenarios } = useScenarioStore();
 
-  const { selectedFeatureId } = useNetworkStore(); 
-  const [metric, setMetric] = useState<"pressure" | "head" | "flow" | "velocity">("pressure");
+  const { selectedFeatureId, selectedFeature } = useNetworkStore(); 
+  const [metric, setMetric] = useState<string>("pressure");
 
   // Helper to extract value from a snapshot
   const getValue = (snap: any, id: string | null, metric: string) => {
@@ -27,7 +28,8 @@ export function SimulationGraphs() {
          return 0;
       } else {
          // System Avg
-         const items = (metric === 'flow' || metric === 'velocity') ? Object.values(snap.links) : Object.values(snap.nodes);
+         const isLinkMetric = ['flow', 'velocity', 'headloss'].includes(metric);
+         const items = isLinkMetric ? Object.values(snap.links) : Object.values(snap.nodes);
          const sum = items.reduce((acc: number, item: any) => acc + (item[metric] || 0), 0);
          return items.length ? sum / items.length : 0;
       }
@@ -71,12 +73,41 @@ export function SimulationGraphs() {
 
   const label = selectedFeatureId ? `${selectedFeatureId} (${metric})` : `System Avg ${metric}`;
 
-  const graphOptions = [
-    {label:"Pressure (m)", value:"pressure"},
-    {label:"Total Head (m)", value:"head"},
-    {label:"Flow (LPS)", value:"flow"},
-    {label:"Velocity (m/s)", value:"velocity"},
-  ]
+  const graphOptions = useMemo(() => {
+    if (!selectedFeature) {
+      return [
+        {label:"Pressure (m)", value:"pressure"},
+        {label:"Total Head (m)", value:"head"},
+        {label:"Demand (LPS)", value:"demand"},
+        {label:"Flow (LPS)", value:"flow"},
+        {label:"Velocity (m/s)", value:"velocity"},
+        {label:"Headloss (m/km)", value:"headloss"},
+      ];
+    }
+
+    const type = selectedFeature.type;
+    if (["junction", "tank", "reservoir"].includes(type)) {
+      return [
+        {label:"Pressure (m)", value:"pressure"},
+        {label:"Total Head (m)", value:"head"},
+        {label:"Demand (LPS)", value:"demand"},
+      ];
+    } else {
+      return [
+        {label:"Flow (LPS)", value:"flow"},
+        {label:"Velocity (m/s)", value:"velocity"},
+        {label:"Headloss (m/km)", value:"headloss"},
+      ];
+    }
+  }, [selectedFeature]);
+
+  // Sync metric if it becomes invalid for the current selection
+  useEffect(() => {
+    const isValid = graphOptions.some(opt => opt.value === metric);
+    if (!isValid && graphOptions.length > 0) {
+      setMetric(graphOptions[0].value);
+    }
+  }, [graphOptions, metric]);
 
   return (
     <div className="flex flex-col h-full bg-white p-2">

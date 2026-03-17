@@ -8,12 +8,14 @@ import { createFeatureFromData } from '@/lib/utils/featureUtils';
 import { sanitizeProperties } from '@/lib/utils/sanitize';
 import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
+import { useSimulationStore } from '@/store/simulationStore';
 
 // Re-export for any consumers that import sanitizeProperties from here
 export { sanitizeProperties } from '@/lib/utils/sanitize';
 
 export const usePropertyForm = () => {
     const { version, selectedFeature, selectedFeatureId, updateFeature, removeFeature, patterns, curves, settings } = useNetworkStore();
+    const { history, currentTimeIndex } = useSimulationStore();
     const map = useMapStore(state => state.map);
 
     // Local state for form editing
@@ -204,6 +206,8 @@ export const usePropertyForm = () => {
         handleReverse,
         patterns,
         curves,
-        settings
+        settings,
+        history,
+        currentTimeIndex
     };
 };

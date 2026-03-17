@@ -2,52 +2,38 @@ import { Mountain, RefreshCw } from "lucide-react";
 
 import { FormGroup } from "@/components/form-controls/FormGroup";
 import { FormInput } from "@/components/form-controls/FormInput";
-import { FormSelect } from "@/components/form-controls/FormSelect";
 import { usePropertyForm } from "@/hooks/usePropertyForm";
 
-import { SaveActions } from "../form-controls/SaveActions";
 import { FeatureHeader } from "./FeatureHeader";
 import { TopologyInfo } from "./TopologyInfo";
+import { SaveActions } from "../form-controls/SaveActions";
 import { toast } from "sonner";
+import { useState } from "react";
+import { ResultChart } from "../simulation/ResultChart";
 
 export function TankProperties() {
   const {
     formData,
-    hasChanges,
     isLoading,
+    hasChanges,
     connectionInfo,
-    handleChange,
-    handleSave,
-    handleDelete,
-    handleZoom,
-    handleAutoElevate,
     selectedFeatureId,
-    curves,
+    handleSave,
+    handleZoom,
+    handleChange,
+    handleDelete,
+    handleAutoElevate,
+    patterns,
+    settings,
+    history,
+    currentTimeIndex
   } = usePropertyForm();
+
+  const [graphType, setGraphType] = useState<"pressure" | "head">("pressure");
 
   if (!selectedFeatureId) return null;
 
   const onSave = () => {
-    // 1. Validate
-    if ((formData.diameter ?? 0) <= 0) {
-      toast.error("Diameter must be positive");
-      return;
-    }
-
-    const min = formData.minLevel ?? 0;
-    const max = formData.maxLevel ?? 0;
-    const init = formData.initialLevel ?? 0;
-
-    if (min >= max) {
-      toast.error("Min Level must be lower than Max Level");
-      return;
-    }
-    if (init < min || init > max) {
-      toast.error("Initial Level must be between Min and Max");
-      return;
-    }
-
-    // 2. Save
     handleSave();
     toast.success("Tank properties saved");
   };
@@ -74,22 +60,6 @@ export function TankProperties() {
       <FormGroup label="Geometry">
         <div className="flex gap-2 items-end">
           <FormInput
-            label="Diameter (m)"
-            value={formData.diameter ?? 0}
-            onChange={(v) => handleChange("diameter", parseFloat(v))}
-            type="number"
-          />
-
-          <FormInput
-            label="Capacity"
-            value={formData.capacity ?? 0}
-            onChange={(v) => handleChange("capacity", parseFloat(v))}
-            type="number"
-          />
-        </div>
-
-        <div className="flex gap-2 items-end">
-          <FormInput
             label="Elevation (m)"
             value={formData.elevation ?? 0}
             onChange={(v) => handleChange("elevation", parseFloat(v))}
@@ -112,45 +82,67 @@ export function TankProperties() {
         </div>
       </FormGroup>
 
-      <FormGroup label="Water Levels">
-        <FormInput
-          label="Initial Level (m)"
-          value={formData.initialLevel ?? 0}
-          onChange={(v) => handleChange("initialLevel", parseFloat(v))}
-          type="number"
-        />
-        <div className="flex gap-2 items-end">
+      <FormGroup label="Dimensions">
+        <div className="grid grid-cols-2 gap-2">
           <FormInput
-            label="Min Level (m)"
+            label="Initial Level (m)"
+            value={formData.initialLevel ?? 10}
+            onChange={(v) => handleChange("initialLevel", parseFloat(v))}
+            type="number"
+          />
+          <FormInput
+            label="Minimum Level (m)"
             value={formData.minLevel ?? 0}
             onChange={(v) => handleChange("minLevel", parseFloat(v))}
             type="number"
           />
           <FormInput
-            label="Max Level (m)"
-            value={formData.maxLevel ?? 0}
+            label="Maximum Level (m)"
+            value={formData.maxLevel ?? 20}
             onChange={(v) => handleChange("maxLevel", parseFloat(v))}
             type="number"
           />
+          <FormInput
+            label="Diameter (m)"
+            value={formData.diameter ?? 10}
+            onChange={(v) => handleChange("diameter", parseFloat(v))}
+            type="number"
+          />
         </div>
-
-        <FormSelect
-          label="Volume Curve"
-          value={formData.volCurve || ""}
-          onChange={(v) => handleChange("volCurve", v)}
-          options={[
-            { label: "None", value: "" },
-            ...curves
-              .filter((c: any) => c.type === "VOLUME")
-              .map((c: any) => ({
-                label: c.description || c.id,
-                value: c.id,
-              })),
-          ]}
+        <FormInput
+          label="Minimum Volume (m³)"
+          value={formData.minVolume ?? 0}
+          onChange={(v) => handleChange("minVolume", parseFloat(v))}
+          type="number"
         />
       </FormGroup>
 
       <SaveActions onSave={onSave} disabled={!hasChanges} />
+
+      {history && (
+        <FormGroup label="Simulation Results">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] font-medium text-slate-500">Feature Trend</span>
+            <select 
+              value={graphType} 
+              onChange={(e) => setGraphType(e.target.value as any)}
+              className="text-[10px] bg-white border border-slate-200 rounded px-1 py-0.5"
+            >
+              <option value="pressure">Water Level (m)</option>
+              <option value="head">Total Head (m)</option>
+            </select>
+          </div>
+          <ResultChart
+            featureId={selectedFeatureId}
+            type="node"
+            history={history}
+            dataType={graphType}
+            activeIndex={currentTimeIndex}
+            color={graphType === 'pressure' ? '#0ea5e9' : '#8b5cf6'}
+            unit="m"
+          />
+        </FormGroup>
+      )}
     </div>
   );
 }

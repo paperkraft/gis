@@ -28,7 +28,7 @@ export interface SimulationSnapshot {
 export interface SimulationHistory {
     timestamps: number[]; // Array of simulation times in seconds [0, 3600, 7200...]
     snapshots: SimulationSnapshot[]; // Array of results matching timestamps
-    generatedAt: number;
+    generatedAt?: number;
 }
 
 export type SimulationStatus = 'idle' | 'running' | 'completed' | 'error';

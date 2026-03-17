@@ -17,8 +17,8 @@ import { SimulationHistory } from "@/types/simulation";
 interface ResultChartProps {
   featureId: string;
   type: "node" | "link";
-  history: SimulationHistory;
-  dataType: "pressure" | "demand" | "flow" | "velocity" | "head";
+  history: any; // Relaxed for store compatibility
+  dataType: "pressure" | "demand" | "flow" | "velocity" | "head" | "headloss" | "status" | "setting";
   color?: string;
   unit?: string;
   activeIndex?: number;
@@ -51,7 +51,7 @@ export function ResultChart({
       if (foundId) resolvedId = foundId;
     }
 
-    return history.snapshots.map((snap, index) => {
+    return history.snapshots.map((snap: any, index: number) => {
       // Calculate hour for X-Axis
       const time = history.timestamps[index];
       const hours = Math.floor(time / 3600);
@@ -88,8 +88,7 @@ export function ResultChart({
       </div>
     );
 
-  // Check if all values are zero (potential ID mismatch still)
-  const isAllZero = data.every((d) => d.value === 0);
+  const isAllZero = data.every((d: any) => d.value === 0);
 
   // Sanitize ID for SVG defs
   const safeId = featureId.replace(/[^a-zA-Z0-9]/g, "");

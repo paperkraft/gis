@@ -7,6 +7,8 @@ import { SaveActions } from "../form-controls/SaveActions";
 import { FeatureHeader } from "./FeatureHeader";
 import { TopologyInfo } from "./TopologyInfo";
 import { toast } from "sonner";
+import { useState } from "react";
+import { ResultChart } from "../simulation/ResultChart";
 
 export function PipeProperties() {
   const {
@@ -19,7 +21,11 @@ export function PipeProperties() {
     handleZoom,
     handleReverse,
     selectedFeatureId,
+    history,
+    currentTimeIndex
   } = usePropertyForm();
+
+  const [graphType, setGraphType] = useState<"flow" | "velocity" | "headloss">("flow");
 
   if (!selectedFeatureId) return null;
 
@@ -108,6 +114,32 @@ export function PipeProperties() {
       </FormGroup>
 
       <SaveActions onSave={onSave} disabled={!hasChanges} />
+
+      {history && (
+        <FormGroup label="Simulation Results">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[10px] font-medium text-slate-500">Feature Trend</span>
+            <select 
+              value={graphType} 
+              onChange={(e) => setGraphType(e.target.value as any)}
+              className="text-[10px] bg-white border border-slate-200 rounded px-1 py-0.5"
+            >
+              <option value="flow">Flow Rate (LPS)</option>
+              <option value="velocity">Velocity (m/s)</option>
+              <option value="headloss">Headloss (m/km)</option>
+            </select>
+          </div>
+          <ResultChart
+            featureId={selectedFeatureId}
+            type="link"
+            history={history}
+            dataType={graphType}
+            activeIndex={currentTimeIndex}
+            color={graphType === 'flow' ? '#0ea5e9' : graphType === 'velocity' ? '#8b5cf6' : '#f59e0b'}
+            unit={graphType === 'velocity' ? 'm/s' : graphType === 'flow' ? 'LPS' : 'm/km'}
+          />
+        </FormGroup>
+      )}
     </div>
   );
 }
