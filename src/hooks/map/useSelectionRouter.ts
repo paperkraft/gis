@@ -26,7 +26,8 @@ export function useSelectionRouter() {
     const lastSelectedIdRef = useRef<string | null>(null);
 
     const selectedFeature = useNetworkStore((s) => s.selectedFeature);
-    const { activeTool, activeModal, setActiveModal } = useUIStore();
+    const selectedFeatureIds = useNetworkStore((s) => s.selectedFeatureIds);
+    const { activeTool, activeModal, activeRightPanel, setActiveModal } = useUIStore();
 
     useEffect(() => {
         const currentId = selectedFeature
@@ -34,14 +35,14 @@ export function useSelectionRouter() {
             ? selectedFeature.id || selectedFeature.getId?.()?.toString() || null
             : null;
 
-        // Don't touch protected modals
-        if (PROTECTED_MODALS.includes(activeModal as any)) {
+        // Don't touch protected modals or if a right panel is open
+        if (PROTECTED_MODALS.includes(activeModal as any) || activeRightPanel !== 'NONE') {
             lastSelectedIdRef.current = currentId;
             return;
         }
 
-        // Feature selected
-        if (currentId && currentId !== lastSelectedIdRef.current && activeTool === 'select') {
+        // Feature selected - Only show properties if a single feature is selected
+        if (currentId && currentId !== lastSelectedIdRef.current && activeTool === 'select' && selectedFeatureIds.length === 1) {
             const type = selectedFeature?.type || (selectedFeature as any)?.get?.('type');
             const modalType = TYPE_TO_MODAL[type] || 'NONE';
 
@@ -53,7 +54,7 @@ export function useSelectionRouter() {
         }
         // Feature deselected
         else if (!selectedFeature && lastSelectedIdRef.current !== null) {
-            if ((activeModal as string).endsWith('_PROP')) {
+            if ((activeModal as string).endsWith('_PROP') || selectedFeatureIds.length > 1) {
                 setActiveModal('NONE');
             }
             lastSelectedIdRef.current = null;

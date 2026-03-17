@@ -48,8 +48,6 @@ export type WorkbenchModalType =
   | "AUTO_ELEVATION"
   | "CONTROLS"
   | "VALIDATION"
-  | "BOOKMARK"
-  | "QUERY_BUILDER"
   | "PRINT_MAP"
 
 
@@ -70,5 +68,4 @@ export const MODAL_REGISTRY: Partial<Record<WorkbenchModalType, ModalConfig>> = 
   AUTO_ELEVATION: { title: "Auto Elevation", icon: Mountain, component: AutoElevationPanel },
   CONTROLS: { title: "Network Controls", icon: Cpu, component: ControlManagerPanel },
   VALIDATION: { title: "Network Validation", icon: CheckCircle2, component: NetworkValidationPanel },
-  QUERY_BUILDER: { title: "Query Builder", icon: Filter, component: QueryBuilderPanel },
 };

@@ -20,6 +20,7 @@ import { AssetSearch } from "./controls/AssetSearch";
 import { LocationSearch } from "./LocationSearch";
 import { BookmarkPanel } from "./BookmarkPanel";
 import { DisplayPanel } from "./DisplayPanel";
+import { QueryBuilderPanel } from "../panels/QueryBuilderPanel";
 import { NavigationControls } from "./controls/NavigationControls";
 import { StandaloneControl } from "./controls/Shared";
 
@@ -27,10 +28,8 @@ export function MapControls() {
 
   const {
     activeModal,
-    showLocationSearch,
-    showDisplayPanel,
-    setShowDisplayPanel,
-    setShowLocationSearch,
+    activeRightPanel,
+    setActiveRightPanel,
     setActiveModal,
   } = useUIStore();
 
@@ -56,9 +55,6 @@ export function MapControls() {
   }, [activeGroup]);
 
   const toggleGroup = (group: string) => {
-    if (activeGroup !== group) {
-      setShowLocationSearch(false);
-    }
     setActiveGroup(activeGroup === group ? null : group);
   };
 
@@ -78,8 +74,8 @@ export function MapControls() {
         <LayerControls activeGroup={activeGroup} onToggle={toggleGroup} />
 
         <StandaloneControl
-          onClick={() => setShowDisplayPanel(!showDisplayPanel)}
-          isActive={showDisplayPanel}
+          onClick={() => setActiveRightPanel(activeRightPanel === 'DISPLAY' ? 'NONE' : 'DISPLAY')}
+          isActive={activeRightPanel === 'DISPLAY'}
           icon={Monitor}
           title="Display Settings"
         />
@@ -109,6 +105,7 @@ export function MapControls() {
       <BookmarkPanel />
       <LocationSearch />
       <DisplayPanel />
+      <QueryBuilderPanel />
       <ExportPanel />
       <PrintPanel />
     </>

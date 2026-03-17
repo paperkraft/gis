@@ -17,8 +17,8 @@ import { cn } from "@/lib/utils";
 
 export function DisplayPanel() {
   const {
-    showDisplayPanel,
-    setShowDisplayPanel,
+    activeRightPanel,
+    setActiveRightPanel,
     showLabels,
     setShowLabels,
     showPipeArrows,
@@ -43,8 +43,8 @@ export function DisplayPanel() {
     <FloatingPanel
       title="Display Settings"
       icon={Monitor}
-      isOpen={showDisplayPanel}
-      onClose={() => setShowDisplayPanel(false)}
+      isOpen={activeRightPanel === 'DISPLAY'}
+      onClose={() => setActiveRightPanel('NONE')}
       className="w-72"
     >
       <div className="space-y-6 py-2">

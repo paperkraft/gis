@@ -35,11 +35,9 @@ export function NavigationControls({
   const map = useMapStore((state) => state.map);
   const {
     activeTool,
-    activeModal,
-    showLocationSearch,
+    activeRightPanel,
+    setActiveRightPanel,
     setActiveTool,
-    setShowLocationSearch,
-    setActiveModal,
   } = useUIStore();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -51,7 +49,7 @@ export function NavigationControls({
       document.removeEventListener("fullscreenchange", handleFsChange);
   }, []);
 
-  const isActiveGroup = activeTool === "zoom-box" || isFullscreen || activeModal === "BOOKMARK"
+  const isActiveGroup = activeTool === "zoom-box" || isFullscreen || activeRightPanel === "BOOKMARK"
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -75,8 +73,8 @@ export function NavigationControls({
         isActiveGroup={isActiveGroup}
       >
         <ToolBtn
-          onClick={() => setShowLocationSearch(!showLocationSearch)}
-          isActive={showLocationSearch}
+          onClick={() => setActiveRightPanel(activeRightPanel === 'LOCATION' ? 'NONE' : 'LOCATION')}
+          isActive={activeRightPanel === 'LOCATION'}
           icon={Search}
           title="Search"
         />
@@ -118,8 +116,8 @@ export function NavigationControls({
         <Divider />
 
         <ToolBtn
-          onClick={() => setActiveModal("BOOKMARK")}
-          isActive={showLocationSearch}
+          onClick={() => setActiveRightPanel(activeRightPanel === 'BOOKMARK' ? 'NONE' : 'BOOKMARK')}
+          isActive={activeRightPanel === "BOOKMARK"}
           icon={Bookmark}
           title="Bookmarks"
         />

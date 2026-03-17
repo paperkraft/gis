@@ -15,10 +15,12 @@ export function DataControls({ activeGroup, onToggle }: DataControlsProps) {
     activeModal,
     showAttributeTable,
     setShowAttributeTable,
+    activeRightPanel,
+    setActiveRightPanel,
     setActiveModal,
   } = useUIStore();
 
-  const isActiveGroup = showAttributeTable || activeModal === "QUERY_BUILDER";
+  const isActiveGroup = showAttributeTable || activeRightPanel === 'QUERY';
 
   return (
     <>
@@ -39,7 +41,8 @@ export function DataControls({ activeGroup, onToggle }: DataControlsProps) {
         />
 
         <ToolBtn
-          onClick={() => setActiveModal("QUERY_BUILDER")}
+          onClick={() => setActiveRightPanel(activeRightPanel === 'QUERY' ? 'NONE' : 'QUERY')}
+          isActive={activeRightPanel === 'QUERY'}
           icon={Filter}
           title="Select by Attribute"
           label="Query"

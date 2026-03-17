@@ -25,6 +25,13 @@ export type WorkbenchPanelType =
     | 'PROJECT_DETAILS'
     | 'SIMULATION_SETUP'
 
+export type RightPanelType =
+    | 'NONE'
+    | 'DISPLAY'
+    | 'QUERY'
+    | 'BOOKMARK'
+    | 'LOCATION'
+
 export interface ContextMenuState {
     x: number;
     y: number;
@@ -87,7 +94,6 @@ interface UIState {
     measurementType: 'distance' | 'area';
     measurementActive: boolean;
     showAttributeTable: boolean;
-    showLocationSearch: boolean;
     showAssetSearch: boolean;
 
     // Layer visibility
@@ -100,7 +106,7 @@ interface UIState {
     isFlowAnimating: boolean;
     flowAnimationSpeed: number;
     flowAnimationStyle: FlowAnimationStyle;
-    showDisplayPanel: boolean;
+    activeRightPanel: RightPanelType;
 
     // Context Menu & Styling State
     contextMenu: ContextMenuState | null;
@@ -155,7 +161,11 @@ interface UIState {
     setIsFlowAnimating: (animating: boolean) => void;
     setFlowAnimationSpeed: (speed: number) => void;
     setFlowAnimationStyle: (style: FlowAnimationStyle) => void;
+    setActiveRightPanel: (panel: RightPanelType) => void;
+    // Helper actions to maintain backward compatibility where needed, 
+    // but internally they will just call setActiveRightPanel
     setShowDisplayPanel: (open: boolean) => void;
+    setShowQueryBuilder: (open: boolean) => void;
 
     // Actions - Tab navigation
     setContextMenu: (menu: ContextMenuState | null) => void;
@@ -189,7 +199,6 @@ const DEFAULT_STATE = {
     activePanel: 'NONE' as WorkbenchPanelType,
     activeModal: "NONE" as WorkbenchModalType,
 
-    showLocationSearch: false,
     showAssetSearch: false,
 
     showAutoElevation: false,
@@ -219,7 +228,7 @@ const DEFAULT_STATE = {
     showVertices: false,
 
     isSnappingEnabled: true,
-    showDisplayPanel: false,
+    activeRightPanel: 'NONE' as RightPanelType,
 
     contextMenu: null,
     mergeContext: null,
@@ -252,7 +261,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     setActivePanel: (panel) => set({ activePanel: panel }),
 
     setIsFlowAnimating: (animate) => set({ isFlowAnimating: animate }),
-    setShowLocationSearch: (open) => set({ showLocationSearch: open }),
+    setShowLocationSearch: (open) => set({ activeRightPanel: open ? 'LOCATION' : 'NONE' }),
     setShowAssetSearch: (show) => set({ showAssetSearch: show }),
     setShowAutoElevation: (open) => set({ showAutoElevation: open }),
 
@@ -267,7 +276,9 @@ export const useUIStore = create<UIState>((set, get) => ({
     setShowVertices: (show) => set({ showVertices: show }),
 
     setIsSnappingEnabled: (enabled) => set({ isSnappingEnabled: enabled }),
-    setShowDisplayPanel: (open) => set({ showDisplayPanel: open }),
+    setActiveRightPanel: (panel) => set({ activeRightPanel: panel }),
+    setShowDisplayPanel: (open) => set({ activeRightPanel: open ? 'DISPLAY' : 'NONE' }),
+    setShowQueryBuilder: (open) => set({ activeRightPanel: open ? 'QUERY' : 'NONE' }),
 
     // Map control actions
     setActiveTool: (tool) => {

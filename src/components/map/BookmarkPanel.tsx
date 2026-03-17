@@ -15,7 +15,7 @@ export function BookmarkPanel() {
   const map = useMapStore((state) => state.map);
   const { bookmarks, isLoading, addBookmark, fetchBookmarks, removeBookmark } =
     useBookmarkStore();
-  const { activeModal, setActiveModal } = useUIStore();
+  const { activeRightPanel, setActiveRightPanel } = useUIStore();
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -23,7 +23,7 @@ export function BookmarkPanel() {
   const [isAdding, setIsAdding] = useState(false);
   const [customName, setCustomName] = useState("");
 
-  const isOpen = activeModal === "BOOKMARK";
+  const isOpen = activeRightPanel === 'BOOKMARK';
   const projectId = params.id as string;
 
   useEffect(() => {
@@ -150,7 +150,7 @@ export function BookmarkPanel() {
     }
   };
 
-  const handleClose = () => setActiveModal("NONE");
+  const handleClose = () => setActiveRightPanel('NONE');
 
   // Define Footer Content
   const footerContent = !isAdding ? (
@@ -205,7 +205,7 @@ export function BookmarkPanel() {
       title="Saved Locations"
       icon={Bookmark}
       isOpen={isOpen}
-      onClose={() => setActiveModal("NONE")}
+      onClose={() => setActiveRightPanel('NONE')}
       footer={footerContent}
     >
       <div className="space-y-1">

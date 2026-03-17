@@ -19,7 +19,10 @@ interface SearchResult {
 
 export function LocationSearch() {
   const map = useMapStore((state) => state.map);
-  const { showLocationSearch, setShowLocationSearch } = useUIStore();
+  const { activeRightPanel, setActiveRightPanel } = useUIStore();
+
+  const showLocationSearch = activeRightPanel === 'LOCATION';
+  const setShowLocationSearch = (open: boolean) => setActiveRightPanel(open ? 'LOCATION' : 'NONE');
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);

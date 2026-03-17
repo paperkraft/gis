@@ -49,7 +49,7 @@ export function FloatingPanel({
       </div>
 
       {/* Content Scroll Area */}
-      <div className="p-3 overflow-y-auto max-h-[60vh] custom-scrollbar">
+      <div className="p-3 overflow-y-auto max-h-[60vh] custom-scrollbar text-slate-700">
         {children}
       </div>
 
