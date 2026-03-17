@@ -41,6 +41,36 @@ const CLASSIC_EPANET_GRADIENT = [
     { offset: 100, color: '#FF0000' }  // Red
 ];
 
+export const PRESETS = {
+    SPECTRUM: CLASSIC_EPANET_GRADIENT,
+    VIRIDIS: [
+        { offset: 0, color: '#440154' },
+        { offset: 25, color: '#3b528b' },
+        { offset: 50, color: '#21918c' },
+        { offset: 75, color: '#5ec962' },
+        { offset: 100, color: '#fde725' }
+    ],
+    MAGMA: [
+        { offset: 0, color: '#000004' },
+        { offset: 25, color: '#3b0f70' },
+        { offset: 50, color: '#8c2981' },
+        { offset: 75, color: '#fe9b6d' },
+        { offset: 100, color: '#fcfdbf' }
+    ],
+    PLASMA: [
+        { offset: 0, color: '#0d0887' },
+        { offset: 25, color: '#7e03a8' },
+        { offset: 50, color: '#cb4679' },
+        { offset: 75, color: '#f89441' },
+        { offset: 100, color: '#f0f921' }
+    ],
+    COOL_WARM: [
+        { offset: 0, color: '#3b82f6' },
+        { offset: 50, color: '#f1f5f9' },
+        { offset: 100, color: '#ef4444' }
+    ]
+};
+
 interface StyleState {
     // --- Simulation Styles (Existing) ---
     // colorMode: ColorMode;
@@ -69,6 +99,7 @@ interface StyleState {
 
     setNodeGradient: (stops: GradientStop[]) => void;
     setLinkGradient: (stops: GradientStop[]) => void;
+    setGradientPreset: (type: 'node' | 'link', preset: keyof typeof PRESETS) => void;
 
     setStyleType: (type: StyleType) => void;
     setClassCount: (count: number) => void;
@@ -114,6 +145,9 @@ export const useStyleStore = create<StyleState>((set, get) => ({
 
     setNodeGradient: (stops) => set({ nodeGradient: stops }),
     setLinkGradient: (stops) => set({ linkGradient: stops }),
+    setGradientPreset: (type: 'node' | 'link', preset: keyof typeof PRESETS) => set(state => ({
+        [type === 'node' ? 'nodeGradient' : 'linkGradient']: PRESETS[preset]
+    })),
 
     setStyleType: (type) => set({ styleType: type }),
     setClassCount: (count) => set({ classCount: Math.max(2, Math.min(8, count)) }),

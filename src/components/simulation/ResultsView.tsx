@@ -13,7 +13,6 @@ import { useStyleStore } from '@/store/styleStore';
 import { useUIStore } from '@/store/uiStore';
 
 import { FormGroup } from '../form-controls/FormGroup';
-import { FormSelect } from '../form-controls/FormSelect';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
@@ -172,22 +171,6 @@ export function ResultsView() {
   const totalSteps = history.snapshots.length;
   const isEPS = totalSteps > 1;
 
-  const nodeOptions = [
-    { label: "Pressure", value: "pressure" },
-    { label: "Total Head", value: "head" },
-    { label: "Demand", value: "demand" },
-    { label: "Elevation", value: "elevation" },
-    { label: "None", value: "none" },
-  ];
-
-  const linkOptions = [
-    { label: "Velocity", value: "velocity" },
-    { label: "Flow Rate", value: "flow" },
-    { label: "Headloss", value: "headloss" },
-    { label: "Diameter", value: "diameter" },
-    { label: "None", value: "none" },
-  ];
-
   return (
     <div className="flex flex-col h-full bg-white text-slate-700 animate-in slide-in-from-left-4 relative">
       {/* --- HEADER --- */}
@@ -340,23 +323,6 @@ export function ResultsView() {
           </div>
         </FormGroup>
 
-        {/* Map Visualization */}
-        <FormGroup label="Visualization">
-          <FormSelect
-            label="Nodes"
-            value={nodeColorMode}
-            onChange={(v) => setNodeColorMode(v)}
-            options={nodeOptions}
-          />
-
-          <FormSelect
-            label="Links"
-            value={linkColorMode}
-            onChange={(v) => setLinkColorMode(v)}
-            options={linkOptions}
-          />
-        </FormGroup>
-
         {/* Actions */}
         <div className="space-y-2 pt-2 border-t border-slate-100">
           <ActionButton
@@ -427,8 +393,8 @@ export function ResultsView() {
             </div>
 
             <TabsContent value="log" className="flex-1 min-h-0 overflow-y-auto bg-slate-900 p-4 font-mono text-[11px] text-slate-300 leading-relaxed custom-scrollbar m-0">
-               {/* Warnings Section (Highlighted) */}
-               {warnings && warnings.length > 0 && (
+              {/* Warnings Section (Highlighted) */}
+              {warnings && warnings.length > 0 && (
                 <div className="mb-6 p-3 bg-amber-900/30 border border-amber-700/50 rounded text-amber-200">
                   <div className="font-bold mb-2 flex items-center gap-2 text-amber-400 border-b border-amber-700/50 pb-1">
                     <AlertTriangle size={14} />
@@ -441,7 +407,7 @@ export function ResultsView() {
                   </ul>
                 </div>
               )}
-              
+
               <div className="whitespace-pre-wrap">
                 {report && report.includes('Analysis begun') ? report.split('Analysis begun')[0] : "Simulation completed."}
                 {warnings && warnings.length > 0 ? "\nSee warnings above for details." : "\nNo critical issues detected during analysis."}

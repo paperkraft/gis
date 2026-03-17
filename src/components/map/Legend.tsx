@@ -74,6 +74,9 @@ function EPANETLegendItem({ title, icon, range, stops, classCount, defaultPositi
     useEffect(() => {
         if (!isDragging) return;
 
+        // Disable text selection during drag
+        document.body.style.userSelect = 'none';
+
         const handleMouseMove = (e: MouseEvent) => {
             const x = e.clientX - dragOffset.current.x;
             const y = e.clientY - dragOffset.current.y;
@@ -82,6 +85,7 @@ function EPANETLegendItem({ title, icon, range, stops, classCount, defaultPositi
 
         const handleMouseUp = () => {
             setIsDragging(false);
+            document.body.style.userSelect = '';
         };
 
         window.addEventListener('mousemove', handleMouseMove);
@@ -90,6 +94,7 @@ function EPANETLegendItem({ title, icon, range, stops, classCount, defaultPositi
         return () => {
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
+            document.body.style.userSelect = '';
         };
     }, [isDragging]);
 

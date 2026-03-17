@@ -11,7 +11,7 @@ import {
   Check
 } from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
-import { useStyleStore } from "@/store/styleStore";
+import { useStyleStore, PRESETS } from "@/store/styleStore";
 import { FloatingPanel } from "./FloatingPanel";
 import { cn } from "@/lib/utils";
 
@@ -30,10 +30,13 @@ export function DisplayPanel() {
   const {
     nodeColorMode,
     setNodeColorMode,
+    nodeGradient,
     linkColorMode,
     setLinkColorMode,
+    linkGradient,
     labelMode,
-    setLabelMode
+    setLabelMode,
+    setGradientPreset
   } = useStyleStore();
 
   return (
@@ -127,6 +130,15 @@ export function DisplayPanel() {
               onClick={() => setNodeColorMode("elevation")}
             />
           </div>
+          
+          {nodeColorMode !== 'none' && (
+            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+               <PaletteSelector 
+                currentGradient={nodeGradient} 
+                onSelect={(preset) => setGradientPreset('node', preset)} 
+              />
+            </div>
+          )}
         </Section>
 
         {/* 4. Link Symbology */}
@@ -163,6 +175,15 @@ export function DisplayPanel() {
               onClick={() => setLinkColorMode("roughness")}
             />
           </div>
+
+          {linkColorMode !== 'none' && (
+            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <PaletteSelector 
+                currentGradient={linkGradient} 
+                onSelect={(preset) => setGradientPreset('link', preset)} 
+              />
+            </div>
+          )}
         </Section>
       </div>
     </FloatingPanel>
@@ -250,4 +271,45 @@ function SymbologyBadge({ label, active, onClick }: { label: string; active: boo
       {label}
     </button>
   );
+}
+
+function PaletteSelector({ currentGradient, onSelect }: { currentGradient: any[], onSelect: (preset: keyof typeof PRESETS) => void }) {
+    return (
+        <div className="space-y-2">
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Color Palette</span>
+            <div className="flex flex-wrap gap-1.5">
+                {(Object.keys(PRESETS) as Array<keyof typeof PRESETS>).map((key) => {
+                    const preset = PRESETS[key];
+                    const isActive = JSON.stringify(currentGradient) === JSON.stringify(preset);
+                    
+                    return (
+                        <button
+                            key={key}
+                            onClick={() => onSelect(key)}
+                            className={cn(
+                                "flex-1 min-w-[50px] h-5 rounded-sm border p-0.5 transition-all overflow-hidden relative group",
+                                isActive ? "border-primary ring-1 ring-primary/30" : "border-slate-200 hover:border-slate-300"
+                            )}
+                            title={key}
+                        >
+                            <div className="w-full h-full rounded-[1px] flex">
+                                {preset.map((stop, i) => (
+                                    <div 
+                                        key={i} 
+                                        className="flex-1 h-full" 
+                                        style={{ backgroundColor: stop.color }} 
+                                    />
+                                ))}
+                            </div>
+                            {isActive && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                                    <Check size={10} className="text-white drop-shadow-md" strokeWidth={3} />
+                                </div>
+                            )}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
 }
