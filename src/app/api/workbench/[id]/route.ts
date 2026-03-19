@@ -74,8 +74,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                     .onConflictDoUpdate({
                         target: [nodes.projectId, nodes.id],
                         set: {
-                            elevation: sql`excluded.elevation`,
-                            baseDemand: sql`excluded.base_demand`,
                             properties: sql`excluded.properties`,
                             geom: sql`excluded.geom`
                         }
@@ -109,9 +107,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                         set: {
                             sourceNodeId: sql`excluded.source_node_id`,
                             targetNodeId: sql`excluded.target_node_id`,
-                            length: sql`excluded.length`,
-                            diameter: sql`excluded.diameter`,
-                            roughness: sql`excluded.roughness`,
                             properties: sql`excluded.properties`,
                             geom: sql`excluded.geom`
                         }
