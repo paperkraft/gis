@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { projects, nodes, links } from "@/db/schema";
 import { eq, sql, and } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
-import { generateINP } from "@/lib/epanet/inpWriter";
+import { buildINP } from "@/lib/epanet/inpBuilder";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const session = await getSession();
@@ -72,12 +72,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         // 5. Generate INP
         let inpContent = "";
         try {
-            inpContent = generateINP(
+            inpContent = buildINP(
                 features,
-                settings,
                 settings.patterns || [],
                 settings.curves || [],
-                settings.controls || []
+                settings.controls || [],
+                settings
             );
         } catch (genError) {
             console.error("INP Generation Logic Error:", genError);
