@@ -12,6 +12,19 @@ export interface WorkerOutput {
     report?: string;
 }
 
+// Epanet Constants
+const EN_NODECOUNT = 0;
+const EN_LINKCOUNT = 2;
+// Nodes
+const EN_DEMAND = 9;
+const EN_HEAD = 10;
+const EN_PRESSURE = 11;
+// Links
+const EN_FLOW = 8;
+const EN_VELOCITY = 9;
+const EN_HEADLOSS = 10;
+const EN_STATUS = 11;
+
 self.onmessage = async (event: MessageEvent<WorkerInput>) => {
     const { inpData } = event.data;
 
@@ -33,8 +46,8 @@ self.onmessage = async (event: MessageEvent<WorkerInput>) => {
         model.open(inputFileName, reportFileName, outputFileName);
 
         // 4. Metadata Extraction
-        const nodeCount = model.getCount(0); // 0 = Nodes (Total), 1 = Tanks/Res
-        const linkCount = model.getCount(2); // 2 = Links
+        const nodeCount = model.getCount(EN_NODECOUNT); // 0 = Nodes (Total), 1 = Tanks/Res
+        const linkCount = model.getCount(EN_LINKCOUNT); // 2 = Links
 
         const nodeIds: string[] = [];
         const linkIds: string[] = [];
@@ -68,9 +81,9 @@ self.onmessage = async (event: MessageEvent<WorkerInput>) => {
                 const id = nodeIds[i - 1];
                 // Indices for EN_DEMAND=9, EN_HEAD=10, EN_PRESSURE=11
                 nodeResults[id] = {
-                    pressure: model.getNodeValue(i, 11),
-                    demand: model.getNodeValue(i, 9),
-                    head: model.getNodeValue(i, 10)
+                    demand: model.getNodeValue(i, EN_DEMAND),
+                    head: model.getNodeValue(i, EN_HEAD),
+                    pressure: model.getNodeValue(i, EN_PRESSURE)
                 };
             }
 
@@ -80,10 +93,10 @@ self.onmessage = async (event: MessageEvent<WorkerInput>) => {
                 const id = linkIds[i - 1];
                 // Indices for EN_FLOW=8, EN_VELOCITY=9, EN_HEADLOSS=10, EN_STATUS=11
                 linkResults[id] = {
-                    flow: model.getLinkValue(i, 8),
-                    velocity: model.getLinkValue(i, 9),
-                    headloss: model.getLinkValue(i, 10),
-                    status: model.getLinkValue(i, 11) >= 1 ? 'Open' : 'Closed'
+                    flow: model.getLinkValue(i, EN_FLOW),
+                    velocity: model.getLinkValue(i, EN_VELOCITY),
+                    headloss: model.getLinkValue(i, EN_HEADLOSS),
+                    status: model.getLinkValue(i, EN_STATUS) >= 1 ? 'Open' : 'Closed'
                 };
             }
 

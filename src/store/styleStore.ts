@@ -4,7 +4,6 @@ import { create } from 'zustand';
 export type NodeColorMode = 'none' | 'elevation' | 'pressure' | 'head' | 'demand';
 export type LinkColorMode = 'none' | 'diameter' | 'roughness' | 'flow' | 'velocity' | 'headloss';
 
-// export type ColorMode = 'none' | 'diameter' | 'roughness' | 'pressure' | 'velocity' | 'head' | 'flow' | 'elevation';
 export type LabelMode = 'id' | 'elevation' | 'diameter' | 'result';
 export type StyleType = 'continuous' | 'discrete';
 
@@ -73,7 +72,6 @@ export const PRESETS = {
 
 interface StyleState {
     // --- Simulation Styles (Existing) ---
-    // colorMode: ColorMode;
     nodeColorMode: NodeColorMode;
     linkColorMode: LinkColorMode;
 
@@ -90,7 +88,6 @@ interface StyleState {
     layerStyles: Record<string, LayerStyle>;
 
     // --- Actions ---
-    // setColorMode: (mode: ColorMode) => void;
     setNodeColorMode: (mode: NodeColorMode) => void;
     setLinkColorMode: (mode: LinkColorMode) => void;
 
@@ -112,7 +109,6 @@ interface StyleState {
 
 export const useStyleStore = create<StyleState>((set, get) => ({
     // Defaults
-    // colorMode: 'none',
     nodeColorMode: 'none',
     linkColorMode: 'none',
 
@@ -123,7 +119,10 @@ export const useStyleStore = create<StyleState>((set, get) => ({
         diameter: { min: 0, max: 500 },
         roughness: { min: 80, max: 140 },
         flow: { min: 0, max: 100 },
-        head: { min: 0, max: 100 }
+        head: { min: 0, max: 100 },
+        demand: { min: 0, max: 50 },
+        elevation: { min: 0, max: 800 },
+        headloss: { min: 0, max: 5 }
     },
 
     nodeGradient: CLASSIC_EPANET_GRADIENT,
@@ -136,7 +135,6 @@ export const useStyleStore = create<StyleState>((set, get) => ({
     layerStyles: JSON.parse(JSON.stringify(DEFAULT_LAYER_STYLES)),
 
     // Actions
-    // setColorMode: (mode) => set({ colorMode: mode }),
     setNodeColorMode: (mode) => set({ nodeColorMode: mode }),
     setLinkColorMode: (mode) => set({ linkColorMode: mode }),
 
