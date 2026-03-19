@@ -191,7 +191,7 @@ export const WORKBENCH_MENU: MenuItem[] = [
                 type: "ITEM",
                 label: "Simulate",
                 icon: Play,
-                panelType: "SIMULATION_SETUP",
+                modalType: "SIMULATION_SETUP",
             },
             {
                 id: "grp_sim_sets",
