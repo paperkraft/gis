@@ -5,7 +5,6 @@ import VectorSource from 'ol/source/Vector';
 import { useCallback, useEffect, useRef } from 'react';
 import { Draw, DragBox } from 'ol/interaction';
 
-import { COMPONENT_TYPES } from '@/constants/networkComponents';
 import { ModifyManager } from '@/lib/topology/modifyManager';
 import { PipeDrawingManager } from '@/lib/topology/pipeDrawingManager';
 import { VertexLayerManager } from '@/lib/topology/vertexManager';
@@ -13,8 +12,8 @@ import { useNetworkStore } from '@/store/networkStore';
 import { useMapStore } from '@/store/mapStore';
 import { useUIStore } from '@/store/uiStore';
 import { FeatureType } from '@/types/network';
+import { NetworkFactory } from '@/lib/topology/networkFactory';
 import { DeleteManager } from '@/lib/topology/deleteManager';
-// import { ValidationManager } from '@/lib/topology/validationManager';
 
 interface UseMapInteractionsProps {
     map: Map | null;
@@ -23,7 +22,7 @@ interface UseMapInteractionsProps {
 
 export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProps) {
     const { activeTool, setActiveTool } = useUIStore();
-    const { addFeature, generateUniqueId } = useNetworkStore();
+    const { addFeature } = useNetworkStore();
 
     const pipeDrawingManagerRef = useRef<PipeDrawingManager | null>(null);
     const modifyManagerRef = useRef<ModifyManager | null>(null);
@@ -31,7 +30,6 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
     const drawInteractionRef = useRef<Draw | null>(null);
     const zoomBoxRef = useRef<DragBox | null>(null);
     const deleteManagerRef = useRef<DeleteManager | null>(null);
-    // const validationManagerRef = useRef<ValidationManager | null>(null);
 
     // Initialize Managers
     useEffect(() => {
@@ -41,7 +39,6 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
         const modifyManager = new ModifyManager(map, vectorSource);
         const vertexManager = new VertexLayerManager(map, vectorSource);
         const deleteManager = new DeleteManager(vectorSource, pipeManager);
-        // const validationManager = new ValidationManager(map);
 
         pipeDrawingManagerRef.current = pipeManager;
         modifyManagerRef.current = modifyManager;
@@ -81,36 +78,28 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
         }
 
         // 2. Standard Placement
-        const id = generateUniqueId(componentType);
+        const featureData = NetworkFactory.createNode(componentType, coordinate);
+        const id = featureData.id;
 
         // A. Add to Map Local Source (for instant visual feedback)
         const feature = new Feature({ geometry: new Point(coordinate) });
         feature.setId(id);
-        feature.set('type', componentType);
-        feature.set('isNew', true);
         feature.setProperties({
-            ...COMPONENT_TYPES[componentType].defaultProperties,
-            label: `${id}`,
+            ...featureData.properties,
+            isNew: true,
         });
-        feature.set('connectedLinks', []);
         vectorSource.addFeature(feature);
 
         // B. Add to Store (Data Model)
         addFeature({
-            id,
-            type: componentType,
-            geometry: coordinate,
+            ...featureData,
             properties: {
-                ...COMPONENT_TYPES[componentType].defaultProperties,
-                label: `${id}`,
-                connectedLinks: [],
-                isNew: true,
-                type: componentType,
-                id: id
-            } as any
+                ...featureData.properties,
+                isNew: true
+            }
         });
 
-    }, [map, vectorSource, addFeature, generateUniqueId]);
+    }, [map, vectorSource, addFeature]);
 
     // Click handler for simple components (Nodes)
     const handlePlacementClick = useCallback((event: any) => {

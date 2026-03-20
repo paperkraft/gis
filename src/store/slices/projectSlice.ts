@@ -52,7 +52,15 @@ const DEFAULT_SETTINGS: ProjectSettings = {
     startClock: "12:00 AM",
 
     // Pattern
-    defaultPattern: "1"
+    defaultPattern: "1",
+    
+    // Component Defaults (initialized from constants)
+    componentDefaults: Object.fromEntries(
+        Object.entries(COMPONENT_TYPES).map(([type, config]) => [
+            type,
+            { ...config.defaultProperties }
+        ])
+    )
 };
 
 export const createProjectSlice: StateCreator<NetworkState, [], [], ProjectSlice> = (set, get) => ({

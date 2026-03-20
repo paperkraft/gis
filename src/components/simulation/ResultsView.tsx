@@ -35,8 +35,7 @@ export function ResultsView({ isMaximized }: { isMaximized?: boolean }) {
     saveResultsToDB,
   } = useSimulationStore();
 
-  const { nodeColorMode, setNodeColorMode, linkColorMode, setLinkColorMode } =
-    useStyleStore();
+  const { setNodeColorMode, setLinkColorMode } = useStyleStore();
 
   const { setActiveModal } = useUIStore();
 
@@ -295,7 +294,7 @@ export function ResultsView({ isMaximized }: { isMaximized?: boolean }) {
 
         {/* Quick Stats */}
         <div className={cn(
-          "space-y-3",
+          "space-y-1",
           isMaximized && "grid grid-cols-2 gap-4 space-y-0"
         )}>
           <FormGroup label="Snapshot Summary" className={isMaximized ? "h-full" : ""}>
@@ -328,48 +327,47 @@ export function ResultsView({ isMaximized }: { isMaximized?: boolean }) {
           </FormGroup>
 
           {/* Actions */}
-          <div className={cn(
-            "space-y-2 pt-2 border-t border-slate-100",
-            isMaximized && "pt-0 border-t-0 grid grid-cols-2 gap-2 space-y-0"
-          )}>
-            <ActionButton
-              icon={BarChart3}
-              title="View Graphs"
-              desc="Plot time series"
-              color="blue"
-              onClick={() => setActiveModal("SIMULATION_GRAPHS")}
-            />
-            <ActionButton
-              icon={Layers}
-              title="Scenarios"
-              desc="Save/Compare Results"
-              color="purple"
-              onClick={() => setActiveModal("SCENARIO_MANAGER")}
-            />
-            <ActionButton
-              icon={Terminal}
-              title="View Simulation Log"
-              desc="System warnings & details"
-              color="amber"
-              onClick={() => setShowLog(true)}
-            />
-            <ActionButton
-              icon={FileText}
-              title="Export Report"
-              desc="Download CSV"
-              color="green"
-              onClick={handleDownloadReport}
-            />
-            <div className={isMaximized ? "col-span-2" : ""}>
+          <FormGroup label="Actions" className={isMaximized ? "h-full" : ""}>
+            <div className={cn("space-y-1 grid grid-cols-2 gap-1")}>
               <ActionButton
-                icon={Save}
-                title="Save Results"
-                desc="Save run to database"
-                color="green"
-                onClick={() => saveResultsToDB(projectId)}
+                icon={BarChart3}
+                title="Graphs"
+                desc="Plot time series"
+                color="blue"
+                onClick={() => setActiveModal("SIMULATION_GRAPHS")}
               />
+              <ActionButton
+                icon={Layers}
+                title="Scenarios"
+                desc="Save/Compare Results"
+                color="purple"
+                onClick={() => setActiveModal("SCENARIO_MANAGER")}
+              />
+              <ActionButton
+                icon={Terminal}
+                title="Log"
+                desc="System warnings"
+                color="amber"
+                onClick={() => setShowLog(true)}
+              />
+              <ActionButton
+                icon={FileText}
+                title="Export"
+                desc="Download CSV"
+                color="green"
+                onClick={handleDownloadReport}
+              />
+              <div className={"col-span-2"}>
+                <ActionButton
+                  icon={Save}
+                  title="Save Results"
+                  desc="Save run to cloud"
+                  color="green"
+                  onClick={() => saveResultsToDB(projectId)}
+                />
+              </div>
             </div>
-          </div>
+          </FormGroup>
         </div>
       </div>
 

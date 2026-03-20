@@ -15,7 +15,7 @@ const NODE_OPTIONS: { value: NodeColorMode; label: string }[] = [
     { value: 'elevation', label: 'Elevation' },
     { value: 'head', label: 'Head' },
     { value: 'demand', label: 'Demand' },
-    { value: 'none', label: 'Hide' },
+    { value: 'none', label: 'Close' },
 ];
 
 const LINK_OPTIONS: { value: LinkColorMode; label: string }[] = [
@@ -24,7 +24,7 @@ const LINK_OPTIONS: { value: LinkColorMode; label: string }[] = [
     { value: 'diameter', label: 'Diameter' },
     { value: 'roughness', label: 'Roughness' },
     { value: 'headloss', label: 'Headloss' },
-    { value: 'none', label: 'Hide' },
+    { value: 'none', label: 'Close' },
 ];
 
 export function Legend() {

@@ -97,6 +97,7 @@ export interface ProjectSettings {
     defaultPattern?: string;   // e.g. "1", "Pat-A", etc.
     statistic?: 'NONE' | 'AVERAGE' | 'MINIMUM' | 'MAXIMUM' | 'RANGE';
     isGeographic?: boolean;
+    componentDefaults?: Record<string, Record<string, any>>;
 }
 export interface TimePattern {
     id: string;

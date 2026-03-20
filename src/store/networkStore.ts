@@ -1,4 +1,3 @@
-import { Feature } from 'ol';
 import GeoJSON from 'ol/format/GeoJSON';
 import { create } from 'zustand';
 import { ParsedProjectData } from '@/lib/epanet/inpParser';

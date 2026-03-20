@@ -43,9 +43,14 @@ export default function WorkbenchPageClient({ user }: WorkbenchPageClientProps) 
         try {
           const success = await ProjectService.loadProject(params.id as string);
           if (!success) {
-            // Optional: Handle not found more gracefully
             router.replace("/");
             console.error("Project load returned false");
+          } else {
+            // Trigger Default Values panel for blank projects
+            const features = useNetworkStore.getState().features;
+            if (features.size === 0) {
+              useUIStore.getState().setActiveModal("DEFAULT_ATTRIBUTES");
+            }
           }
         } catch (e) {
           console.error("Project load failed", e);
