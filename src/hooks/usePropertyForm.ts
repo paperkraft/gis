@@ -152,8 +152,6 @@ export const usePropertyForm = () => {
                         geometry: reversed,
                         startNodeId: newStart,
                         endNodeId: newEnd,
-                        source: newStart,
-                        target: newEnd,
                     });
                     mapFeature.changed();
                 } else {
@@ -161,12 +159,10 @@ export const usePropertyForm = () => {
                     updateFeature(selectedFeatureId, {
                         startNodeId: newStart,
                         endNodeId: newEnd,
-                        source: newStart,
-                        target: newEnd,
                     });
                 }
 
-                setFormData(prev => ({ ...prev, startNodeId: newStart, endNodeId: newEnd, source: newStart, target: newEnd }));
+                setFormData(prev => ({ ...prev, startNodeId: newStart, endNodeId: newEnd }));
                 return;
             }
         }
@@ -174,7 +170,7 @@ export const usePropertyForm = () => {
         // Fallback: property-only update (store only, no OL geometry change)
         const newStart = formData.endNodeId || formData.target || formData.toNode;
         const newEnd = formData.startNodeId || formData.source || formData.fromNode;
-        const updates = { startNodeId: newStart, endNodeId: newEnd, source: newStart, target: newEnd };
+        const updates = { startNodeId: newStart, endNodeId: newEnd };
         updateFeature(selectedFeatureId, updates);
         setFormData(prev => ({ ...prev, ...updates }));
     };

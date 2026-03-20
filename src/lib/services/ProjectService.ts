@@ -52,7 +52,9 @@ export class ProjectService {
 
             data.features.forEach((f: any) => {
                 const props = { ...f };
-                delete props.geometry; // Separate props from geometry
+                delete props.geometry;
+                delete props.source;
+                delete props.target;
 
                 // HANDLE PUMPS & VALVES (Special Case: Database=LineString -> App=Point+Visual)
                 if (['pump', 'valve'].includes(f.type) && f.geometry.type === 'LineString') {

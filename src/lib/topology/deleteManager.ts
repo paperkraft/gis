@@ -243,16 +243,16 @@ export class DeleteManager {
             let modified = false;
 
             if (pStartId === startNodeId || pStartId === endNodeId) {
-                // Update BOTH startNodeId AND source — saveCurrentProject reads `props.source || props.startNodeId`
-                store.updateFeature(neighborId, { startNodeId: newJunctionId, source: newJunctionId });
+                // Update startNodeId — saveCurrentProject reads `props.startNodeId` and translates to `source` for the DB
+                store.updateFeature(neighborId, { startNodeId: newJunctionId });
                 if (pipeCoords.length >= 2) pipeCoords[0] = mergePoint!;
 
                 store.updateNodeConnections(pStartId, neighborId, 'remove');
                 store.updateNodeConnections(newJunctionId, neighborId, 'add');
                 modified = true;
             } else if (pEndId === startNodeId || pEndId === endNodeId) {
-                // Update BOTH endNodeId AND target — saveCurrentProject reads `props.target || props.endNodeId`
-                store.updateFeature(neighborId, { endNodeId: newJunctionId, target: newJunctionId });
+                // Update endNodeId — saveCurrentProject reads `props.endNodeId` and translates to `target` for the DB
+                store.updateFeature(neighborId, { endNodeId: newJunctionId });
                 if (pipeCoords.length >= 2) pipeCoords[pipeCoords.length - 1] = mergePoint!;
 
                 store.updateNodeConnections(pEndId, neighborId, 'remove');
