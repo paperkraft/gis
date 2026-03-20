@@ -10,13 +10,13 @@ import { useUIStore } from "@/store/uiStore";
 import { FloatingPanel } from "./FloatingPanel";
 
 export function ExportPanel() {
-  const { activeModal, setActiveModal } = useUIStore();
+  const { activeRightPanel, setActiveRightPanel } = useUIStore();
   const { exportToINP, exportToGeoJSON } = useExportProject();
   
   const [format, setFormat] = useState<'inp' | 'geojson'>('inp');
   const [loading, setLoading] = useState(false);
 
-  const handleClose = () => setActiveModal("NONE");
+  const handleClose = () => setActiveRightPanel("NONE");
 
   const handleExport = async () => {
     setLoading(true);
@@ -31,7 +31,7 @@ export function ExportPanel() {
     <FloatingPanel
         title="Export Data"
         icon={Download}
-        isOpen={activeModal === "EXPORT_PROJECT"}
+        isOpen={activeRightPanel === "EXPORT_PROJECT"}
         onClose={handleClose}
         footer={
             <>

@@ -13,7 +13,7 @@ import { FormSelect } from "../form-controls/FormSelect";
 import { FormInput } from "../form-controls/FormInput";
 
 export function PrintPanel() {
-  const { activeModal, setActiveModal } = useUIStore();
+  const { activeRightPanel, setActiveRightPanel } = useUIStore();
   const map = useMapStore((state) => state.map);
   const { settings } = useNetworkStore();
 
@@ -30,7 +30,7 @@ export function PrintPanel() {
     checkedBy: '',
   });
 
-  const handleClose = () => setActiveModal("NONE");
+  const handleClose = () => setActiveRightPanel("NONE");
 
   const onPrint = () => {
     // 1. Calculate Network Extent
@@ -68,7 +68,7 @@ export function PrintPanel() {
     <FloatingPanel
       title="Print Map"
       icon={Printer}
-      isOpen={activeModal === "PRINT_MAP"}
+      isOpen={activeRightPanel === "PRINT_MAP"}
       onClose={handleClose}
       footer={
         <>

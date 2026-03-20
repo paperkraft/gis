@@ -1,7 +1,6 @@
 import {
-  BarChart3Icon, CheckCircle2, Circle, Cpu, Filter, Hexagon, LucideIcon, Minus, Mountain, Palette,
-  Pentagon, Play, Settings, Square, Table2, Triangle, UploadIcon
-} from 'lucide-react';
+  BarChart3Icon, CheckCircle2, Circle, Cpu, Hexagon, LucideIcon, Minus, Mountain, Palette,
+  Pentagon, Play, Settings, Square, Table2, Triangle} from 'lucide-react';
 
 import { AutoElevationPanel } from '../panels/AutoElevationPanel';
 import { ControlManagerPanel } from '../panels/ControlManagerPanel';
@@ -18,7 +17,6 @@ import { ValveProperties } from '../properties/ValveProperties';
 import { SimulationGraphs } from '../simulation/graphs/SimulationGraphs';
 import { ScenarioManagerPanel } from '../simulation/ScenarioManagerPanel';
 import { SimulationPanel } from '../simulation/SimulationPanel';
-import { QueryBuilderPanel } from '../panels/QueryBuilderPanel';
 
 interface ModalConfig {
   title: string;
@@ -32,7 +30,6 @@ export type WorkbenchModalType =
   | "NEW_PROJECT"
   | "DELETE_PROJECT"
   | "IMPORT_PROJECT"
-  | "EXPORT_PROJECT"
   // Network
   | "JUNCTION_PROP"
   | "RESERVOIR_PROP"
@@ -49,7 +46,6 @@ export type WorkbenchModalType =
   | "AUTO_ELEVATION"
   | "CONTROLS"
   | "VALIDATION"
-  | "PRINT_MAP"
   | "SIMULATION_SETUP"
 
 

@@ -31,6 +31,8 @@ export type RightPanelType =
     | 'QUERY'
     | 'BOOKMARK'
     | 'LOCATION'
+    | 'PRINT_MAP'
+    | 'EXPORT_PROJECT'
 
 export interface ContextMenuState {
     x: number;
@@ -136,6 +138,7 @@ interface UIState {
 
     setActiveModal: (modal: WorkbenchModalType) => void;
     setActivePanel: (panel: WorkbenchPanelType) => void;
+    setActiveRightPanel: (panel: RightPanelType) => void;
 
     // Actions - Map Controls
     setActiveTool: (tool: ToolType | null) => void;
@@ -161,11 +164,7 @@ interface UIState {
     setIsFlowAnimating: (animating: boolean) => void;
     setFlowAnimationSpeed: (speed: number) => void;
     setFlowAnimationStyle: (style: FlowAnimationStyle) => void;
-    setActiveRightPanel: (panel: RightPanelType) => void;
-    // Helper actions to maintain backward compatibility where needed, 
-    // but internally they will just call setActiveRightPanel
-    setShowDisplayPanel: (open: boolean) => void;
-    setShowQueryBuilder: (open: boolean) => void;
+    
 
     // Actions - Tab navigation
     setContextMenu: (menu: ContextMenuState | null) => void;
@@ -277,8 +276,6 @@ export const useUIStore = create<UIState>((set, get) => ({
 
     setIsSnappingEnabled: (enabled) => set({ isSnappingEnabled: enabled }),
     setActiveRightPanel: (panel) => set({ activeRightPanel: panel }),
-    setShowDisplayPanel: (open) => set({ activeRightPanel: open ? 'DISPLAY' : 'NONE' }),
-    setShowQueryBuilder: (open) => set({ activeRightPanel: open ? 'QUERY' : 'NONE' }),
 
     // Map control actions
     setActiveTool: (tool) => {

@@ -311,7 +311,21 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
             });
         };
 
-        createComplexHelper(sections['PUMPS'] || [], 'pump', p => ({ status: 'Open' }));
+        createComplexHelper(sections['PUMPS'] || [], 'pump', p => {
+            const props: any = { status: 'Open' };
+            // Standard EPANET format: ID Node1 Node2 Keyword Value ...
+            for (let i = 3; i < p.length; i += 2) {
+                const key = p[i]?.toUpperCase();
+                const val = p[i + 1];
+                if (!key || !val) continue;
+
+                if (key === 'HEAD') props.curve = val;
+                else if (key === 'POWER') props.power = parseFloat(val);
+                else if (key === 'SPEED') props.speed = parseFloat(val);
+                else if (key === 'PATTERN') props.pattern = val;
+            }
+            return props;
+        });
         createComplexHelper(sections['VALVES'] || [], 'valve', p => ({
             diameter: parseFloat(p[3]), valveType: p[4], setting: parseFloat(p[5]), status: 'Active'
         }));

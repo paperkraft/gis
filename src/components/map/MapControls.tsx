@@ -55,7 +55,12 @@ export function MapControls() {
   }, [activeGroup]);
 
   const toggleGroup = (group: string) => {
-    setActiveGroup(activeGroup === group ? null : group);
+    const nextGroup = activeGroup === group ? null : group;
+    if (nextGroup) {
+      setActiveRightPanel('NONE');
+      // setActiveModal('NONE');
+    }
+    setActiveGroup(nextGroup);
   };
 
   return (
@@ -74,10 +79,10 @@ export function MapControls() {
         <LayerControls activeGroup={activeGroup} onToggle={toggleGroup} />
 
         <StandaloneControl
-          onClick={() => setActiveRightPanel(activeRightPanel === 'DISPLAY' ? 'NONE' : 'DISPLAY')}
-          isActive={activeRightPanel === 'DISPLAY'}
           icon={Monitor}
           title="Display Settings"
+          isActive={activeRightPanel === 'DISPLAY'}
+          onClick={() => setActiveRightPanel('DISPLAY')}
         />
 
         <EditingControls activeGroup={activeGroup} onToggle={toggleGroup} />
@@ -86,17 +91,17 @@ export function MapControls() {
         <DataControls activeGroup={activeGroup} onToggle={toggleGroup} />
 
         <StandaloneControl
-          onClick={() => setActiveModal("PRINT_MAP")}
-          isActive={activeModal === "PRINT_MAP"}
           icon={Printer}
           title="Print Map"
+          isActive={activeRightPanel === 'PRINT_MAP'}
+          onClick={() => setActiveRightPanel('PRINT_MAP')}
         />
 
         <StandaloneControl
           icon={FileDown}
           title="Export Network"
-          isActive={activeModal === "EXPORT_PROJECT"}
-          onClick={() => setActiveModal("EXPORT_PROJECT")}
+          isActive={activeRightPanel === "EXPORT_PROJECT"}
+          onClick={() => setActiveRightPanel("EXPORT_PROJECT")}
         />
       </div>
 
