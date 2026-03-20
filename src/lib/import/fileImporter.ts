@@ -1,9 +1,9 @@
-import { Feature } from 'ol';
 import VectorSource from 'ol/source/Vector';
-import { useNetworkStore } from '@/store/networkStore';
-import { parseINP, ParsedProjectData } from '../epanet/inpParser';
 
+import { useNetworkStore } from '@/store/networkStore';
 import { NetworkFeatureData } from '@/types/network';
+
+import { ParsedProjectData, parseINP } from '../epanet/inpParser';
 
 export type ImportFormat = 'inp' | 'geojson' | 'shapefile' | 'kml';
 

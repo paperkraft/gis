@@ -1,4 +1,4 @@
-import { FeatureType, NetworkFeatureData } from '@/types/network';
+import { NetworkFeatureData } from '@/types/network';
 import { ParsedProjectData } from '../epanet/inpParser';
 
 const DEFAULT_PATTERNS = [{

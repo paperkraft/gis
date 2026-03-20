@@ -1,12 +1,13 @@
+import GeoJSON from 'ol/format/GeoJSON';
 import TileLayer from 'ol/layer/Tile';
+import VectorLayer from 'ol/layer/Vector';
+import Map from 'ol/Map';
 import { XYZ } from 'ol/source';
 import OSM from 'ol/source/OSM';
-import Map from 'ol/Map';
-import { mapbox_token, layerType } from '@/constants/map';
-import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
-import GeoJSON from 'ol/format/GeoJSON';
 import { Stroke, Style } from 'ol/style';
+
+import { layerType, mapbox_token } from '@/constants/map';
 
 export const createBaseLayers = (): TileLayer[] => {
 

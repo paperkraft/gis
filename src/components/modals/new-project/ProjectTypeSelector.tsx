@@ -1,5 +1,6 @@
-import { FileUp, Map, PenTool } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { FileUp, Map, PenTool } from 'lucide-react';
+
+import { cn } from '@/lib/utils';
 
 export type ProjectType = 'blank' | 'import' | 'gis';
 interface ProjectTypeSelectorProps {

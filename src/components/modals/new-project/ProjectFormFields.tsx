@@ -1,19 +1,22 @@
-import { AlertTriangle, ArrowRight, CheckCircle2, FileArchive, FileCode2, LayoutList, Loader2, MapPin, Maximize2, Search, UploadCloud, XCircle } from 'lucide-react';
+import {
+    AlertTriangle, ArrowRight, CheckCircle2, FileArchive, FileCode2, LayoutList, Loader2, MapPin,
+    Maximize2, Search, UploadCloud, XCircle
+} from 'lucide-react';
 import React, { useState } from 'react';
+import { toast } from 'sonner';
 
 import { FormGroup } from '@/components/form-controls/FormGroup';
 import { FormInput } from '@/components/form-controls/FormInput';
-import { FormSelect } from '@/components/form-controls/FormSelect';
 import { FormProjectionSelect } from '@/components/form-controls/FormProjectionSelect';
-import { flowUnitOptions, projectionList } from '@/constants/project';
+import { FormSelect } from '@/components/form-controls/FormSelect';
+import { ProjectionSelect } from '@/components/shared/ProjectionSelect';
+import { Button } from '@/components/ui/button';
+import { flowUnitOptions } from '@/constants/project';
+import { GisValidationResult } from '@/lib/gis/gisValidator';
+import { AutoProjection, getProjectionFromLocation } from '@/lib/gis/locationToZone';
 import { cn } from '@/lib/utils';
 
 import { ProjectType } from './ProjectTypeSelector';
-import { GisValidationResult } from '@/lib/gis/gisValidator';
-import { AutoProjection, getProjectionFromLocation } from '@/lib/gis/locationToZone';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { ProjectionSelect } from '@/components/shared/ProjectionSelect';
 
 interface ProjectFormFieldsProps {
     projectType: ProjectType;
@@ -299,9 +302,9 @@ export function ProjectFormFields({
                                     </div>
 
                                     <div className="relative flex items-center py-1 opacity-60">
-                                        <div className="flex-grow border-t border-slate-200"></div>
-                                        <span className="flex-shrink mx-3 text-[9px] font-bold text-slate-400 uppercase tracking-tighter">OR</span>
-                                        <div className="flex-grow border-t border-slate-200"></div>
+                                        <div className="grow border-t border-slate-200"></div>
+                                        <span className="shrink mx-3 text-[9px] font-bold text-slate-400 uppercase tracking-tighter">OR</span>
+                                        <div className="grow border-t border-slate-200"></div>
                                     </div>
 
                                     <div className="p-3 bg-blue-50/80 border border-blue-100 rounded-xl animate-in fade-in zoom-in-95 space-y-3 shadow-sm">

@@ -1,17 +1,5 @@
 import proj4 from 'proj4';
 
-// Define common definitions (Add more from epsg.io if needed)
-proj4.defs("EPSG:32643", "+proj=utm +zone=43 +datum=WGS84 +units=m +no_defs"); // India West (Maharashtra)
-proj4.defs("EPSG:32644", "+proj=utm +zone=44 +datum=WGS84 +units=m +no_defs"); // India East
-proj4.defs("EPSG:3857", "+proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +wktext +no_defs");
-
-export const COMMON_PROJECTIONS = [
-    { label: "WGS 84 (Lat/Lon) - Standard", value: "EPSG:4326" },
-    { label: "Web Mercator (Google Maps)", value: "EPSG:3857" },
-    { label: "UTM Zone 43N (India - West/Maha)", value: "EPSG:32643" },
-    { label: "UTM Zone 44N (India - East)", value: "EPSG:32644" },
-];
-
 /**
  * Converts ANY input coordinate to WGS84 (Lat/Lon).
  * Returns null if conversion fails.

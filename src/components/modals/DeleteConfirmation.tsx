@@ -1,25 +1,13 @@
-import {
-  AlertTriangle,
-  Eye,
-  EyeOff,
-  Ghost,
-  GripHorizontal,
-  Link2Off,
-  Merge,
-} from "lucide-react";
-import React, { useState } from "react";
+import { AlertTriangle, Ghost, GripHorizontal, Link2Off, Merge } from 'lucide-react';
+import React from 'react';
 
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
-import { useUIStore } from "@/store/uiStore";
-import { useDraggableDialog } from "@/hooks/useDraggableDialog";
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle
+} from '@/components/ui/dialog';
+import { useDraggableDialog } from '@/hooks/useDraggableDialog';
+import { cn } from '@/lib/utils';
+import { useUIStore } from '@/store/uiStore';
 
 export function DeleteConfirmation() {
   const { deleteContext } = useUIStore();

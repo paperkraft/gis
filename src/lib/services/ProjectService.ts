@@ -1,10 +1,7 @@
-import { useMapStore } from "@/store/mapStore";
-import { parseINP } from "../epanet/inpParser";
-import { useNetworkStore } from "@/store/networkStore";
-import { ProjectSettings } from "@/types/network";
-import { Point } from "ol/geom";
-import { transform } from "ol/proj";
-import { NetworkFeatureData } from "@/types/network";
+import { transform } from 'ol/proj';
+
+import { useNetworkStore } from '@/store/networkStore';
+import { NetworkFeatureData, ProjectSettings } from '@/types/network';
 
 export interface ProjectMetadata {
     id: string;
@@ -100,7 +97,7 @@ export class ProjectService {
                 if (f.geometry.type === 'Point') {
                     geom = isGeographic ? transform(f.geometry.coordinates, 'EPSG:4326', 'EPSG:3857') : f.geometry.coordinates;
                 } else {
-                    geom = isGeographic 
+                    geom = isGeographic
                         ? f.geometry.coordinates.map((c: number[]) => transform(c, 'EPSG:4326', 'EPSG:3857'))
                         : f.geometry.coordinates;
                 }
@@ -230,11 +227,11 @@ export class ProjectService {
 
                 if (coordinates) {
                     if (geometryType === 'Point') {
-                        finalCoords = isGeographic 
+                        finalCoords = isGeographic
                             ? transform(coordinates as number[], 'EPSG:3857', 'EPSG:4326')
                             : coordinates;
                     } else if (geometryType === 'LineString') {
-                        finalCoords = isGeographic 
+                        finalCoords = isGeographic
                             ? (coordinates as number[][]).map((c: number[]) => transform(c, 'EPSG:3857', 'EPSG:4326'))
                             : coordinates;
                     }

@@ -1,5 +1,6 @@
-import { ArrowRight, Check, LayoutDashboard } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowRight, Check, LayoutDashboard } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
 
 interface ProjectSuccessViewProps {
   title: string;

@@ -1,5 +1,4 @@
-import { CheckCircle2, Eye, EyeOff, GitMerge, GripHorizontal } from 'lucide-react';
-import React, { useState } from 'react';
+import { CheckCircle2, GitMerge, GripHorizontal } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';

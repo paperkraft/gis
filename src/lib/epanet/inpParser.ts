@@ -1,5 +1,9 @@
-import { ProjectSettings, TimePattern, PumpCurve, NetworkControl, ControlAction, NetworkFeatureData, FeatureType } from '@/types/network';
 import { transform } from 'ol/proj';
+
+import {
+    ControlAction, NetworkControl, NetworkFeatureData, ProjectSettings, PumpCurve, TimePattern
+} from '@/types/network';
+
 import { NetworkFactory } from '../topology/networkFactory';
 
 interface INPSection {
@@ -110,10 +114,10 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
                 if (x >= -180 && x <= 180 && y >= -90 && y <= 90) {
                     sourceProjection = 'EPSG:4326';
                     console.log("Auto-detected Lat/Lon coordinates (EPSG:4326).");
-                } 
+                }
                 // 2. If coordinates are very large (typical for local XY), assume Simple
                 else if (Math.abs(x) > 20000000 || Math.abs(y) > 20000000) {
-                     // Keep as 3857 (Web Mercator) - likely georeferenced but not Lat/Lon
+                    // Keep as 3857 (Web Mercator) - likely georeferenced but not Lat/Lon
                 } else {
                     sourceProjection = 'Simple';
                     console.log("Auto-detected local XY coordinates (Simple).");
@@ -200,7 +204,7 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
         };
 
         // 4. Parse Nodes using (potentially transformed) coordinates
-        
+
         // --- ROBUST NODE DISCOVERY ---
         // Ensure ALL node IDs referenced in any link section are in our coordinates map
         const allLinkSections = [...(sections['PIPES'] || []), ...(sections['PUMPS'] || []), ...(sections['VALVES'] || [])];
@@ -229,7 +233,7 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
         const junctions = createNodeHelper(sections['JUNCTIONS'] || [], 'junction', p => ({
             elevation: parseFloat(p[1]), demand: parseFloat(p[2] || '0'), pattern: p[3] || undefined
         }));
-        
+
         // Add discovered nodes that are NOT in the JUNCTIONS section
         const definedJunctionIds = new Set(junctions.map(j => j.id));
         for (const [id, coord] of coordinates) {
@@ -297,7 +301,7 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
                 if (n1 && n2) {
                     const c1 = n1.geometry as number[];
                     const c2 = n2.geometry as number[];
-                    
+
                     // Offset OVERLAPPING nodes for visibility
                     if (Math.abs(c1[0] - c2[0]) < 0.000001 && Math.abs(c1[1] - c2[1]) < 0.000001) {
                         c2[0] += offsetVal;

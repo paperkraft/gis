@@ -1,17 +1,10 @@
 "use client";
 
-import React from "react";
-import {
-  X,
-  Keyboard,
-  Command,
-  PenTool,
-  Map as MapIcon,
-  Layers,
-} from "lucide-react";
-import { useUIStore } from "@/store/uiStore";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Command, Keyboard, Layers, Map as MapIcon, PenTool, X } from 'lucide-react';
+import React from 'react';
+
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface KeyboardShortcutsModalProps {
   isOpen: boolean;
