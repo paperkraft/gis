@@ -208,7 +208,7 @@ const DEFAULT_STATE = {
 
     isFlowAnimating: false,
     flowAnimationSpeed: 1.0,
-    flowAnimationStyle: 'dashes' as FlowAnimationStyle,
+    flowAnimationStyle: 'particles' as FlowAnimationStyle,
 
     activeTool: 'pan' as const,
     baseLayer: 'osm' as const,

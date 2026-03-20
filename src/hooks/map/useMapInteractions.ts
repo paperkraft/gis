@@ -222,7 +222,33 @@ export function useMapInteractions({ map, vectorSource }: UseMapInteractionsProp
                 break;
             }
         }
-    }, [activeTool, map, placeComponent, setActiveTool]);
+    }, [activeTool, map, placeComponent, setActiveTool, handlePlacementClick]);
+
+    // Added: Update cursor to 'grabbing' on mouse down in pan mode
+    useEffect(() => {
+        if (!map) return;
+        const viewport = map.getViewport();
+
+        const handlePointerDown = (e: PointerEvent) => {
+            if (activeTool === 'pan' && e.button === 0) {
+                viewport.style.cursor = 'grabbing';
+            }
+        };
+
+        const handlePointerUp = () => {
+            if (activeTool === 'pan') {
+                viewport.style.cursor = 'grab';
+            }
+        };
+
+        viewport.addEventListener('pointerdown', handlePointerDown);
+        window.addEventListener('pointerup', handlePointerUp);
+
+        return () => {
+            viewport.removeEventListener('pointerdown', handlePointerDown);
+            window.removeEventListener('pointerup', handlePointerUp);
+        };
+    }, [map, activeTool]);
 
     return {
         pipeDrawingManager: pipeDrawingManagerRef.current,
