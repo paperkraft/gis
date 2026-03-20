@@ -17,8 +17,6 @@ export function useKeyboardShortcuts() {
         setDeleteModalOpen,
         setKeyboardShortcutsModalOpen,
         setShowAttributeTable,
-        setExportModalOpen,
-        setImportModalOpen,
         toggleSidebar
     } = useUIStore();
 
@@ -113,7 +111,7 @@ export function useKeyboardShortcuts() {
                     if (zoom !== undefined) view.animate({ zoom: zoom - 1, duration: 250 });
                     return;
                 }
-                if (key === "f" && !ctrl) { // Home / Fit Extent
+                if (key === "f" && !ctrl) {
                     handleZoomToExtent(map);
                     return;
                 }
@@ -135,25 +133,13 @@ export function useKeyboardShortcuts() {
 
             // --- File Operations ---
             if (key === "s" && ctrl) {
-                setExportModalOpen(true);
                 return;
             }
             if (key === "o" && ctrl) {
-                setImportModalOpen(true);
                 return;
             }
 
             // --- Undo/Redo ---
-            // if (key === "z" && ctrl && !shift) {
-            //     // window.dispatchEvent(new CustomEvent("undo"));
-            //     redo();
-            //     return;
-            // }
-            // if ((key === "y" && ctrl) || (key === "z" && ctrl && shift)) {
-            //     window.dispatchEvent(new CustomEvent("redo"));
-            //     return;
-            // }
-
             if (ctrl && key === 'z') {
                 event.preventDefault();
                 if (event.shiftKey) {
@@ -176,7 +162,5 @@ export function useKeyboardShortcuts() {
         setDeleteModalOpen,
         setKeyboardShortcutsModalOpen,
         setShowAttributeTable,
-        setExportModalOpen,
-        setImportModalOpen
     ]);
 }

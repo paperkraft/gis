@@ -17,7 +17,7 @@ import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
-export function ResultsView() {
+export function ResultsView({ isMaximized }: { isMaximized?: boolean }) {
   const params = useParams();
   const projectId = params?.id as string;
 
@@ -223,7 +223,7 @@ export function ResultsView() {
       </div>
 
       {/* --- SCROLLABLE CONTENT --- */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
         {/* Time Slider (EPS Only) */}
         {isEPS && (
           <div className="bg-primary-foreground p-3 rounded border border-slate-200">
@@ -294,72 +294,82 @@ export function ResultsView() {
         )}
 
         {/* Quick Stats */}
-        <FormGroup label="Snapshot Summary">
-          <div className="grid grid-cols-2 gap-3">
-            <ResultCard
-              label="Min Pressure"
-              value={stats.minP}
-              unit="m"
-              color="text-amber-600"
-            />
-            <ResultCard
-              label="Max Pressure"
-              value={stats.maxP}
-              unit="m"
-              color="text-blue-600"
-            />
-            <ResultCard
-              label="Min Velocity"
-              value={stats.minV}
-              unit="m/s"
-              color="text-slate-600"
-            />
-            <ResultCard
-              label="Max Velocity"
-              value={stats.maxV}
-              unit="m/s"
-              color="text-purple-600"
-            />
-          </div>
-        </FormGroup>
+        <div className={cn(
+          "space-y-3",
+          isMaximized && "grid grid-cols-2 gap-4 space-y-0"
+        )}>
+          <FormGroup label="Snapshot Summary" className={isMaximized ? "h-full" : ""}>
+            <div className="grid grid-cols-2 gap-3">
+              <ResultCard
+                label="Min Pressure"
+                value={stats.minP}
+                unit="m"
+                color="text-amber-600"
+              />
+              <ResultCard
+                label="Max Pressure"
+                value={stats.maxP}
+                unit="m"
+                color="text-blue-600"
+              />
+              <ResultCard
+                label="Min Velocity"
+                value={stats.minV}
+                unit="m/s"
+                color="text-slate-600"
+              />
+              <ResultCard
+                label="Max Velocity"
+                value={stats.maxV}
+                unit="m/s"
+                color="text-purple-600"
+              />
+            </div>
+          </FormGroup>
 
-        {/* Actions */}
-        <div className="space-y-2 pt-2 border-t border-slate-100">
-          <ActionButton
-            icon={BarChart3}
-            title="View Graphs"
-            desc="Plot time series"
-            color="blue"
-            onClick={() => setActiveModal("SIMULATION_GRAPHS")}
-          />
-          <ActionButton
-            icon={Layers}
-            title="Scenarios"
-            desc="Save/Compare Results"
-            color="purple"
-            onClick={() => setActiveModal("SCENARIO_MANAGER")}
-          />
-          <ActionButton
-            icon={Terminal}
-            title="View Simulation Log"
-            desc="System warnings & details"
-            color="amber"
-            onClick={() => setShowLog(true)}
-          />
-          <ActionButton
-            icon={FileText}
-            title="Export Report"
-            desc="Download CSV"
-            color="green"
-            onClick={handleDownloadReport}
-          />
-          <ActionButton
-            icon={Save}
-            title="Save Results"
-            desc="Save run to database"
-            color="green"
-            onClick={() => saveResultsToDB(projectId)}
-          />
+          {/* Actions */}
+          <div className={cn(
+            "space-y-2 pt-2 border-t border-slate-100",
+            isMaximized && "pt-0 border-t-0 grid grid-cols-2 gap-2 space-y-0"
+          )}>
+            <ActionButton
+              icon={BarChart3}
+              title="View Graphs"
+              desc="Plot time series"
+              color="blue"
+              onClick={() => setActiveModal("SIMULATION_GRAPHS")}
+            />
+            <ActionButton
+              icon={Layers}
+              title="Scenarios"
+              desc="Save/Compare Results"
+              color="purple"
+              onClick={() => setActiveModal("SCENARIO_MANAGER")}
+            />
+            <ActionButton
+              icon={Terminal}
+              title="View Simulation Log"
+              desc="System warnings & details"
+              color="amber"
+              onClick={() => setShowLog(true)}
+            />
+            <ActionButton
+              icon={FileText}
+              title="Export Report"
+              desc="Download CSV"
+              color="green"
+              onClick={handleDownloadReport}
+            />
+            <div className={isMaximized ? "col-span-2" : ""}>
+              <ActionButton
+                icon={Save}
+                title="Save Results"
+                desc="Save run to database"
+                color="green"
+                onClick={() => saveResultsToDB(projectId)}
+              />
+            </div>
+          </div>
         </div>
       </div>
 

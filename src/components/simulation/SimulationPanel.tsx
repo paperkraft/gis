@@ -5,13 +5,13 @@ import { SetupView } from "./SetupView";
 import { ResultsView } from "./ResultsView";
 import { AlertCircle } from "lucide-react";
 
-export function SimulationPanel() {
+export function SimulationPanel({ isMaximized }: { isMaximized?: boolean }) {
   const { history, status, error } = useSimulationStore();
 
   if (status === "error") {
     return (
       <div className="flex flex-col h-full">
-        <SetupView />
+        <SetupView isMaximized={isMaximized} />
         {/* Overlay Error Toast */}
         <div className="absolute bottom-20 left-4 right-4 bg-red-50 border border-red-200 p-3 rounded-md flex gap-3 text-red-800 animate-in slide-in-from-bottom-2">
           <AlertCircle className="shrink-0 mt-0.5" size={16} />
@@ -26,10 +26,10 @@ export function SimulationPanel() {
 
   // Show results if completed
   if (status === "completed" && history) {
-    return <ResultsView />;
+    return <ResultsView isMaximized={isMaximized} />;
   }
 
-  return <SetupView />;
+  return <SetupView isMaximized={isMaximized} />;
 }
 
 const formatError = (rawError: string) => {

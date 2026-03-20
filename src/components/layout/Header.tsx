@@ -1,3 +1,5 @@
+'use client';
+
 import { logoutAction } from "@/app/login/actions";
 import { ChevronDown, Loader2, LogOut, Save, User } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";

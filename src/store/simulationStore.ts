@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useNetworkStore } from './networkStore';
 import { buildINP } from '@/lib/epanet/inpBuilder';
 import { toast } from 'sonner';
+import { transform } from 'ol/proj';
 
 // --- Types ---
 export type SimulationStatus = 'idle' | 'running' | 'completed' | 'error';
@@ -61,9 +62,9 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
             // 1. Get Current Project State from Network Store
             const { features, patterns, curves, controls, settings } = useNetworkStore.getState();
 
-            console.log("curves", curves);
-            console.log("patterns", patterns);
-            console.log("controls", controls);
+            const mapProjection = 'EPSG:3857'; // OpenLayers default
+            const targetProjection = settings?.projection || 'EPSG:3857';
+            const shouldTransform = targetProjection !== mapProjection && targetProjection !== 'Simple' && targetProjection !== 'Simple (XY)';
 
             // 2. Build INP from LIVE data
             const inpData = buildINP(
@@ -71,7 +72,12 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
                 patterns,
                 curves,
                 controls,
-                settings
+                settings,
+                {
+                    transformCoords: shouldTransform 
+                        ? (coords) => transform(coords, mapProjection, targetProjection)
+                        : undefined
+                }
             );
 
             // 3. Initialize Worker
@@ -99,8 +105,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
                     isSimulating: false,
                     error: result.error || "Simulation failed"
                 });
-                return false
-                // throw new Error(result.error);
+                return false;
             }
 
             // 5. Success
@@ -168,9 +173,6 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         const toastId = toast.loading("Saving results...");
 
         try {
-            // STRATEGY A: REPORT STEP FILTERING
-            // Only keep snapshots where time is a multiple of 3600 (1 hour)
-            // AND always keep the first (0) and last snapshot.
             const REPORT_INTERVAL = 3600;
 
             const reducedSnapshots = history.snapshots.filter((s, index) => {
@@ -180,7 +182,6 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
                 return isHourly || isFirst || isLast;
             });
 
-            // We also need to filter the timestamps array to match
             const reducedTimestamps = reducedSnapshots.map(s => s.time);
 
             const payload = {
@@ -202,7 +203,6 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
             if (!res.ok) throw new Error("Server failed to save");
 
-            const data = await res.json();
             toast.success("Simulation saved", { id: toastId });
             return true;
 
@@ -228,13 +228,11 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
                     status: 'completed',
                     isSimulating: false,
                     history: history,
-                    // Auto-select the last timestep so the map shows results immediately
                     results: history.snapshots[lastIndex],
                     currentTimeIndex: lastIndex,
                     report: data.report || null,
                     warnings: data.warnings || [],
                 });
-                console.log("Simulation results loaded from DB");
             }
         } catch (e) {
             console.error("Failed to load results", e);

@@ -23,7 +23,7 @@ import { FlowUnits, HeadlossFormula } from "@/types/network";
 
 import { FormSelect } from "../form-controls/FormSelect";
 
-export function SetupView() {
+export function SetupView({ isMaximized }: { isMaximized?: boolean }) {
   const { setActiveModal, setActivePanel } = useUIStore();
   const { runSimulation, isSimulating } = useSimulationStore();
   const { setNodeColorMode, setLinkColorMode } = useStyleStore();
@@ -151,7 +151,10 @@ export function SetupView() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">
+      <div className={cn(
+        "flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3",
+        isMaximized && "grid grid-cols-2 gap-4 space-y-0 align-top content-start"
+      )}>
         <SimSection
           id="control"
           title="Time & Control"
@@ -160,6 +163,7 @@ export function SetupView() {
           onToggle={() =>
             setActiveSection(activeSection === "control" ? "" : "control")
           }
+          isAlwaysOpen={isMaximized}
         >
           <div className="space-y-3">
             <FormGroup label="Simulation Duration">
@@ -204,6 +208,7 @@ export function SetupView() {
           icon={Activity}
           isOpen={activeSection === "hydraulics"}
           onToggle={() => toggleSection("hydraulics")}
+          isAlwaysOpen={isMaximized}
         >
           <div className="space-y-3">
             <FormGroup label="System Properties">
@@ -248,6 +253,7 @@ export function SetupView() {
           icon={Settings}
           isOpen={activeSection === "options"}
           onToggle={() => toggleSection("options")}
+          isAlwaysOpen={isMaximized}
         >
           <div className="space-y-3">
             <FormGroup label="Report Options">
@@ -302,12 +308,13 @@ export function SetupView() {
         </SimSection>
 
         <div
-          className={`border rounded p-2 flex gap-2 transition-all ${statusColor === "blue"
-            ? "bg-blue-50 border-blue-100 text-blue-700"
-            : statusColor === "green"
-              ? "bg-green-50 border-green-100 text-green-700"
-              : "bg-red-50 border-red-100 text-red-700"
-            }`}
+          className={cn(
+            "border rounded p-2 flex gap-2 transition-all",
+            statusColor === "blue" ? "bg-blue-50 border-blue-100 text-blue-700" :
+            statusColor === "green" ? "bg-green-50 border-green-100 text-green-700" :
+            "bg-red-50 border-red-100 text-red-700",
+            isMaximized && "col-span-2"
+          )}
         >
           {statusColor === "green" ? (
             <CheckCircle2 size={14} className="mt-0.5" />
@@ -347,21 +354,29 @@ export function SetupView() {
 }
 
 // Helper for Collapsible Sections
-function SimSection({ title, icon: Icon, isOpen, onToggle, children }: any) {
+function SimSection({ title, icon: Icon, isOpen, onToggle, isAlwaysOpen, children }: any) {
+  const open = isAlwaysOpen || isOpen;
   return (
-    <div className="border border-slate-200 rounded-md bg-white overflow-hidden">
+    <div className={cn(
+      "border border-slate-200 rounded-md bg-white overflow-hidden flex flex-col",
+      isAlwaysOpen && "h-fit"
+    )}>
       <button
         onClick={onToggle}
-        className={`w-full flex items-center gap-2 px-3 py-2.5 text-left ${isOpen ? "bg-slate-50" : "hover:bg-slate-50"
-          }`}
+        disabled={isAlwaysOpen}
+        className={cn(
+          "w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors",
+          open ? "bg-slate-50" : "hover:bg-slate-50",
+          isAlwaysOpen && "cursor-default"
+        )}
       >
         <div className="p-1 rounded bg-blue-100 text-blue-600">
           <Icon size={12} />
         </div>
         <span className="text-xs font-bold text-slate-700 flex-1">{title}</span>
       </button>
-      {isOpen && (
-        <div className="border-t border-slate-100 p-3">{children}</div>
+      {open && (
+        <div className="border-t border-slate-100 p-3 flex-1">{children}</div>
       )}
     </div>
   );
