@@ -14,8 +14,11 @@ export class NetworkFactory {
         const store = useNetworkStore.getState();
         const id = existingId || store.generateUniqueId(type);
 
-        // Preference: Project Settings Defaults -> Global Component Defaults
-        const defaultProps = store.settings.componentDefaults?.[type] || COMPONENT_TYPES[type].defaultProperties;
+        // Merge: Global Component Defaults <- Project Settings Defaults
+        const defaultProps = {
+            ...COMPONENT_TYPES[type].defaultProperties,
+            ...(store.settings.componentDefaults?.[type] || {})
+        };
 
         return {
             id,
@@ -75,8 +78,11 @@ export class NetworkFactory {
 
         const length = props.length || Math.round(calcLength);
 
-        // Preference: Project Settings Defaults -> Global Component Defaults
-        const defaultProps = store.settings.componentDefaults?.pipe || COMPONENT_TYPES.pipe.defaultProperties;
+        // Merge: Global Component Defaults <- Project Settings Defaults
+        const defaultProps = {
+            ...COMPONENT_TYPES.pipe.defaultProperties,
+            ...(store.settings.componentDefaults?.pipe || {})
+        };
 
         return {
             id,
@@ -109,8 +115,11 @@ export class NetworkFactory {
         // 1. Create the Component (Point at midpoint)
         const mid = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
 
-        // Preference: Project Settings Defaults -> Global Component Defaults
-        const defaultProps = store.settings.componentDefaults?.[type] || COMPONENT_TYPES[type].defaultProperties;
+        // Merge: Global Component Defaults <- Project Settings Defaults
+        const defaultProps = {
+            ...COMPONENT_TYPES[type].defaultProperties,
+            ...(store.settings.componentDefaults?.[type] || {})
+        };
 
         const component: NetworkFeatureData = {
             id,

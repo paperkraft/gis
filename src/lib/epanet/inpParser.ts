@@ -394,7 +394,7 @@ function parseOptions(lines: string[]) {
         if (parts.length >= 2) options[parts[0].toUpperCase()] = parts[1];
         else {
             const p = l.split(/\s+/);
-            if (p.length >= 2) options[p[0]] = p[1];
+            if (p.length >= 2) options[p[0].toUpperCase()] = p[1];
         }
     });
     return options;

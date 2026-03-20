@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { FormGroup } from '@/components/form-controls/FormGroup';
 import { FormInput } from '@/components/form-controls/FormInput';
 import { FormSelect } from '@/components/form-controls/FormSelect';
+import { FormProjectionSelect } from '@/components/form-controls/FormProjectionSelect';
 import { flowUnitOptions, projectionList } from '@/constants/project';
 import { cn } from '@/lib/utils';
 
@@ -70,6 +71,8 @@ export function ProjectFormFields({
         }
     };
 
+    // Fetch dynamic projections for Blank project flow (REMOVED - now handled in component)
+
     const handleChange = (key: string, val: any) => setFormData({ ...formData, [key]: val });
 
     // Helper to determine accepted file extensions
@@ -99,11 +102,6 @@ export function ProjectFormFields({
                             onChange={(v) => handleChange('description', v)}
                             placeholder="Describe the project goals..."
                         />
-
-
-
-
-
                     </FormGroup>
                 </div>
             </div>
@@ -121,12 +119,10 @@ export function ProjectFormFields({
                                     onChange={(v) => handleChange('units', v)}
                                     options={flowUnitOptions}
                                 />
-                                <FormSelect
+                                <FormProjectionSelect
                                     label="Projection"
-                                    name="projection"
                                     value={formData.projection}
                                     onChange={(v) => handleChange('projection', v)}
-                                    options={projectionList}
                                 />
                             </div>
                         </FormGroup>

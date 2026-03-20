@@ -11,7 +11,7 @@ import { useNetworkStore } from "@/store/networkStore";
 import { FormGroup } from "../form-controls/FormGroup";
 import { FormInput } from "../form-controls/FormInput";
 
-export function DefaultValuesPanel() {
+export function DefaultAttributesPanel() {
   const { settings, updateSettings } = useNetworkStore();
 
   const [defaults, setDefaults] = useState(settings.componentDefaults || {});

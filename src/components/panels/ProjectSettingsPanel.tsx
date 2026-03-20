@@ -4,16 +4,13 @@ import { Save } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  flowUnitOptions,
-  headLossUnitOptions,
-  projectionList,
-} from "@/constants/project";
+import { flowUnitOptions, headLossUnitOptions } from "@/constants/project";
 import { useNetworkStore } from "@/store/networkStore";
 
 import { FormGroup } from "../form-controls/FormGroup";
 import { FormInput } from "../form-controls/FormInput";
 import { FormSelect } from "../form-controls/FormSelect";
+import { FormProjectionSelect } from "../form-controls/FormProjectionSelect";
 import { toast } from "sonner";
 
 export function ProjectSettingsPanel() {
@@ -22,11 +19,17 @@ export function ProjectSettingsPanel() {
   const [formData, setFormData] = useState(settings);
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Sync with store when settings change (e.g. after load or import)
+  useEffect(() => {
+    setFormData(settings);
+  }, [settings]);
+
   const patternOptions = [
-    { value: "1", label: "Default (1)" },
+    // Only show the hardcoded "1" if it's NOT already in the patterns list from the store
+    ...(!patterns.some(p => String(p.id) === "1") ? [{ value: "1", label: "Default (1)" }] : []),
     ...patterns.map((p) => ({
-      value: p.id,
-      label: `${p.id} - ${p.description || ""}`,
+      value: String(p.id),
+      label: `${p.id}${p.description ? ` - ${p.description}` : ""}`,
     })),
   ];
 
@@ -59,11 +62,10 @@ export function ProjectSettingsPanel() {
             onChange={(v) => handleChange("description", v)}
           />
 
-          <FormSelect
+          <FormProjectionSelect
             label="Projection"
             value={formData.projection || ""}
             onChange={(v) => handleChange("projection", v)}
-            options={projectionList}
             description="Coordinates will be converted to this projection on export."
           />
         </FormGroup>

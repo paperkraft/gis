@@ -5,7 +5,7 @@ import {
 import { AutoElevationPanel } from '../panels/AutoElevationPanel';
 import { ControlManagerPanel } from '../panels/ControlManagerPanel';
 import { DataManagerPanel } from '../panels/DataManagerPanel';
-import { DefaultValuesPanel } from '../panels/DefaultValuesPanel';
+import { DefaultAttributesPanel } from "../panels/DefaultAttributesPanel";
 import { NetworkValidationPanel } from '../panels/NetworkValidationPanel';
 import { ProjectSettingsPanel } from '../panels/ProjectSettingsPanel';
 import { StyleSettingsPanel } from '../panels/StyleSettingsPanel';
@@ -61,7 +61,7 @@ export const MODAL_REGISTRY: Partial<Record<WorkbenchModalType, ModalConfig>> = 
   VALVE_PROP: { title: "Valve Properties", icon: Square, component: ValveProperties },
   //  
   PROJECT_SETTINGS: { title: "Project Settings", icon: Settings, component: ProjectSettingsPanel },
-  DEFAULT_ATTRIBUTES: { title: "Project Default Attributes", icon: Settings, component: DefaultValuesPanel },
+  DEFAULT_ATTRIBUTES: { title: "Project Default Attributes", icon: Settings, component: DefaultAttributesPanel },
   STYLE_SETTINGS: { title: "Edit Symbology", icon: Palette, component: StyleSettingsPanel },
   SIMULATION_GRAPHS: { title: "Simulation Results", icon: BarChart3Icon, component: SimulationGraphs, defaultMaximized: true },
   SCENARIO_MANAGER: { title: "Simulation Scenario", icon: BarChart3Icon, component: ScenarioManagerPanel },
