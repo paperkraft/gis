@@ -88,7 +88,7 @@ export async function POST(req: Request) {
             // D. TRIGGER THE MASTERCLASS STORED PROCEDURE
             // This runs your entire C-compiled topological pipeline in milliseconds
             await tx.execute(sql`
-                SELECT build_project_topology_modern(
+                SELECT build_from_raw_lines(
                     ${projectId}::uuid, 
                     ${tolerance}::double precision, 
                     ${maxPipeLength}::double precision, 

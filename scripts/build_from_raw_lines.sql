@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION build_project_topology_modern(
+CREATE OR REPLACE FUNCTION build_from_raw_lines(
     p_project_id UUID,
     p_snap_tolerance DOUBLE PRECISION DEFAULT 0.1,
     p_max_pipe_length DOUBLE PRECISION DEFAULT 150,
