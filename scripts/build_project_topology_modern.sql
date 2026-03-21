@@ -1,4 +1,12 @@
-
+CREATE OR REPLACE FUNCTION build_project_topology_modern(
+    p_project_id UUID,
+    p_snap_tolerance DOUBLE PRECISION DEFAULT 0.1,
+    p_max_pipe_length DOUBLE PRECISION DEFAULT 150,
+    p_utm_srid INTEGER DEFAULT 3857
+)
+RETURNS UUID
+LANGUAGE plpgsql
+AS $$   
 DECLARE
     v_safe_id TEXT := replace(p_project_id::text, '-', '_');
     v_topo_name TEXT := 'topo_' || v_safe_id;
@@ -129,3 +137,4 @@ BEGIN
     RETURN p_project_id;
 
 END;
+$$;
