@@ -58,7 +58,11 @@ const DEFAULT_SETTINGS: ProjectSettings = {
     componentDefaults: Object.fromEntries(
         Object.entries(COMPONENT_TYPES).map(([type, config]) => [
             type,
-            { ...config.defaultProperties }
+            { 
+                prefix: config.prefix + "-",
+                group: "General",
+                ...config.defaultProperties 
+            }
         ])
     )
 };
@@ -82,8 +86,12 @@ export const createProjectSlice: StateCreator<NetworkState, [], [], ProjectSlice
         set((state) => ({
             nextIdCounter: { ...state.nextIdCounter, [type]: counter + 1 }
         }));
-        const prefix = COMPONENT_TYPES[type]?.prefix || type.toUpperCase();
-        return `${prefix}-${counter}`;
+        const userPrefix = get().settings.componentDefaults?.[type]?.prefix;
+        const prefix = userPrefix !== undefined ? userPrefix : (COMPONENT_TYPES[type]?.prefix || type.toUpperCase());
+        
+        // Add dash only if not already present in the prefix
+        const separator = prefix.endsWith('-') ? '' : '-';
+        return `${prefix}${separator}${counter}`;
     },
 
     markSaved: () => set({ hasUnsavedChanges: false, modifiedIds: new Set(), deletedIds: new Set() }),

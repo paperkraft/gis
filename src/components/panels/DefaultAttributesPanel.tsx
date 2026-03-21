@@ -1,6 +1,6 @@
 "use client";
 
-import { Save } from "lucide-react";
+import { ChevronDown, ChevronRight, Save } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -16,6 +16,7 @@ export function DefaultAttributesPanel() {
 
   const [defaults, setDefaults] = useState(settings.componentDefaults || {});
   const [hasChanges, setHasChanges] = useState(false);
+  const [expandedType, setExpandedType] = useState<string | null>(Object.keys(COMPONENT_TYPES)[0]);
 
   const handleChange = (type: string, key: string, value: any) => {
     setDefaults((prev: any) => ({
@@ -34,37 +35,89 @@ export function DefaultAttributesPanel() {
     toast.success("Component defaults updated");
   };
 
+  const toggleAccordion = (type: string) => {
+    setExpandedType(expandedType === type ? null : type);
+  };
+
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <div className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded border border-slate-100 mb-2">
+    <div className="flex flex-col h-full bg-slate-50/30">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="text-[11px] text-slate-500 bg-blue-50/50 p-3 rounded-lg border border-blue-100/50 mb-2 leading-relaxed">
           Set default properties for new features. These values will be applied
           automatically when you draw on the map.
         </div>
 
         {Object.entries(COMPONENT_TYPES).map(([type, config]) => {
-          const typeDefaults = defaults[type] || config.defaultProperties;
+          const typeDefaults = defaults[type] || { ...config.defaultProperties, prefix: config.prefix, group: "General" };
+          const isExpanded = expandedType === type;
+          const Icon = config.icon;
           
-          return (
-            <FormGroup key={type} label={`${config.name} Defaults`}>
-               <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                {Object.entries(config.defaultProperties).map(([key, defaultValue]) => {
-                  const label = key.charAt(0).toUpperCase() + key.slice(1);
-                  const value = typeDefaults[key] ?? defaultValue;
-                  const isNumber = typeof defaultValue === 'number';
+          // Determine the displayed prefix (handle fallback with dash)
+          const displayedPrefix = typeDefaults.prefix !== undefined ? typeDefaults.prefix : (config.prefix + (config.prefix.endsWith('-') ? '' : '-'));
 
-                  return (
-                    <FormInput
-                      key={key}
-                      label={label}
-                      type={isNumber ? "number" : "text"}
-                      value={value}
-                      onChange={(v) => handleChange(type, key, isNumber ? parseFloat(v) : v)}
-                    />
-                  );
-                })}
-              </div>
-            </FormGroup>
+          return (
+            <div key={type} className="border border-slate-200 rounded-lg bg-white overflow-hidden transition-all duration-200 shadow-sm border-l-4" style={{ borderLeftColor: config.color }}>
+              <button
+                onClick={() => toggleAccordion(type)}
+                className={`w-full flex items-center justify-between p-3 text-left hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 rounded-md bg-white border border-slate-100 shadow-sm">
+                    <Icon className="w-4 h-4" style={{ color: config.color }} />
+                  </div>
+                  <div>
+                    <span className="text-sm font-semibold text-slate-700">{config.name}</span>
+                    <span className="text-[10px] text-slate-500 ml-2 block leading-none">Auto ID: {displayedPrefix}1</span>
+                  </div>
+                </div>
+                {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+              </button>
+
+              {isExpanded && (
+                <div className="p-4 space-y-6 animate-in slide-in-from-top-1 duration-200">
+                  {/* Identity Section */}
+                  <FormGroup label="Identity & Grouping">
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormInput
+                        label="ID Prefix"
+                        type="text"
+                        value={typeDefaults.prefix ?? config.prefix}
+                        onChange={(v) => handleChange(type, 'prefix', v)}
+                        placeholder="e.g. J-"
+                      />
+                      <FormInput
+                        label="Group"
+                        type="text"
+                        value={typeDefaults.group ?? "General"}
+                        onChange={(v) => handleChange(type, 'group', v)}
+                        placeholder="e.g. Distribution"
+                      />
+                    </div>
+                  </FormGroup>
+
+                  {/* Attributes Section */}
+                  <FormGroup label="Default Attributes">
+                    <div className="grid grid-cols-2 gap-3">
+                      {Object.entries(config.defaultProperties).map(([key, defaultValue]) => {
+                        const label = key.charAt(0).toUpperCase() + key.slice(1);
+                        const value = typeDefaults[key] ?? defaultValue;
+                        const isNumber = typeof defaultValue === 'number';
+
+                        return (
+                          <FormInput
+                            key={key}
+                            label={label}
+                            type={isNumber ? "number" : "text"}
+                            value={value}
+                            onChange={(v) => handleChange(type, key, isNumber ? parseFloat(v) : v)}
+                          />
+                        );
+                      })}
+                    </div>
+                  </FormGroup>
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
