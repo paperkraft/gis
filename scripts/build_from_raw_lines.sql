@@ -1,3 +1,6 @@
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS postgis_topology;
+
 CREATE OR REPLACE FUNCTION build_from_raw_lines(
     p_project_id UUID,
     p_snap_tolerance DOUBLE PRECISION DEFAULT 0.1,
@@ -14,7 +17,7 @@ DECLARE
 BEGIN
 
     -- =============================================
-    -- 0️⃣ Cleanup existing project data & stale topologies
+    -- Cleanup existing project data & stale topologies
     -- =============================================
     DELETE FROM links WHERE project_id = p_project_id;
     DELETE FROM nodes WHERE project_id = p_project_id;
@@ -27,7 +30,7 @@ BEGIN
     END IF;
 
     -- =============================================
-    -- 1️⃣ The "PHP Magic": Merge, Node, Union, and Slice
+    -- The Magic: Merge, Node, Union, and Slice
     -- =============================================
     -- OPTIMIZATION: UNLOGGED table bypasses disk writing for extreme speed
     EXECUTE format($sql$
@@ -62,7 +65,7 @@ BEGIN
     );
 
     -- =============================================
-    -- 2️⃣ Bulk Topology Generation & Snapping
+    -- Bulk Topology Generation & Snapping
     -- =============================================
     
     -- OPTIMIZATION: Build a spatial index before running the topology engine
@@ -83,7 +86,7 @@ BEGIN
     );
 
     -- =============================================
-    -- 3️⃣ Extract & Insert Clean Nodes (With UI Rubber-Banding)
+    -- Extract & Insert Clean Nodes (With UI Rubber-Banding)
     -- =============================================
     EXECUTE format($sql$
         INSERT INTO nodes (project_id, id, type, geom, properties)
@@ -104,7 +107,7 @@ BEGIN
     $sql$, p_project_id, v_topo_name, v_topo_name);
 
     -- =============================================
-    -- 4️⃣ Extract & Insert Clean Links (With DISTINCT ON duplicate prevention)
+    -- Extract & Insert Clean Links (With DISTINCT ON duplicate prevention)
     -- =============================================
     EXECUTE format($sql$
         INSERT INTO links (project_id, id, type, source_node_id, target_node_id, geom, properties)
@@ -128,7 +131,7 @@ BEGIN
     $sql$, p_project_id, v_sliced_table, v_topo_name, v_topo_name);
 
     -- =============================================
-    -- 5️⃣ Immaculate Cleanup
+    -- Immaculate Cleanup
     -- =============================================
     -- Safely removes the UNLOGGED table and temporary topology schema
     EXECUTE format('DROP TABLE IF EXISTS public.%I CASCADE', v_sliced_table);
