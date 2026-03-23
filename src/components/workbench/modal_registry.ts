@@ -1,8 +1,10 @@
 import {
-  BarChart3Icon, CheckCircle2, Circle, Cpu, Hexagon, ListOrdered, LucideIcon, Minus, Mountain, Palette,
-  Pentagon, Play, Settings, Square, Table2, Triangle} from 'lucide-react';
+  BarChart3Icon, CheckCircle2, Circle, Cpu, Hexagon, ListOrdered, LucideIcon, Map, Minus, Mountain, Palette,
+  Pentagon, Play, Settings, Square, Table2, Triangle
+} from 'lucide-react';
 
 import { AutoElevationPanel } from '../panels/AutoElevationPanel';
+import { ContourPanel } from '../panels/ContourPanel';
 import { ControlManagerPanel } from '../panels/ControlManagerPanel';
 import { DataManagerPanel } from '../panels/DataManagerPanel';
 import { DefaultAttributesPanel } from "../panels/DefaultAttributesPanel";
@@ -19,6 +21,7 @@ import { ValveProperties } from '../properties/ValveProperties';
 import { SimulationGraphs } from '../simulation/graphs/SimulationGraphs';
 import { ScenarioManagerPanel } from '../simulation/ScenarioManagerPanel';
 import { SimulationPanel } from '../simulation/SimulationPanel';
+import { TerrainOptionsPanel } from '../panels/TerrainOptionsPanel';
 
 interface ModalConfig {
   title: string;
@@ -51,6 +54,8 @@ export type WorkbenchModalType =
   | "VALIDATION"
   | "SIMULATION_SETUP"
   | "NUMBERING"
+  | "TERRAIN_OPTIONS"
+  | "CONTOURS_PANEL"
 
 
 export const MODAL_REGISTRY: Partial<Record<WorkbenchModalType, ModalConfig>> = {
@@ -73,4 +78,6 @@ export const MODAL_REGISTRY: Partial<Record<WorkbenchModalType, ModalConfig>> = 
   VALIDATION: { title: "Network Validation", icon: CheckCircle2, component: NetworkValidationPanel },
   SIMULATION_SETUP: { title: "Simulation Setup", icon: Play, component: SimulationPanel },
   NUMBERING: { title: "Feature Re-numbering", icon: ListOrdered, component: NumberingPanel },
+  TERRAIN_OPTIONS: { title: "Terrain Options", icon: Map, component: TerrainOptionsPanel },
+  CONTOURS_PANEL: { title: "Contours & Terrain", icon: Mountain, component: ContourPanel },
 };

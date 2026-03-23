@@ -70,15 +70,12 @@ export const WORKBENCH_MENU: MenuItem[] = [
 
                 ]
             },
-            {
-                id: "grp_terrain",
-                type: "GROUP",
-                label: "Terrain",
-                icon: Map,
-                children: [
-                    { id: "terr_layer", type: "ITEM", label: "Layers", icon: Map },
-                    { id: "terr_elvn", type: "ITEM", label: "Elevation", icon: Mountain, modalType: "AUTO_ELEVATION" },
-                ]
+            { 
+                id: "itm_terrain", 
+                type: "ITEM", 
+                label: "Terrain", 
+                icon: Map, 
+                modalType: "TERRAIN_OPTIONS" 
             },
             { id: "itm_valid", type: "ITEM", label: "Validate", icon: ActivityIcon, modalType: "VALIDATION" },
             { id: "itm_headworks", type: "ITEM", label: "Headworks", icon: Box },
