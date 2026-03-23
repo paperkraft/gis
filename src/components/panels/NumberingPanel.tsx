@@ -1,6 +1,6 @@
 "use client";
 
-import { Hash, ListOrdered, Play, AlertCircle, Share2, Compass } from "lucide-react";
+import { Play, Share2 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -16,6 +16,7 @@ export function NumberingPanel() {
   
   const [targetType, setTargetType] = useState<string>("junction");
   const [scope, setScope] = useState<"selection" | "global">("global");
+  const [sortMode, setSortMode] = useState<"topological" | "proximity" | "west-to-east">("topological");
   const [prefix, setPrefix] = useState("J-");
   const [startNumber, setStartNumber] = useState(101);
   const [manualStartId, setManualStartId] = useState<string | null>(null);
@@ -59,12 +60,38 @@ export function NumberingPanel() {
 
   const selectionCount = targetIds.length;
 
-  // Topological Sort Logic
+  // Multi-Strategy Sorting Logic
   const sortedIds = useMemo(() => {
     if (selectionCount <= 1) return targetIds;
     
     const rootId = manualStartId || targetIds[0];
+    const rootFeature = features.get(rootId);
+    const rootCoord = rootFeature?.geometry?.coordinates || [0, 0];
 
+    // --- STRATEGY 2: PROXIMITY (Euclidean Distance) ---
+    if (sortMode === 'proximity') {
+      return [...targetIds].sort((a, b) => {
+        const featA = features.get(a);
+        const featB = features.get(b);
+        const coordA = featA?.geometry?.coordinates || [0, 0];
+        const coordB = featB?.geometry?.coordinates || [0, 0];
+        
+        const distA = Math.sqrt(Math.pow(coordA[0] - rootCoord[0], 2) + Math.pow(coordA[1] - rootCoord[1], 2));
+        const distB = Math.sqrt(Math.pow(coordB[0] - rootCoord[0], 2) + Math.pow(coordB[1] - rootCoord[1], 2));
+        return distA - distB;
+      });
+    }
+
+    // --- STRATEGY 3: WEST-TO-EAST (X Coordinate) ---
+    if (sortMode === 'west-to-east') {
+      return [...targetIds].sort((a, b) => {
+        const featA = features.get(a);
+        const featB = features.get(b);
+        return (featA?.geometry?.coordinates?.[0] || 0) - (featB?.geometry?.coordinates?.[0] || 0);
+      });
+    }
+
+    // --- STRATEGY 1: TOPOLOGICAL (Follow Path) ---
     const visited = new Set<string>();
     const sorted: string[] = [];
     const queue: string[] = [rootId];
@@ -100,7 +127,7 @@ export function NumberingPanel() {
     // Append any orphaned features that weren't reached via BFS
     const orphans = targetIds.filter(id => !visited.has(id));
     return [...sorted, ...orphans];
-  }, [targetIds, manualStartId, features, selectionCount]);
+  }, [targetIds, manualStartId, features, selectionCount, sortMode]);
 
   // Derived: Preview of new IDs using SORTED list
   const previewIds = useMemo(() => {
@@ -185,20 +212,32 @@ export function NumberingPanel() {
                     { label: "Valves", value: "valve" },
                 ]}
             />
-            <div className="space-y-1">
+            <FormSelect
+                label="Sort Strategy"
+                value={sortMode}
+                onChange={(v) => setSortMode(v)}
+                options={[
+                    { label: "Flow Logic (Path)", value: "topological" },
+                    { label: "Proximity (Distance)", value: "proximity" },
+                    { label: "West-to-East (X-Pos)", value: "west-to-east" },
+                ]}
+                description="Strategy to order features."
+            />
+          </div>
+
+          <div className="space-y-1">
                 <label className="block text-[11px] font-medium">Re-number Scope</label>
                 <div className="flex bg-slate-100 p-1 rounded-sm">
                     <button 
                         onClick={() => setScope('global')}
                         className={cn("flex-1 text-[10px] py-1 rounded-sm transition-all", scope === 'global' ? "bg-white shadow-sm font-bold text-primary" : "text-slate-500")}
-                    >Global</button>
+                    >Global (Whole Project)</button>
                     <button 
                         onClick={() => setScope('selection')}
                         className={cn("flex-1 text-[10px] py-1 rounded-sm transition-all", scope === 'selection' ? "bg-white shadow-sm font-bold text-primary" : "text-slate-500")}
-                    >Selected</button>
+                    >Current Selection</button>
                 </div>
             </div>
-          </div>
 
           <FormSelect
             label="Initial Numbering Point"
