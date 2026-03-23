@@ -59,15 +59,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             }
 
             if (nodeMods.length > 0) {
-                const nodeValues = nodeMods.map((f: any) => ({
-                    projectId: id,
-                    id: String(f.id),
-                    type: f.properties.type,
-                    elevation: Number(f.properties.elevation || 0),
-                    baseDemand: Number(f.properties.demand || f.properties.baseDemand || 0),
-                    properties: f.properties,
-                    geom: sql`ST_SetSRID(ST_MakePoint(${f.geometry.coordinates[0]}, ${f.geometry.coordinates[1]}), 4326)`
-                }));
+                const nodeValues = nodeMods.map((f: any) => {
+                    const { source, target, fromNode, toNode, geometry, ...cleanProps } = f.properties || {};
+                    return {
+                        projectId: id,
+                        id: String(f.id),
+                        type: f.properties.type,
+                        elevation: Number(f.properties.elevation || 0),
+                        baseDemand: Number(f.properties.demand || f.properties.baseDemand || 0),
+                        properties: cleanProps,
+                        geom: sql`ST_SetSRID(ST_MakePoint(${f.geometry.coordinates[0]}, ${f.geometry.coordinates[1]}), 4326)`
+                    };
+                });
 
                 await tx.insert(nodes)
                     .values(nodeValues)
@@ -90,12 +93,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                         projectId: id,
                         id: String(f.id),
                         type: f.properties.type,
-                        sourceNodeId: f.properties.startNodeId || f.properties.source,
-                        targetNodeId: f.properties.endNodeId || f.properties.target,
+                        sourceNodeId: f.properties.startNodeId,
+                        targetNodeId: f.properties.endNodeId,
                         length: Number(f.properties.length || 0),
                         diameter: Number(f.properties.diameter || 0),
                         roughness: Number(f.properties.roughness || 100),
-                        properties: f.properties,
+                        properties: (() => {
+                            const { source, target, fromNode, toNode, geometry, ...cleanProps } = f.properties || {};
+                            return cleanProps;
+                        })(),
                         geom: sql`ST_GeomFromText(${"LINESTRING(" + wktPoints + ")"}, 4326)`
                     };
                 });

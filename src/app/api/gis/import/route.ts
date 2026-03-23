@@ -26,19 +26,25 @@ export async function POST(req: Request) {
         
         // --- COMPONENT DEFAULTS ---
         // 1. Nodes (Junctions)
-        const nodeDefaults = {
-            ...(COMPONENT_TYPES.junction?.defaultProperties || {}),
-            ...(settings?.componentDefaults?.junction || {})
-        };
+        const nodeDefaults = (() => {
+            const { source, target, fromNode, toNode, ...clean } = {
+                ...(COMPONENT_TYPES.junction?.defaultProperties || {}),
+                ...(settings?.componentDefaults?.junction || {})
+            };
+            return clean;
+        })();
         
         // 2. Links (Pipes)
-        const linkDefaults = {
-            ...(COMPONENT_TYPES.pipe?.defaultProperties || {}),
-            ...(settings?.componentDefaults?.pipe || {}),
-            // Override with specific settings from modal if they exist
-            ...(settings?.defaultDiameter ? { diameter: Number(settings.defaultDiameter) } : {}),
-            ...(settings?.defaultRoughness ? { roughness: Number(settings.defaultRoughness) } : {})
-        };
+        const linkDefaults = (() => {
+            const { source, target, fromNode, toNode, ...clean } = {
+                ...(COMPONENT_TYPES.pipe?.defaultProperties || {}),
+                ...(settings?.componentDefaults?.pipe || {}),
+                // Override with specific settings from modal if they exist
+                ...(settings?.defaultDiameter ? { diameter: Number(settings.defaultDiameter) } : {}),
+                ...(settings?.defaultRoughness ? { roughness: Number(settings.defaultRoughness) } : {})
+            };
+            return clean;
+        })();
 
         const validFeatures = geojson?.features?.filter((f: any) =>
             f.geometry && (f.geometry.type === 'LineString' || f.geometry.type === 'MultiLineString')

@@ -69,7 +69,10 @@ export async function POST(req: NextRequest) {
                         type: n.type,
                         elevation: Number.isFinite(n.properties.elevation) ? n.properties.elevation : 0,
                         baseDemand: Number.isFinite(n.properties.demand) ? n.properties.demand : 0,
-                        properties: n.properties,
+                        properties: (() => {
+                            const { source, target, fromNode, toNode, geometry, ...cleanProps } = n.properties || {};
+                            return cleanProps;
+                        })(),
                         geom: geomSql
                     };
                 }).filter(v => v !== null);
@@ -97,8 +100,8 @@ export async function POST(req: NextRequest) {
 
                     // HANDLE PUMPS & VALVES (Point -> LineString)
                     if (['pump', 'valve'].includes(l.type)) {
-                        const sId = l.properties.startNodeId || l.properties.source;
-                        const eId = l.properties.endNodeId || l.properties.target;
+                        const sId = l.properties.startNodeId;
+                        const eId = l.properties.endNodeId;
                         const sC = nodeCoordMap.get(sId);
                         const eC = nodeCoordMap.get(eId);
 
@@ -131,12 +134,15 @@ export async function POST(req: NextRequest) {
                         projectId,
                         id: l.id,
                         type: l.type,
-                        sourceNodeId: l.properties.startNodeId || l.properties.source,
-                        targetNodeId: l.properties.endNodeId || l.properties.target,
+                        sourceNodeId: l.properties.startNodeId,
+                        targetNodeId: l.properties.endNodeId,
                         length: Number.isFinite(l.properties.length) ? l.properties.length : 0,
                         diameter: Number.isFinite(l.properties.diameter) ? l.properties.diameter : 0,
                         roughness: Number.isFinite(l.properties.roughness) ? l.properties.roughness : 100,
-                        properties: l.properties,
+                        properties: (() => {
+                            const { source, target, fromNode, toNode, geometry, ...cleanProps } = l.properties || {};
+                            return cleanProps;
+                        })(),
                         geom: geomSql
                     };
                 }).filter(v => v !== null);

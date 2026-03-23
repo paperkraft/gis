@@ -94,7 +94,7 @@ BEGIN
         INSERT INTO nodes (project_id, id, type, geom, properties)
         SELECT 
             %L, 'J-' || n.node_id, 'junction', ST_Transform(n.geom, 4326), 
-            %L::jsonb || jsonb_build_object(
+            (%L::jsonb - 'source' - 'target' - 'fromNode' - 'toNode') || jsonb_build_object(
                 'id', 'J-' || n.node_id,
                 'type', 'junction',
                 'label', 'J-' || n.node_id,
@@ -115,7 +115,7 @@ BEGIN
         SELECT DISTINCT ON (e.edge_id)
             %L, 'P-' || e.edge_id, 'pipe', 'J-' || e.start_node, 'J-' || e.end_node, 
             ST_Transform(e.geom, 4326), 
-            %L::jsonb || jsonb_build_object(
+            (%L::jsonb - 'source' - 'target' - 'fromNode' - 'toNode') || jsonb_build_object(
                 'id', 'P-' || e.edge_id,
                 'type', 'pipe',
                 'label', 'P-' || e.edge_id,
