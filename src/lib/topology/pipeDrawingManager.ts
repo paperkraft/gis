@@ -614,10 +614,6 @@ export class PipeDrawingManager {
             delete newProps.length;
             delete newProps.startNodeId;
             delete newProps.endNodeId;
-            delete newProps.source;
-            delete newProps.target;
-            delete newProps.fromNode;
-            delete newProps.toNode;
             delete newProps.geometryName;
             delete newProps._ol_kit_parent;
 
@@ -675,8 +671,8 @@ export class PipeDrawingManager {
             // Clean up props to avoid carrying over old ID/topology
             delete pipeProps.geometry; delete pipeProps.id; delete pipeProps.length;
             delete pipeProps.startNodeId; delete pipeProps.endNodeId;
-            delete pipeProps.source; delete pipeProps.target;
-            delete pipeProps.fromNode; delete pipeProps.toNode; delete pipeProps.label;
+ 
+ delete pipeProps.label;
 
             const point1 = geometry.getClosestPoint(coordinate);
             let splitIndex = 0;
@@ -761,8 +757,8 @@ export class PipeDrawingManager {
             const pipeProps = { ...pipe.getProperties() };
             delete pipeProps.geometry; delete pipeProps.id; delete pipeProps.length;
             delete pipeProps.startNodeId; delete pipeProps.endNodeId;
-            delete pipeProps.source; delete pipeProps.target;
-            delete pipeProps.fromNode; delete pipeProps.toNode; delete pipeProps.label;
+ 
+ delete pipeProps.label;
 
             const closestPoint = geometry.getClosestPoint(coordinate);
             let splitIndex = 0;
@@ -823,9 +819,9 @@ export class PipeDrawingManager {
         try {
             const props = storeData.properties;
 
-            // 1. Swap node references (all aliases used throughout the system)
-            const newStart = props.endNodeId || props.target || props.toNode;
-            const newEnd = props.startNodeId || props.source || props.fromNode;
+            // 1. Swap node references
+            const newStart = props.endNodeId;
+            const newEnd = props.startNodeId;
 
             // 2. Reverse map geometry
             const geom = pipe.getGeometry() as LineString;
@@ -833,21 +829,17 @@ export class PipeDrawingManager {
                 const reversed = [...geom.getCoordinates()].reverse();
                 geom.setCoordinates(reversed);
 
-                // 3. Update store with reversed geometry + swapped node IDs + both aliases
+                // 3. Update store with reversed geometry + swapped node IDs
                 store.updateFeature(id, {
                     geometry: reversed,
                     startNodeId: newStart,
                     endNodeId: newEnd,
-                    source: newStart,
-                    target: newEnd,
                 });
             } else {
                 // No geometry on map — update store properties only
                 store.updateFeature(id, {
                     startNodeId: newStart,
                     endNodeId: newEnd,
-                    source: newStart,
-                    target: newEnd,
                 });
             }
 
@@ -913,11 +905,11 @@ export class PipeDrawingManager {
                     // A. Update Link Endpoints (Point to new Node ID)
                     let modified = false;
                     if (linkData.properties?.startNodeId === oldId) {
-                        store.updateFeature(linkId, { startNodeId: newId, source: newId });
+                        store.updateFeature(linkId, { startNodeId: newId });
                         modified = true;
                     }
                     if (linkData.properties?.endNodeId === oldId) {
-                        store.updateFeature(linkId, { endNodeId: newId, target: newId });
+                        store.updateFeature(linkId, { endNodeId: newId });
                         modified = true;
                     }
 

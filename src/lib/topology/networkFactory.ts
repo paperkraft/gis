@@ -20,13 +20,16 @@ export class NetworkFactory {
             ...(store.settings.componentDefaults?.[type] || {})
         };
 
+        // CLEANUP PROPERTIES
+        const { geometry, source, target, fromNode, toNode, ...cleanProps } = props;
+
         return {
             id,
             type,
             geometry: coordinate,
             properties: {
                 ...defaultProps,
-                ...props,
+                ...cleanProps,
                 type,
                 id,
                 label: id,
@@ -59,7 +62,7 @@ export class NetworkFactory {
         const id = existingId || store.generateUniqueId('pipe');
 
         // CLEANUP PROPERTIES
-        const { geometry, ...cleanProps } = props;
+        const { geometry, source, target, fromNode, toNode, ...cleanProps } = props;
 
         // Estimate length accurately (Geodetic distance)
         const isGeographic = store.settings.isGeographic !== false && store.settings.projection !== 'Simple';
@@ -121,13 +124,16 @@ export class NetworkFactory {
             ...(store.settings.componentDefaults?.[type] || {})
         };
 
+        // CLEANUP PROPERTIES
+        const { source, target, fromNode, toNode, ...cleanProps } = props;
+
         const component: NetworkFeatureData = {
             id,
             type,
             geometry: mid,
             properties: {
                 ...defaultProps,
-                ...props,
+                ...cleanProps,
                 type,
                 id,
                 label: id,

@@ -67,15 +67,13 @@ export const useNetworkStore = create<NetworkState>()((...a) => ({
                 let geomData: any = undefined;
                 if (geom) geomData = (geom as any).getCoordinates();
 
-                const props = f.getProperties() as any;
-                // remove geometry from properties if it somehow got there
-                if (props.geometry) delete props.geometry;
+                const { geometry, source, target, fromNode, toNode, ...cleanProps } = f.getProperties() as any;
 
                 const data: NetworkFeatureData = {
                     id: id,
                     type: f.get('type') as any || 'junction',
                     geometry: geomData,
-                    properties: props
+                    properties: cleanProps
                 };
                 newMap.set(id, data);
                 newDeleted.delete(id);

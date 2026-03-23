@@ -5,7 +5,9 @@ CREATE OR REPLACE FUNCTION build_from_raw_lines(
     p_project_id UUID,
     p_snap_tolerance DOUBLE PRECISION DEFAULT 0.1,
     p_max_pipe_length DOUBLE PRECISION DEFAULT 150,
-    p_utm_srid INTEGER DEFAULT 3857
+    p_utm_srid INTEGER DEFAULT 3857,
+    p_node_props JSONB DEFAULT '{}'::jsonb,
+    p_link_props JSONB DEFAULT '{}'::jsonb
 )
 RETURNS UUID
 LANGUAGE plpgsql
@@ -92,11 +94,10 @@ BEGIN
         INSERT INTO nodes (project_id, id, type, geom, properties)
         SELECT 
             %L, 'J-' || n.node_id, 'junction', ST_Transform(n.geom, 4326), 
-            jsonb_build_object(
+            %L::jsonb || jsonb_build_object(
                 'id', 'J-' || n.node_id,
                 'type', 'junction',
                 'label', 'J-' || n.node_id,
-                'elevation', 0,
                 'connectedLinks', (
                     SELECT COALESCE(jsonb_agg('P-' || e.edge_id), '[]'::jsonb)
                     FROM %I.edge_data e
@@ -104,7 +105,7 @@ BEGIN
                 )
             )
         FROM %I.node n;
-    $sql$, p_project_id, v_topo_name, v_topo_name);
+    $sql$, p_project_id, p_node_props, v_topo_name, v_topo_name);
 
     -- =============================================
     -- Extract & Insert Clean Links (With DISTINCT ON duplicate prevention)
@@ -114,11 +115,11 @@ BEGIN
         SELECT DISTINCT ON (e.edge_id)
             %L, 'P-' || e.edge_id, 'pipe', 'J-' || e.start_node, 'J-' || e.end_node, 
             ST_Transform(e.geom, 4326), 
-            jsonb_build_object(
+            %L::jsonb || jsonb_build_object(
                 'id', 'P-' || e.edge_id,
                 'type', 'pipe',
                 'label', 'P-' || e.edge_id,
-                'length', ROUND(ST_Length(e.geom)::numeric, 2),
+                'length', ROUND(ST_Length(ST_Transform(e.geom, 4326)::geography)::numeric, 2),
                 'status', l.status_input,
                 'startNodeId', 'J-' || e.start_node,
                 'endNodeId', 'J-' || e.end_node
@@ -128,7 +129,7 @@ BEGIN
         INNER JOIN %I.edge_data AS e ON (r.element_id = e.edge_id)
         WHERE e.start_node != e.end_node
         ORDER BY e.edge_id;
-    $sql$, p_project_id, v_sliced_table, v_topo_name, v_topo_name);
+    $sql$, p_project_id, p_link_props, v_sliced_table, v_topo_name, v_topo_name);
 
     -- =============================================
     -- Immaculate Cleanup

@@ -37,11 +37,11 @@ export const TopologyInfo = ({
       {connectionInfo?.type === "link" && (
         <div className="grid grid-cols-2 gap-2 font-mono text-[10px]">
           <div className="bg-white p-1 rounded border border-slate-200 text-center">
-            Source:&nbsp;
+            Start Node:&nbsp;
             {connectionInfo.startNodeId || "?"}
           </div>
           <div className="bg-white p-1 rounded border border-slate-200 text-center">
-            Target:&nbsp;
+            End Node:&nbsp;
             {connectionInfo.endNodeId || "?"}
           </div>
         </div>

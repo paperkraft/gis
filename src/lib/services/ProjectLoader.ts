@@ -26,19 +26,19 @@ export const ProjectLoader = {
             const type = f.type;
 
             if (id) {
-                const props = f.properties;
+                const { source, target, fromNode, toNode, ...cleanProps } = f.properties;
                 const geometryData = f.geometry;
 
                 // Initialize connectivity arrays for nodes
-                if (['junction', 'tank', 'reservoir'].includes(type) && !props.connectedLinks) {
-                    props.connectedLinks = [];
+                if (['junction', 'tank', 'reservoir'].includes(type) && !cleanProps.connectedLinks) {
+                    cleanProps.connectedLinks = [];
                 }
 
                 const featureData: NetworkFeatureData = {
                     id,
                     type,
                     geometry: geometryData,
-                    properties: { ...props, id, type } as any
+                    properties: { ...cleanProps, id, type } as any
                 };
                 // clean up the ol geometry from props if it exists
                 delete featureData.properties.geometry;
@@ -59,8 +59,8 @@ export const ProjectLoader = {
         featureMap.forEach(f => {
             if (['pipe', 'pump', 'valve'].includes(f.type)) {
                 const linkId = f.id;
-                const start = f.properties.startNodeId || f.properties.source;
-                const end = f.properties.endNodeId || f.properties.target;
+                const start = f.properties.startNodeId;
+                const end = f.properties.endNodeId;
 
                 [start, end].forEach(nodeId => {
                     if (nodeId) {

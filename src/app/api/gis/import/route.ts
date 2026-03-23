@@ -3,6 +3,7 @@ import { projects } from "@/db/schema";
 import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { COMPONENT_TYPES } from "@/constants/networkComponents";
 
 export const maxDuration = 60;
 
@@ -17,9 +18,27 @@ export async function POST(req: Request) {
         // 1. Setup UI Variables & Defaults
         // Matches the parameters expected by your stored procedure
         const sourceEpsg = Number(projection) || 4326;
-        const utmSrid = Number(settings?.utmSrid) || 3857;
+        // Use sourceEpsg as utmSrid if it's a projected coordinate system (not 4326)
+        // Otherwise default to 3857 for topological operations
+        const utmSrid = Number(settings?.utmSrid) || (sourceEpsg !== 4326 ? sourceEpsg : 3857);
         const tolerance = Number(settings?.tolerance) || 5;
         const maxPipeLength = Number(settings?.maxPipeLength) || 150;
+        
+        // --- COMPONENT DEFAULTS ---
+        // 1. Nodes (Junctions)
+        const nodeDefaults = {
+            ...(COMPONENT_TYPES.junction?.defaultProperties || {}),
+            ...(settings?.componentDefaults?.junction || {})
+        };
+        
+        // 2. Links (Pipes)
+        const linkDefaults = {
+            ...(COMPONENT_TYPES.pipe?.defaultProperties || {}),
+            ...(settings?.componentDefaults?.pipe || {}),
+            // Override with specific settings from modal if they exist
+            ...(settings?.defaultDiameter ? { diameter: Number(settings.defaultDiameter) } : {}),
+            ...(settings?.defaultRoughness ? { roughness: Number(settings.defaultRoughness) } : {})
+        };
 
         const validFeatures = geojson?.features?.filter((f: any) =>
             f.geometry && (f.geometry.type === 'LineString' || f.geometry.type === 'MultiLineString')
@@ -92,7 +111,9 @@ export async function POST(req: Request) {
                     ${projectId}::uuid, 
                     ${tolerance}::double precision, 
                     ${maxPipeLength}::double precision, 
-                    ${utmSrid}::integer
+                    ${utmSrid}::integer,
+                    ${JSON.stringify(nodeDefaults)}::jsonb,
+                    ${JSON.stringify(linkDefaults)}::jsonb
                 );
             `);
 

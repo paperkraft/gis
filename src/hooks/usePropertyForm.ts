@@ -33,8 +33,8 @@ export const usePropertyForm = () => {
                 
                 // --- ELEVATION INHERITANCE (One-time) ---
                 if (['pump', 'valve'].includes(selectedFeature.type) && !initialData.elevation) {
-                    const startId = initialData.startNodeId || initialData.source;
-                    const endId = initialData.endNodeId || initialData.target;
+                    const startId = initialData.startNodeId;
+                    const endId = initialData.endNodeId;
                     
                     const features = useNetworkStore.getState().features;
                     const startNode = startId ? features.get(startId) : null;
@@ -140,8 +140,8 @@ export const usePropertyForm = () => {
                 // Import lazily to avoid circular dep — read from mapStore's vectorSource context
                 // pipeDrawingManager is exposed via import in context menu; here we use the store OL feature directly
                 const props = selectedFeature.properties;
-                const newStart = props.endNodeId || props.target || props.toNode;
-                const newEnd = props.startNodeId || props.source || props.fromNode;
+                const newStart = props.endNodeId;
+                const newEnd = props.startNodeId;
 
                 const geom = mapFeature.getGeometry();
                 if (geom && geom.getType() === 'LineString') {
@@ -168,8 +168,8 @@ export const usePropertyForm = () => {
         }
 
         // Fallback: property-only update (store only, no OL geometry change)
-        const newStart = formData.endNodeId || formData.target || formData.toNode;
-        const newEnd = formData.startNodeId || formData.source || formData.fromNode;
+        const newStart = formData.endNodeId;
+        const newEnd = formData.startNodeId;
         const updates = { startNodeId: newStart, endNodeId: newEnd };
         updateFeature(selectedFeatureId, updates);
         setFormData(prev => ({ ...prev, ...updates }));
@@ -180,7 +180,7 @@ export const usePropertyForm = () => {
             const connectedLinks = formData.connectedLinks || [];
             return { type: 'node', count: connectedLinks.length, connections: connectedLinks };
         } else if (['pipe', 'pump', 'valve'].includes(formData.type)) {
-            return { type: 'link', startNodeId: formData.startNodeId || formData.source, endNodeId: formData.endNodeId || formData.target, isPipe: formData.type === 'pipe' };
+            return { type: 'link', startNodeId: formData.startNodeId, endNodeId: formData.endNodeId, isPipe: formData.type === 'pipe' };
         }
         return null;
     };
