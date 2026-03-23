@@ -1,5 +1,5 @@
 "use client";
-import { BoxSelect, Pentagon, Magnet, Undo2, Redo2 } from "lucide-react";
+import { BoxSelect, Pentagon, Magnet, Undo2, Redo2, ListOrdered } from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
 import { ControlGroup, ToolBtn, Divider } from "./Shared";
 import { useHistoryManager } from "@/hooks/useHistoryManager";
@@ -13,7 +13,7 @@ export function EditingControls({
   activeGroup,
   onToggle,
 }: EditingControlsProps) {
-  const { activeTool, setActiveTool, isSnappingEnabled, setIsSnappingEnabled } =
+  const { activeTool, setActiveTool, isSnappingEnabled, setIsSnappingEnabled, setActiveModal } =
     useUIStore();
   const { undo, redo } = useHistoryManager();
 
@@ -48,6 +48,12 @@ export function EditingControls({
       />
 
       <Divider />
+
+      <ToolBtn
+        onClick={() => setActiveModal("NUMBERING")}
+        icon={ListOrdered}
+        title="Feature Numbering"
+      />
 
       <ToolBtn
         onClick={() => setIsSnappingEnabled(!isSnappingEnabled)}

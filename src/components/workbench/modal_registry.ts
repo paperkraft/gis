@@ -1,11 +1,12 @@
 import {
-  BarChart3Icon, CheckCircle2, Circle, Cpu, Hexagon, LucideIcon, Minus, Mountain, Palette,
+  BarChart3Icon, CheckCircle2, Circle, Cpu, Hexagon, ListOrdered, LucideIcon, Minus, Mountain, Palette,
   Pentagon, Play, Settings, Square, Table2, Triangle} from 'lucide-react';
 
 import { AutoElevationPanel } from '../panels/AutoElevationPanel';
 import { ControlManagerPanel } from '../panels/ControlManagerPanel';
 import { DataManagerPanel } from '../panels/DataManagerPanel';
 import { DefaultAttributesPanel } from "../panels/DefaultAttributesPanel";
+import { NumberingPanel } from "../panels/NumberingPanel";
 import { NetworkValidationPanel } from '../panels/NetworkValidationPanel';
 import { ProjectSettingsPanel } from '../panels/ProjectSettingsPanel';
 import { StyleSettingsPanel } from '../panels/StyleSettingsPanel';
@@ -49,6 +50,7 @@ export type WorkbenchModalType =
   | "CONTROLS"
   | "VALIDATION"
   | "SIMULATION_SETUP"
+  | "NUMBERING"
 
 
 export const MODAL_REGISTRY: Partial<Record<WorkbenchModalType, ModalConfig>> = {
@@ -70,4 +72,5 @@ export const MODAL_REGISTRY: Partial<Record<WorkbenchModalType, ModalConfig>> = 
   CONTROLS: { title: "Network Controls", icon: Cpu, component: ControlManagerPanel },
   VALIDATION: { title: "Network Validation", icon: CheckCircle2, component: NetworkValidationPanel },
   SIMULATION_SETUP: { title: "Simulation Setup", icon: Play, component: SimulationPanel },
+  NUMBERING: { title: "Feature Re-numbering", icon: ListOrdered, component: NumberingPanel },
 };

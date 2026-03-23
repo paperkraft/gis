@@ -29,6 +29,7 @@ export interface FeatureSlice {
     addFeatures: (features: NetworkFeatureData[]) => void;
     updateFeatures: (updates: Record<string, Partial<NetworkFeatureProperties> & { geometry?: any }>) => void;
     selectFeatures: (ids: string[]) => void;
+    renumberFeatures: (ids: string[], prefix: string, startNumber: number) => void;
     clearFeatures: () => void;
 
     // Stuff: Nodes and connections
@@ -232,6 +233,82 @@ export const createFeatureSlice: StateCreator<NetworkState, [], [], FeatureSlice
             selectedFeatureIds: ids,
             selectedFeatureId: ids.length > 0 ? ids[ids[ids.length - 1] ? ids.length - 1 : 0] : null,
             selectedFeature: ids.length > 0 ? get().features.get(ids[ids.length - 1]) || null : null
+        });
+    },
+
+    renumberFeatures: (ids, prefix, startNumber) => {
+        const state = get();
+        const idMap: Record<string, string> = {};
+        
+        // 1. Create mapping
+        ids.forEach((oldId, index) => {
+            idMap[oldId] = `${prefix}${startNumber + index}`;
+        });
+
+        const newFeatures = new Map<string, NetworkFeatureData>();
+        const newModified = new Set(state.modifiedIds);
+        const newDeleted = new Set(state.deletedIds);
+
+        // 2. Translocate features and update references
+        state.features.forEach((feature, currentId) => {
+            const newId = idMap[currentId] || currentId;
+            const updatedFeature = { 
+                ...feature, 
+                id: newId, 
+                properties: { ...feature.properties } 
+            };
+
+            let internalRefChanged = false;
+
+            // Update Start/End Node References
+            const { startNodeId, endNodeId } = updatedFeature.properties;
+            if (startNodeId && idMap[startNodeId]) {
+                updatedFeature.properties.startNodeId = idMap[startNodeId];
+                internalRefChanged = true;
+            }
+            if (endNodeId && idMap[endNodeId]) {
+                updatedFeature.properties.endNodeId = idMap[endNodeId];
+                internalRefChanged = true;
+            }
+
+            // Update Connectivity References
+            if (updatedFeature.properties.connectedLinks) {
+                const oldLinks = updatedFeature.properties.connectedLinks;
+                const newLinks = oldLinks.map(l => idMap[l] || l);
+                const hasChanged = JSON.stringify(oldLinks) !== JSON.stringify(newLinks);
+                if (hasChanged) {
+                    updatedFeature.properties.connectedLinks = newLinks;
+                    internalRefChanged = true;
+                }
+            }
+
+            // Add to new map
+            newFeatures.set(newId, updatedFeature);
+
+            // TRACKING
+            if (idMap[currentId]) {
+                // Feature itself was renamed
+                newDeleted.add(currentId);
+                newModified.add(newId);
+            } else if (internalRefChanged) {
+                // Only properties changed
+                newModified.add(currentId);
+            }
+        });
+
+        // 3. Update selection state
+        const newSelectedIds = state.selectedFeatureIds.map(id => idMap[id] || id);
+        const newSelectedId = state.selectedFeatureId ? (idMap[state.selectedFeatureId] || state.selectedFeatureId) : null;
+
+        set({
+            features: newFeatures,
+            modifiedIds: newModified,
+            deletedIds: newDeleted,
+            selectedFeatureIds: newSelectedIds,
+            selectedFeatureId: newSelectedId,
+            selectedFeature: newSelectedId ? newFeatures.get(newSelectedId) : null,
+            version: state.version + 1,
+            hasUnsavedChanges: true
         });
     },
 
