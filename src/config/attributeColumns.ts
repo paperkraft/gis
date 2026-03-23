@@ -14,8 +14,8 @@ export const TABLE_CONFIG: Record<string, ColumnDef[]> = {
     { key: 'demand', label: 'Base Demand', width: 'w-28', type: 'number' },
     { key: 'pattern', label: 'Pattern', width: 'w-24', type: 'text' },
     // Results
-    { key: 'head', label: 'Head (m)', width: 'w-24', type: 'readonly', isResult: true },
-    { key: 'pressure', label: 'Pressure', width: 'w-24', type: 'readonly', isResult: true },
+    { key: 'sim_head', label: 'Head (m)', width: 'w-24', type: 'readonly', isResult: true },
+    { key: 'sim_pressure', label: 'Pressure', width: 'w-24', type: 'readonly', isResult: true },
   ],
   pipe: [
     { key: 'id', label: 'ID', width: 'w-24', type: 'readonly' },
@@ -24,9 +24,9 @@ export const TABLE_CONFIG: Record<string, ColumnDef[]> = {
     { key: 'roughness', label: 'Roughness', width: 'w-24', type: 'number' },
     { key: 'status', label: 'Status', width: 'w-24', type: 'select', options: ['OPEN', 'CLOSED', 'CV'] },
     // Results
-    { key: 'flow', label: 'Flow', width: 'w-24', type: 'readonly', isResult: true },
-    { key: 'velocity', label: 'Velocity', width: 'w-24', type: 'readonly', isResult: true },
-    { key: 'headloss', label: 'Loss', width: 'w-24', type: 'readonly', isResult: true },
+    { key: 'sim_flow', label: 'Flow', width: 'w-24', type: 'readonly', isResult: true },
+    { key: 'sim_velocity', label: 'Velocity', width: 'w-24', type: 'readonly', isResult: true },
+    { key: 'sim_headloss', label: 'Loss', width: 'w-24', type: 'readonly', isResult: true },
   ],
   tank: [
     { key: 'id', label: 'ID', width: 'w-24', type: 'readonly' },
@@ -36,15 +36,15 @@ export const TABLE_CONFIG: Record<string, ColumnDef[]> = {
     { key: 'maxLevel', label: 'Max Lvl', width: 'w-24', type: 'number' },
     { key: 'diameter', label: 'Diam', width: 'w-24', type: 'number' },
     // Results
-    { key: 'head', label: 'Head', width: 'w-24', type: 'readonly', isResult: true },
-    { key: 'pressure', label: 'Pressure', width: 'w-24', type: 'readonly', isResult: true },
+    { key: 'sim_head', label: 'Head', width: 'w-24', type: 'readonly', isResult: true },
+    { key: 'sim_pressure', label: 'Pressure', width: 'w-24', type: 'readonly', isResult: true },
   ],
   reservoir: [
     { key: 'id', label: 'ID', width: 'w-24', type: 'readonly' },
     { key: 'head', label: 'Total Head', width: 'w-24', type: 'number' },
     { key: 'pattern', label: 'Pattern', width: 'w-24', type: 'text' },
     // Results
-    { key: 'pressure', label: 'Pressure', width: 'w-24', type: 'readonly', isResult: true },
+    { key: 'sim_pressure', label: 'Pressure', width: 'w-24', type: 'readonly', isResult: true },
   ],
   pump: [
     { key: 'id', label: 'ID', width: 'w-24', type: 'readonly' },
@@ -54,7 +54,7 @@ export const TABLE_CONFIG: Record<string, ColumnDef[]> = {
     { key: 'value', label: 'Value/ID', width: 'w-24', type: 'text' },
     { key: 'status', label: 'Status', width: 'w-24', type: 'select', options: ['OPEN', 'CLOSED'] },
     // Results
-    { key: 'flow', label: 'Flow', width: 'w-24', type: 'readonly', isResult: true },
+    { key: 'sim_flow', label: 'Flow', width: 'w-24', type: 'readonly', isResult: true },
   ],
   valve: [
      { key: 'id', label: 'ID', width: 'w-24', type: 'readonly' },
@@ -62,7 +62,7 @@ export const TABLE_CONFIG: Record<string, ColumnDef[]> = {
      { key: 'valveType', label: 'Type', width: 'w-24', type: 'select', options: ['PRV', 'PSV', 'PBV', 'FCV', 'TCV', 'GPV'] },
      { key: 'setting', label: 'Setting', width: 'w-24', type: 'number' },
      // Results
-     { key: 'flow', label: 'Flow', width: 'w-24', type: 'readonly', isResult: true },
-     { key: 'velocity', label: 'Velocity', width: 'w-24', type: 'readonly', isResult: true },
+     { key: 'sim_flow', label: 'Flow', width: 'w-24', type: 'readonly', isResult: true },
+     { key: 'sim_velocity', label: 'Velocity', width: 'w-24', type: 'readonly', isResult: true },
   ]
 };

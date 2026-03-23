@@ -31,7 +31,7 @@ const DEFAULT_FORM_DATA = {
   tolerance: 5,
   maxPipeLength: 150,
   defaultDiameter: 150,
-  defaultRoughness: 110,
+  defaultRoughness: 140,
 };
 
 export function NewProjectModal() {
@@ -155,39 +155,39 @@ export function NewProjectModal() {
       }
       const reader = new FileReader();
       reader.onload = (e) => {
-          const content = e.target?.result as string;
-          setFileContent(content);
-          
-          // Trigger Analysis for UI feedback
-          setValidating(true);
-          try {
-              const analysis = analyzeInpCoordinates(content);
-              setValidationResult({
-                  status: analysis.isGeographic ? 'valid' : 'warning',
-                  message: analysis.isGeographic ? "Detected Geographic coordinates." : "Detected non-geographic (projected) coordinates.",
-                  details: analysis
-              });
+        const content = e.target?.result as string;
+        setFileContent(content);
 
-              if (analysis.projection) {
-                const sridMatch = analysis.projection.match(/EPSG:(\d+)/i);
-                if (sridMatch) {
-                  const srid = parseInt(sridMatch[1], 10);
-                  setSelectedEPSG(srid);
-                  setValidationResult({
-                    status: 'valid',
-                    message: `Found projection metadata: EPSG:${srid}. This system will be used for coordinates.`,
-                    details: analysis
-                  });
-                  toast.success(`Automatically detected projection: EPSG:${srid}`);
-                  setShowProjectionSelect(false); // Hide selector if auto-detected
-                }
-              } else if (!analysis.isGeographic) {
-                setShowProjectionSelect(true);
-              }
-          } catch (err) {
-              setValidationResult({ status: 'error', message: "Invalid INP file structure." });
+        // Trigger Analysis for UI feedback
+        setValidating(true);
+        try {
+          const analysis = analyzeInpCoordinates(content);
+          setValidationResult({
+            status: analysis.isGeographic ? 'valid' : 'warning',
+            message: analysis.isGeographic ? "Detected Geographic coordinates." : "Detected non-geographic (projected) coordinates.",
+            details: analysis
+          });
+
+          if (analysis.projection) {
+            const sridMatch = analysis.projection.match(/EPSG:(\d+)/i);
+            if (sridMatch) {
+              const srid = parseInt(sridMatch[1], 10);
+              setSelectedEPSG(srid);
+              setValidationResult({
+                status: 'valid',
+                message: `Found projection metadata: EPSG:${srid}. This system will be used for coordinates.`,
+                details: analysis
+              });
+              toast.success(`Automatically detected projection: EPSG:${srid}`);
+              setShowProjectionSelect(false); // Hide selector if auto-detected
+            }
+          } else if (!analysis.isGeographic) {
+            setShowProjectionSelect(true);
           }
-          setValidating(false);
+        } catch (err) {
+          setValidationResult({ status: 'error', message: "Invalid INP file structure." });
+        }
+        setValidating(false);
       };
       reader.readAsText(file);
     }

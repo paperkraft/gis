@@ -5,7 +5,7 @@ import {
   Layers, Circle, Minus, Square, Hexagon, Triangle, SquareDot,
   Search, Download, Maximize2, X, ArrowUpDown, Minimize2
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, naturalSort } from "@/lib/utils";
 import { useNetworkStore } from "@/store/networkStore";
 import { useSimulationStore } from "@/store/simulationStore";
 import { useMapStore } from "@/store/mapStore";
@@ -92,8 +92,8 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
         { key: "length", label: "Len", width: "w-16", type: "number" },
         { key: "diameter", label: "Diam", width: "w-16", type: "number" },
         { key: "status", label: "Status", width: "w-20", type: "text" },
-        { key: "pressure", label: "Pres", width: "w-20", type: "readonly", isResult: true },
-        { key: "flow", label: "Flow", width: "w-20", type: "readonly", isResult: true },
+        { key: "sim_pressure", label: "Pres", width: "w-20", type: "readonly", isResult: true },
+        { key: "sim_flow", label: "Flow", width: "w-20", type: "readonly", isResult: true },
       ] as ColumnDef[];
     }
     return TABLE_CONFIG[activeTab] || [];
@@ -115,10 +115,10 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
       if (simStatus === "completed" && results) {
         if (["junction", "tank", "reservoir"].includes(type)) {
           const res = results.nodes[id];
-          if (res) Object.assign(row, { pressure: res.pressure?.toFixed(2), head: res.head?.toFixed(2), demand: res.demand?.toFixed(2) });
+          if (res) Object.assign(row, { sim_pressure: res.pressure?.toFixed(2), sim_head: res.head?.toFixed(2), sim_demand: res.demand?.toFixed(2) });
         } else {
           const res = results.links[id];
-          if (res) Object.assign(row, { flow: res.flow?.toFixed(2), velocity: res.velocity?.toFixed(2), headloss: res.headloss?.toFixed(2) });
+          if (res) Object.assign(row, { sim_flow: res.flow?.toFixed(2), sim_velocity: res.velocity?.toFixed(2), sim_headloss: res.headloss?.toFixed(2) });
         }
       }
       data.push(row);
@@ -132,13 +132,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
   const sortedData = useMemo(() => {
     if (!sortConfig) return tableData;
     return [...tableData].sort((a, b) => {
-      const valA = a[sortConfig.key];
-      const valB = b[sortConfig.key];
-      if (!isNaN(Number(valA)) && !isNaN(Number(valB))) {
-        return sortConfig.direction === "asc" ? Number(valA) - Number(valB) : Number(valB) - Number(valA);
-      }
-      if (valA === undefined) return 1; if (valB === undefined) return -1;
-      return valA < valB ? (sortConfig.direction === "asc" ? -1 : 1) : (sortConfig.direction === "asc" ? 1 : -1);
+      return naturalSort(a[sortConfig.key], b[sortConfig.key], sortConfig.direction);
     });
   }, [tableData, sortConfig]);
 

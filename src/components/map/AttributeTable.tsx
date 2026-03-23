@@ -21,7 +21,7 @@ import { useSimulationStore } from "@/store/simulationStore";
 import { useMapStore } from "@/store/mapStore";
 import { FeatureType } from "@/types/network";
 import { COMPONENT_TYPES } from "@/constants/networkComponents";
-import { cn } from "@/lib/utils";
+import { cn, naturalSort } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useHistoryManager } from "@/hooks/useHistoryManager";
 
@@ -101,16 +101,16 @@ export function AttributeTable({ isOpen, onClose, vectorSource }: AttributeTable
         if (["junction", "tank", "reservoir"].includes(type)) {
           const res = results.nodes[id];
           if (res) {
-            row.pressure = res.pressure?.toFixed(2);
-            row.head = res.head?.toFixed(2);
-            row.demand = res.demand?.toFixed(2);
+            row.sim_pressure = res.pressure?.toFixed(2);
+            row.sim_head = res.head?.toFixed(2);
+            row.sim_demand = res.demand?.toFixed(2);
           }
         } else {
           const res = results.links[id];
           if (res) {
-            row.flow = res.flow?.toFixed(2);
-            row.velocity = res.velocity?.toFixed(2);
-            row.headloss = res.headloss?.toFixed(2);
+            row.sim_flow = res.flow?.toFixed(2);
+            row.sim_velocity = res.velocity?.toFixed(2);
+            row.sim_headloss = res.headloss?.toFixed(2);
           }
         }
       }
@@ -127,21 +127,7 @@ export function AttributeTable({ isOpen, onClose, vectorSource }: AttributeTable
   const sortedData = useMemo(() => {
     if (!sortConfig) return tableData;
     return [...tableData].sort((a, b) => {
-      const valA = a[sortConfig.key];
-      const valB = b[sortConfig.key];
-
-      if (!isNaN(Number(valA)) && !isNaN(Number(valB))) {
-        return sortConfig.direction === "asc"
-          ? Number(valA) - Number(valB)
-          : Number(valB) - Number(valA);
-      }
-      // Handle missing values in sort (e.g. Length doesn't exist on Nodes)
-      if (valA === undefined) return 1;
-      if (valB === undefined) return -1;
-
-      if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
-      if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
-      return 0;
+      return naturalSort(a[sortConfig.key], b[sortConfig.key], sortConfig.direction);
     });
   }, [tableData, sortConfig]);
 
@@ -159,10 +145,10 @@ export function AttributeTable({ isOpen, onClose, vectorSource }: AttributeTable
         { key: "diameter", label: "Diam", width: "w-20" },
         { key: "status", label: "Status", width: "w-20" },
         // Combined Results
-        { key: "pressure", label: "Pres", width: "w-20", isResult: true },
-        { key: "head", label: "Head", width: "w-20", isResult: true },
-        { key: "flow", label: "Flow", width: "w-20", isResult: true },
-        { key: "velocity", label: "Vel", width: "w-20", isResult: true },
+        { key: "sim_pressure", label: "Pres", width: "w-20", isResult: true },
+        { key: "sim_head", label: "Head", width: "w-20", isResult: true },
+        { key: "sim_flow", label: "Flow", width: "w-20", isResult: true },
+        { key: "sim_velocity", label: "Vel", width: "w-20", isResult: true },
       ];
 
     if (activeTab === "junction")
@@ -171,12 +157,12 @@ export function AttributeTable({ isOpen, onClose, vectorSource }: AttributeTable
         { key: "elevation", label: "Elev (m)", width: "w-24" },
         { key: "demand", label: "Base Demand", width: "w-28" },
         {
-          key: "pressure",
+          key: "sim_pressure",
           label: "Pressure (psi)",
           width: "w-28",
           isResult: true,
         },
-        { key: "head", label: "Head (m)", width: "w-24", isResult: true },
+        { key: "sim_head", label: "Head (m)", width: "w-24", isResult: true },
       ];
 
     if (activeTab === "pipe")
@@ -185,9 +171,9 @@ export function AttributeTable({ isOpen, onClose, vectorSource }: AttributeTable
         { key: "length", label: "Length (m)", width: "w-24" },
         { key: "diameter", label: "Diam (mm)", width: "w-28" },
         { key: "roughness", label: "Roughness", width: "w-24" },
-        { key: "flow", label: "Flow (GPM)", width: "w-24", isResult: true },
-        { key: "velocity", label: "Vel (m/s)", width: "w-24", isResult: true },
-        { key: "headloss", label: "Loss", width: "w-24", isResult: true },
+        { key: "sim_flow", label: "Flow (GPM)", width: "w-24", isResult: true },
+        { key: "sim_velocity", label: "Vel (m/s)", width: "w-24", isResult: true },
+        { key: "sim_headloss", label: "Loss", width: "w-24", isResult: true },
       ];
 
     return [
