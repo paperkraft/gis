@@ -42,38 +42,29 @@ export function ValidationInspector({
   onBack,
 }: ValidationInspectorProps) {
   const isError = issue.type === "ERROR";
-  const { setHighlightedFeatures, clearHighlights, highlightedFeatureIds } = useStyleStore();
+  const { setHighlightedFeatures, setHighlightedSubnetworks, clearHighlights, highlightedFeatureIds } = useStyleStore();
   const { features } = useNetworkStore();
 
   const handleHighlightSubnetworks = () => {
     if (!issue.subNetworks || issue.subNetworks.length <= 1) return;
 
-    // 1. Identify "Islands" (Everything EXCEPT the largest component)
-    // Find largest component by node count
-    let largestIdx = 0;
-    let maxNodes = 0;
-    issue.subNetworks.forEach((comp, idx) => {
-      if (comp.length > maxNodes) {
-        maxNodes = comp.length;
-        largestIdx = idx;
-      }
-    });
+    // Collect all feature IDs (nodes + links) for EACH subnetwork
+    const subnetsToHighlight: string[][] = [];
 
-    // 2. Collect all feature IDs in islands (Nodes + their connected Links)
-    const islandFeatureIds = new Set<string>();
-    issue.subNetworks.forEach((comp, idx) => {
-      if (idx === largestIdx) return; // Skip main network
+    issue.subNetworks.forEach((comp) => {
+      const subnetFeatures = new Set<string>();
       comp.forEach(nodeId => {
-        islandFeatureIds.add(nodeId);
+        subnetFeatures.add(nodeId);
         // Also add connected pipes
         const node = features.get(nodeId);
         if (node && node.properties.connectedLinks) {
-          node.properties.connectedLinks.forEach((linkId: string) => islandFeatureIds.add(linkId));
+          node.properties.connectedLinks.forEach((linkId: string) => subnetFeatures.add(linkId));
         }
       });
+      subnetsToHighlight.push(Array.from(subnetFeatures));
     });
 
-    setHighlightedFeatures(Array.from(islandFeatureIds));
+    setHighlightedSubnetworks(subnetsToHighlight);
   };
 
   const isHighlighted = highlightedFeatureIds.size > 0 && issue.id === 'disconnected_net';

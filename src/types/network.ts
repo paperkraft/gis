@@ -65,6 +65,7 @@ export interface ValidationWarning {
     type: string;
     message: string;
     featureId?: string;
+    subNetworks?: string[][];
 }
 export interface ProjectSettings {
     title: string;

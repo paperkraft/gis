@@ -89,6 +89,7 @@ interface StyleState {
 
     // --- Highlighting ---
     highlightedFeatureIds: Set<string>;
+    highlightColors: Map<string, string>;
 
     // --- Actions ---
     setNodeColorMode: (mode: NodeColorMode) => void;
@@ -104,7 +105,8 @@ interface StyleState {
     setStyleType: (type: StyleType) => void;
     setClassCount: (count: number) => void;
 
-    setHighlightedFeatures: (ids: string[]) => void;
+    setHighlightedFeatures: (ids: string[], color?: string) => void;
+    setHighlightedSubnetworks: (subnets: string[][]) => void;
     clearHighlights: () => void;
 
     // For Symbology
@@ -142,6 +144,7 @@ export const useStyleStore = create<StyleState>((set, get) => ({
 
     // Highlighting
     highlightedFeatureIds: new Set(),
+    highlightColors: new Map(),
 
     // Actions
     setNodeColorMode: (mode) => set({ nodeColorMode: mode }),
@@ -159,8 +162,43 @@ export const useStyleStore = create<StyleState>((set, get) => ({
     setStyleType: (type) => set({ styleType: type }),
     setClassCount: (count) => set({ classCount: Math.max(2, Math.min(8, count)) }),
 
-    setHighlightedFeatures: (ids) => set({ highlightedFeatureIds: new Set(ids) }),
-    clearHighlights: () => set({ highlightedFeatureIds: new Set() }),
+    setHighlightedFeatures: (ids, color) => set((state) => {
+        const newColors = new Map(state.highlightColors);
+        ids.forEach(id => {
+            if (color) newColors.set(id, color);
+            else newColors.delete(id);
+        });
+        return { highlightedFeatureIds: new Set(ids), highlightColors: newColors };
+    }),
+
+    setHighlightedSubnetworks: (subnets) => set((state) => {
+        const ids = new Set<string>();
+        const colors = new Map<string, string>();
+        
+        // Use a predefined palette of visually distinct colors for subnetworks
+        const palette = [
+            '#ef4444', // red
+            '#eab308', // yellow
+            '#22c55e', // green
+            '#3b82f6', // blue
+            '#a855f7', // purple
+            '#f97316', // orange
+            '#14b8a6', // teal
+            '#ec4899', // pink
+        ];
+
+        subnets.forEach((subnet, idx) => {
+            const color = palette[idx % palette.length];
+            subnet.forEach(id => {
+                ids.add(id);
+                colors.set(id, color);
+            });
+        });
+
+        return { highlightedFeatureIds: ids, highlightColors: colors };
+    }),
+
+    clearHighlights: () => set({ highlightedFeatureIds: new Set(), highlightColors: new Map() }),
 
     getStyle: (layerId) => {
         const state = get();

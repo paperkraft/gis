@@ -89,6 +89,7 @@ export class TopologyValidator {
             warnings.push({
                 type: "disconnected_network",
                 message: `Network is split into ${disconnectedComponents.length} disconnected sub-networks`,
+                subNetworks: disconnectedComponents,
             });
         }
 

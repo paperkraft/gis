@@ -23,12 +23,13 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
     if (!config) return new Style({});
 
     // 1. Get Stores
-    const { nodeColorMode, linkColorMode, labelMode, minMax, layerStyles, nodeGradient, linkGradient, highlightedFeatureIds } = useStyleStore.getState();
+    const { nodeColorMode, linkColorMode, labelMode, minMax, layerStyles, nodeGradient, linkGradient, highlightedFeatureIds, highlightColors } = useStyleStore.getState();
     // const { results, history, currentTimeIndex } = useSimulationStore.getState();
     const { results } = useSimulationStore.getState();
     const { showLabels, showPipeArrows } = useUIStore.getState();
 
     const isHighlighted = highlightedFeatureIds.has(featureId);
+    const hasHighlights = highlightedFeatureIds.size > 0;
 
     // 2. Resolve Base Style (Uniform)
     const customStyle = layerStyles[featureType];
@@ -41,6 +42,11 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
     let pointStrokeWidth = customStyle?.strokeWidth || 2;
     let opacity = customStyle?.opacity ?? 1;
     const isAutoScale = customStyle?.autoScale ?? false;
+
+    // --- DIMMING LOGIC ---
+    if (hasHighlights && !isHighlighted) {
+        opacity *= 0.25; // Dim the unhighlighted network features
+    }
 
     // 3. SAFE DATA EXTRACTION (Fixes the crash)
     let activeSnapshot = results;
@@ -128,9 +134,9 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
     }) : undefined;
 
     // 4. LOD Visibility Check (Hide complex icons when zoomed out for performance)
-    const visibilityThreshold = 10;
+    const visibilityThreshold = 5;
     const isFeatureVisible = resolution === undefined || resolution < visibilityThreshold;
-    const isComplexNode = ['tank', 'reservoir'].includes(featureType);
+    const isComplexNode = ['junction', 'tank', 'reservoir'].includes(featureType);
     const isComplexLink = ['pump', 'valve'].includes(featureType);
 
     if (!isFeatureVisible && (isComplexNode || isComplexLink)) {
@@ -229,20 +235,32 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
         });
     }
 
-    // --- APPLY HIGHLIGHT OVERLAY ---
-    if (isHighlighted) {
-        const highlightStyle = featureType === 'pipe' 
-            ? new Style({ stroke: new Stroke({ color: '#ff0000', width: strokeWidth + 6 }), zIndex: 10 }) 
-            : new Style({
-                image: new CircleStyle({
-                    radius: pointRadius + 8,
-                    stroke: new Stroke({ color: '#ff0000', width: 3 }),
-                    fill: new Fill({ color: 'rgba(255, 0, 0, 0.2)' })
-                }),
-                zIndex: 10
-            });
+    // --- APPLY HIGHLIGHT OVERLAY (HALO) ---
+    if (isHighlighted && hasHighlights) {
+        const customHighlightColor = highlightColors.get(featureId) || '#ff0000';
         
-        return Array.isArray(finalStyle) ? [highlightStyle, ...finalStyle] : [highlightStyle, finalStyle];
+        const haloStyle = featureType === 'pipe' || featureType === 'visual'
+            ? new Style({ 
+                // Thick semi-transparent line underneath
+                stroke: new Stroke({ 
+                    color: hexToRgba(customHighlightColor, 0.4), 
+                    width: strokeWidth + 10, 
+                    lineCap: 'round', 
+                    lineJoin: 'round' 
+                }), 
+                zIndex: 90 
+              })
+            : new Style({
+                // Thick ring or glow underneath nodes
+                image: new CircleStyle({
+                    radius: pointRadius + 6,
+                    fill: new Fill({ color: hexToRgba(customHighlightColor, 0.2) }),
+                    stroke: new Stroke({ color: hexToRgba(customHighlightColor, 0.6), width: 3 })
+                }),
+                zIndex: 90
+            });
+            
+        return Array.isArray(finalStyle) ? [haloStyle, ...finalStyle] : [haloStyle, finalStyle];
     }
 
     return finalStyle;
