@@ -5,6 +5,7 @@ export interface ValidationError {
     type: "ERROR" | "WARNING";
     message: string;
     featureId?: string;
+    subNetworks?: string[][]; // Array of components, each being an array of feature IDs
 }
 
 export const ValidationService = {
@@ -95,7 +96,8 @@ export const ValidationService = {
                 id: 'disconnected_net',
                 type: 'WARNING',
                 message: `Network is split into ${components.length} disconnected sub-networks`,
-                featureId: ""
+                featureId: "",
+                subNetworks: components
             });
         }
 

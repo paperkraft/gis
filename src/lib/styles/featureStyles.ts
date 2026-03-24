@@ -23,10 +23,12 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
     if (!config) return new Style({});
 
     // 1. Get Stores
-    const { nodeColorMode, linkColorMode, labelMode, minMax, layerStyles, nodeGradient, linkGradient } = useStyleStore.getState();
+    const { nodeColorMode, linkColorMode, labelMode, minMax, layerStyles, nodeGradient, linkGradient, highlightedFeatureIds } = useStyleStore.getState();
     // const { results, history, currentTimeIndex } = useSimulationStore.getState();
     const { results } = useSimulationStore.getState();
     const { showLabels, showPipeArrows } = useUIStore.getState();
+
+    const isHighlighted = highlightedFeatureIds.has(featureId);
 
     // 2. Resolve Base Style (Uniform)
     const customStyle = layerStyles[featureType];
@@ -125,6 +127,16 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
         overflow: true,
     }) : undefined;
 
+    // 4. LOD Visibility Check (Hide complex icons when zoomed out for performance)
+    const visibilityThreshold = 10;
+    const isFeatureVisible = resolution === undefined || resolution < visibilityThreshold;
+    const isComplexNode = ['tank', 'reservoir'].includes(featureType);
+    const isComplexLink = ['pump', 'valve'].includes(featureType);
+
+    if (!isFeatureVisible && (isComplexNode || isComplexLink)) {
+        return new Style({});
+    }
+
     // Helper for SVG encoded icons
     const getSvgIcon = (svgString: string, size: [number, number], scale: number = 1, rotation: number = 0) => {
         const encoded = encodeURIComponent(svgString);
@@ -141,6 +153,9 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
         });
     };
 
+    // 11. Resolve Final Style
+    let finalStyle: Style | Style[];
+
     // PIPE
     if (featureType === "pipe") {
         const baseStyle = new Style({
@@ -150,72 +165,87 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
         });
 
         if (showPipeArrows) {
-            return [baseStyle, ...createSegmentArrows(feature)];
+            finalStyle = [baseStyle, ...createSegmentArrows(feature)];
+        } else {
+            finalStyle = baseStyle;
         }
-        return baseStyle;
     }
-
-    // TANK (Standard Cylinder/Rounded Icon)
-    if (featureType === "tank") {
+    // TANK
+    else if (featureType === "tank") {
         const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
             <path d="M4 6c0-1.657 3.582-3 8-3s8 1.343 8 3v12c0 1.657-3.582 3-8 3s-8-1.343-8-3V6z" fill="${color}" stroke="white" stroke-width="1.5"/>
             <ellipse cx="12" cy="6" rx="8" ry="3" fill="${color}" stroke="white" stroke-width="1.5" opacity="0.8"/>
         </svg>`;
-        return getSvgIcon(svg, [24, 24], 0.8);
+        finalStyle = getSvgIcon(svg, [24, 24], 0.8);
     }
-
-    // RESERVOIR (Standard Rectangle with Wavy Surface)
-    if (featureType === "reservoir") {
+    // RESERVOIR
+    else if (featureType === "reservoir") {
         const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
             <rect x="3" y="4" width="18" height="16" rx="2" fill="${color}" stroke="white" stroke-width="1.5" />
             <path d="M3 10c2 0 3 2 6 2s4-2 6-2 3 2 6 2" fill="none" stroke="white" stroke-width="1.5" opacity="0.6"/>
             <path d="M3 14c2 0 3 2 6 2s4-2 6-2 3 2 6 2" fill="none" stroke="white" stroke-width="1.2" opacity="0.4"/>
         </svg>`;
-        return getSvgIcon(svg, [24, 24], 0.9);
+        finalStyle = getSvgIcon(svg, [24, 24], 0.9);
     }
-
-    // PUMP (Circle with Triangle)
-    if (featureType === "pump") {
+    // PUMP
+    else if (featureType === "pump") {
         const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" fill="${color}" stroke="white" stroke-width="1.5"/>
             <path d="M10 8l7 4-7 4V8z" fill="white"/>
         </svg>`;
         const rotation = feature.get('rotation') || 0;
-        return getSvgIcon(svg, [24, 24], 0.8, rotation);
+        finalStyle = getSvgIcon(svg, [24, 24], 0.8, rotation);
     }
-
-    // VALVE (Bow-tie Shape)
-    if (featureType === "valve") {
+    // VALVE
+    else if (featureType === "valve") {
         const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
              <path d="M4 6l16 12V6L4 18V6z" fill="${color}" stroke="white" stroke-width="1.5"/>
              <rect x="11" y="4" width="2" height="16" fill="white" opacity="0.5"/>
         </svg>`;
         const rotation = feature.get('rotation') || 0;
-        return getSvgIcon(svg, [24, 24], 1.0, rotation);
+        finalStyle = getSvgIcon(svg, [24, 24], 1.0, rotation);
     }
-
-    // JUNCTION (Circle - Default)
-    // Also handles special case for "Connector Nodes" if needed
-    if (isJunctionConnectedToLink(feature)) {
-        return new Style({
+    // CONNECTOR JUNCTION
+    else if (isJunctionConnectedToLink(feature)) {
+        finalStyle = new Style({
             image: new CircleStyle({
                 radius: 4,
-                fill: new Fill({ color: "#D1D5DB" }), // Keep connectors gray/neutral
+                fill: new Fill({ color: "#D1D5DB" }),
                 stroke: new Stroke({ color: "#6B7280", width: 1 }),
             }),
             zIndex: 100,
         });
     }
+    // DEFAULT JUNCTION
+    else {
+        finalStyle = new Style({
+            image: new CircleStyle({
+                radius: pointRadius,
+                fill: new Fill({ color: rgbaColor }),
+                stroke: new Stroke({ color: borderRgba, width: pointStrokeWidth }),
+            }),
+            text: textStyle,
+            zIndex: 100,
+        });
+    }
 
-    return new Style({
-        image: new CircleStyle({
-            radius: pointRadius,
-            fill: new Fill({ color: rgbaColor }),
-            stroke: new Stroke({ color: borderRgba, width: pointStrokeWidth }),
-        }),
-        text: textStyle,
-        zIndex: 100,
-    });
+    // --- APPLY HIGHLIGHT OVERLAY ---
+    if (isHighlighted) {
+        const highlightStyle = featureType === 'pipe' 
+            ? new Style({ stroke: new Stroke({ color: '#ff0000', width: strokeWidth + 6 }), zIndex: 10 }) 
+            : new Style({
+                image: new CircleStyle({
+                    radius: pointRadius + 8,
+                    stroke: new Stroke({ color: '#ff0000', width: 3 }),
+                    fill: new Fill({ color: 'rgba(255, 0, 0, 0.2)' })
+                }),
+                zIndex: 10
+            });
+        
+        return Array.isArray(finalStyle) ? [highlightStyle, ...finalStyle] : [highlightStyle, finalStyle];
+    }
+
+    return finalStyle;
 };
 
 function getVisualLinkStyle(feature: Feature): Style {

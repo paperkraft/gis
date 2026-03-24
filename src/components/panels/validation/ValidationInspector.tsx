@@ -10,6 +10,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { ValidationError } from "@/lib/services/ValidationService";
 import { cn } from "@/lib/utils";
+import { useStyleStore } from "@/store/styleStore";
+import { useNetworkStore } from "@/store/networkStore";
+import { Layers } from "lucide-react";
 
 interface ValidationInspectorProps {
   issue: ValidationError;
@@ -39,6 +42,41 @@ export function ValidationInspector({
   onBack,
 }: ValidationInspectorProps) {
   const isError = issue.type === "ERROR";
+  const { setHighlightedFeatures, clearHighlights, highlightedFeatureIds } = useStyleStore();
+  const { features } = useNetworkStore();
+
+  const handleHighlightSubnetworks = () => {
+    if (!issue.subNetworks || issue.subNetworks.length <= 1) return;
+
+    // 1. Identify "Islands" (Everything EXCEPT the largest component)
+    // Find largest component by node count
+    let largestIdx = 0;
+    let maxNodes = 0;
+    issue.subNetworks.forEach((comp, idx) => {
+      if (comp.length > maxNodes) {
+        maxNodes = comp.length;
+        largestIdx = idx;
+      }
+    });
+
+    // 2. Collect all feature IDs in islands (Nodes + their connected Links)
+    const islandFeatureIds = new Set<string>();
+    issue.subNetworks.forEach((comp, idx) => {
+      if (idx === largestIdx) return; // Skip main network
+      comp.forEach(nodeId => {
+        islandFeatureIds.add(nodeId);
+        // Also add connected pipes
+        const node = features.get(nodeId);
+        if (node && node.properties.connectedLinks) {
+          node.properties.connectedLinks.forEach((linkId: string) => islandFeatureIds.add(linkId));
+        }
+      });
+    });
+
+    setHighlightedFeatures(Array.from(islandFeatureIds));
+  };
+
+  const isHighlighted = highlightedFeatureIds.size > 0 && issue.id === 'disconnected_net';
 
   return (
     <div className="flex flex-col h-full bg-slate-50/50 animate-in slide-in-from-right-4 duration-200">
@@ -89,6 +127,21 @@ export function ValidationInspector({
           <p className="text-xs text-slate-600 leading-relaxed">
             {issue.message}
           </p>
+
+          {issue.id === 'disconnected_net' && issue.subNetworks && (
+            <Button
+              variant={isHighlighted ? "default" : "outline"}
+              size="sm"
+              className={cn(
+                "mt-3 w-full h-8 text-[10px] gap-2",
+                isHighlighted ? "bg-red-500 hover:bg-red-600 text-white border-transparent" : "text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600"
+              )}
+              onClick={isHighlighted ? clearHighlights : handleHighlightSubnetworks}
+            >
+              <Layers size={14} />
+              {isHighlighted ? "Clear Highlights" : "Highlight Disconnected Areas"}
+            </Button>
+          )}
         </div>
 
         {/* Navigation Controls */}

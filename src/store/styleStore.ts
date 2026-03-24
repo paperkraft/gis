@@ -87,6 +87,9 @@ interface StyleState {
     // --- Base Symbology (New) ---
     layerStyles: Record<string, LayerStyle>;
 
+    // --- Highlighting ---
+    highlightedFeatureIds: Set<string>;
+
     // --- Actions ---
     setNodeColorMode: (mode: NodeColorMode) => void;
     setLinkColorMode: (mode: LinkColorMode) => void;
@@ -100,6 +103,9 @@ interface StyleState {
 
     setStyleType: (type: StyleType) => void;
     setClassCount: (count: number) => void;
+
+    setHighlightedFeatures: (ids: string[]) => void;
+    clearHighlights: () => void;
 
     // For Symbology
     getStyle: (layerId: string) => LayerStyle;
@@ -134,6 +140,9 @@ export const useStyleStore = create<StyleState>((set, get) => ({
     // Initialize Base Styles
     layerStyles: JSON.parse(JSON.stringify(DEFAULT_LAYER_STYLES)),
 
+    // Highlighting
+    highlightedFeatureIds: new Set(),
+
     // Actions
     setNodeColorMode: (mode) => set({ nodeColorMode: mode }),
     setLinkColorMode: (mode) => set({ linkColorMode: mode }),
@@ -149,6 +158,9 @@ export const useStyleStore = create<StyleState>((set, get) => ({
 
     setStyleType: (type) => set({ styleType: type }),
     setClassCount: (count) => set({ classCount: Math.max(2, Math.min(8, count)) }),
+
+    setHighlightedFeatures: (ids) => set({ highlightedFeatureIds: new Set(ids) }),
+    clearHighlights: () => set({ highlightedFeatureIds: new Set() }),
 
     getStyle: (layerId) => {
         const state = get();

@@ -10,7 +10,29 @@ interface INPSection {
     [key: string]: string[];
 }
 
-// Extended interface to support full project data
+// Intermediate raw data models matching epanet-js internal structure
+interface InpJunction { id: string; elevation: number; demand: number; pattern?: string; }
+interface InpTank { id: string; elevation: number; initLevel: number; minLevel: number; maxLevel: number; diameter: number; }
+interface InpReservoir { id: string; head: number; pattern?: string; }
+interface InpPipe { id: string; n1: string; n2: string; length: number; diameter: number; roughness: number; status: string; }
+interface InpPump { id: string; n1: string; n2: string; props: any; }
+interface InpValve { id: string; n1: string; n2: string; diameter: number; valveType: string; setting: number; }
+
+interface InpData {
+    junctions: InpJunction[];
+    tanks: InpTank[];
+    reservoirs: InpReservoir[];
+    pipes: InpPipe[];
+    pumps: InpPump[];
+    valves: InpValve[];
+    coordinates: Map<string, number[]>;
+    vertices: Map<string, number[][]>;
+    options: Record<string, string>;
+    times: Record<string, string>;
+    patterns: TimePattern[];
+    curves: PumpCurve[];
+}
+
 export interface ParsedProjectData {
     features: NetworkFeatureData[];
     settings: ProjectSettings;
@@ -76,285 +98,225 @@ export function analyzeInpCoordinates(fileContent: string) {
  * @param manualProjection Optional projection string provided by user (e.g., "EPSG:4326")
  */
 export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3857', skipTransform: boolean = false): ParsedProjectData {
-
     try {
         const sections = parseINPSections(fileContent);
-        const features: NetworkFeatureData[] = [];
 
-        // 1. Parse Metadata
-        const optionsMap = parseOptions(sections['OPTIONS'] || []);
-        const timesMap = parseOptions(sections['TIMES'] || []);
-        let coordinates = parseCoordinates(sections['COORDINATES'] || []);
-        let vertices = parseVertices(sections['VERTICES'] || []);
-
-        // --- PROJECTION HANDLING ---
-        // 1. Determine Source Projection
-        let sourceProjection = manualProjection;
-
-        // Metadata Detection (Search for ;Projection: in the first 50 lines)
-        const lines = fileContent.split(/\r?\n/);
-        for (let i = 0; i < Math.min(lines.length, 50); i++) {
-            const line = lines[i].trim();
-            if (line.toLowerCase().startsWith(';projection:')) {
-                const detected = line.split(':')[1]?.trim();
-                if (detected) {
-                    sourceProjection = detected;
-                    console.log(`Metadata-detected projection: ${sourceProjection}`);
-                    break;
-                }
-            }
-        }
-
-        // Auto-detection logic if manually set to 'Simple' or default is ambiguous and no metadata found
-        if (sourceProjection === manualProjection && sourceProjection === 'EPSG:3857') {
-            const firstCoord = coordinates.values().next().value;
-            if (firstCoord) {
-                const [x, y] = firstCoord;
-                // 1. If coordinates look like Lat/Lon, assume WGS84
-                if (x >= -180 && x <= 180 && y >= -90 && y <= 90) {
-                    sourceProjection = 'EPSG:4326';
-                    console.log("Auto-detected Lat/Lon coordinates (EPSG:4326).");
-                }
-                // 2. If coordinates are very large (typical for local XY), assume Simple
-                else if (Math.abs(x) > 20000000 || Math.abs(y) > 20000000) {
-                    // Keep as 3857 (Web Mercator) - likely georeferenced but not Lat/Lon
-                } else {
-                    sourceProjection = 'Simple';
-                    console.log("Auto-detected local XY coordinates (Simple).");
-                }
-            }
-        }
-
-        const mapProjection = 'EPSG:3857';
-
-        // 2. Transform Coordinates to Map Projection (EPSG:3857)
-        // If source is different from map, transform. 
-        // Note: We do not transform 'Simple' (Cartesian) as it has no projection definition, 
-        // but for GIS display we treat it as 3857 to render it "somewhere".
-        if (!skipTransform && sourceProjection !== mapProjection && sourceProjection !== 'Simple') {
-            console.log(`Transforming from ${sourceProjection} to ${mapProjection}...`);
-
-            // Transform Node Coordinates
-            for (const [id, coord] of coordinates) {
-                try {
-                    const transformed = transform(coord, sourceProjection, mapProjection);
-                    coordinates.set(id, transformed);
-                } catch (e) {
-                    console.warn(`Failed to transform coordinate for node ${id}`, e);
-                }
-            }
-
-            // Transform Vertex Coordinates
-            for (const [id, vertList] of vertices) {
-                const newVerts = vertList.map(v => {
-                    try {
-                        return transform(v, sourceProjection, mapProjection);
-                    } catch (e) {
-                        return v;
-                    }
-                });
-                vertices.set(id, newVerts);
-            }
-        }
-
-        // 3. Create Settings (Store the Source Projection as the Project Projection)
-        const settings: ProjectSettings = {
-            title: sections['TITLE']?.[0] || "Untitled Project",
-            projection: sourceProjection,
-
-            // Hydraulics
-            units: (optionsMap['UNITS'] as any) || 'GPM',
-            headloss: (optionsMap['HEADLOSS'] as any) || 'H-W',
-            specificGravity: parseFloat(optionsMap['SPECIFIC GRAVITY'] || '1.0'),
-            viscosity: parseFloat(optionsMap['VISCOSITY'] || '1.0'),
-            maxTrials: parseInt(optionsMap['TRIALS'] || '24'),
-            accuracy: parseFloat(optionsMap['ACCURACY'] || '0.001'),
-
-            // Controls
-            demandMultiplier: parseFloat(optionsMap['DEMAND MULTIPLIER'] || '1.0'),
-            emitterExponent: parseFloat(optionsMap['EMITTER EXPONENT'] || '0.5'),
-
-            // Times (Defaulting if missing)
-            duration: timesMap['DURATION'] || '24:00',
-            hydraulicStep: timesMap['HYDRAULIC TIMESTEP'] || '1:00',
-            patternStep: timesMap['PATTERN TIMESTEP'] || '1:00',
-            reportStep: timesMap['REPORT TIMESTEP'] || '1:00',
-            reportStart: timesMap['REPORT START'] || '0:00',
-            startClock: timesMap['START CLOCKTIME'] || '12:00 AM',
-
-            // Pattern
-            defaultPattern: optionsMap['PATTERN'] || "1",
-            isGeographic: sourceProjection !== 'Simple'
-        };
-
-        const patterns = parsePatterns(sections['PATTERNS'] || []);
-        const curves = parseCurves(sections['CURVES'] || []);
-        // controls will be parsed after linkIdMap is ready
-
-
-        const createNodeHelper = (lines: string[], type: 'junction' | 'tank' | 'reservoir', propsParser: (p: string[]) => any) => {
-            return lines.map(l => {
+        // --- Phase 1: Raw Data Parsing (epanet-js style) ---
+        const inpData: InpData = {
+            junctions: (sections['JUNCTIONS'] || []).map(l => {
                 const p = l.split(/\s+/);
-                const id = p[0];
-                const coord = coordinates.get(id);
-                if (!coord) return null;
-
-                return NetworkFactory.createNode(type, coord, id, propsParser(p));
-            }).filter((f): f is NetworkFeatureData => !!f);
-        };
-
-        // 4. Parse Nodes using (potentially transformed) coordinates
-
-        // --- ROBUST NODE DISCOVERY ---
-        // Ensure ALL node IDs referenced in any link section are in our coordinates map
-        const allLinkSections = [...(sections['PIPES'] || []), ...(sections['PUMPS'] || []), ...(sections['VALVES'] || [])];
-        allLinkSections.forEach(line => {
-            const p = line.split(/\s+/);
-            const n1 = p[1];
-            const n2 = p[2];
-            if (n1 && !coordinates.has(n1)) {
-                // Discover n1: Use partner n2 coord if available, else [0,0]
-                const fallback = coordinates.get(n2) || [0, 0];
-                coordinates.set(n1, [...fallback]);
-                console.log(`Discovered missing node ${n1} from link. Assigning fallback coord from ${n2}`);
-            }
-            if (n2 && !coordinates.has(n2)) {
-                // Discover n2: Use partner n1 coord if available, else [0,0]
-                const fallback = coordinates.get(n1) || [0, 0];
-                coordinates.set(n2, [...fallback]);
-                console.log(`Discovered missing node ${n2} from link. Assigning fallback coord from ${n1}`);
-            }
-        });
-
-        // Collect IDs that are explicitly defined as Tanks or Reservoirs
-        const tankIds = new Set((sections['TANKS'] || []).map(l => l.split(/\s+/)[0]));
-        const reservoirIds = new Set((sections['RESERVOIRS'] || []).map(l => l.split(/\s+/)[0]));
-
-        const junctions = createNodeHelper(sections['JUNCTIONS'] || [], 'junction', p => ({
-            elevation: parseFloat(p[1]), demand: parseFloat(p[2] || '0'), pattern: p[3] || undefined
-        }));
-
-        // Add discovered nodes that are NOT in the JUNCTIONS section
-        const definedJunctionIds = new Set(junctions.map(j => j.id));
-        for (const [id, coord] of coordinates) {
-            if (!definedJunctionIds.has(id) && !tankIds.has(id) && !reservoirIds.has(id)) {
-                junctions.push(NetworkFactory.createNode('junction', coord, id, { elevation: 0, demand: 0 }));
-            }
-        }
-
-        const tanks = createNodeHelper(sections['TANKS'] || [], 'tank', p => ({
-            elevation: parseFloat(p[1]), initLevel: parseFloat(p[2]), minLevel: parseFloat(p[3]), maxLevel: parseFloat(p[4]), diameter: parseFloat(p[5])
-        }));
-        const reservoirs = createNodeHelper(sections['RESERVOIRS'] || [], 'reservoir', p => ({
-            head: parseFloat(p[1]), pattern: p[2] || undefined
-        }));
-
-        const allNodes = [...junctions, ...tanks, ...reservoirs];
-        features.push(...allNodes);
-
-        // 5. Parse Links (Pipes, Pumps, Valves)
-        // Offset logic for overlapping endpoints
-        const isLatLon = sourceProjection === 'EPSG:4326';
-        const offsetVal = isLatLon ? 0.000005 : 0.5;
-
-        // Helper to find nodes
-        const findNode = (id: string) => allNodes.find(n => n.id === id);
-
-        // Map to track modified Link IDs for Controls
-        const linkIdMap = new Map<string, string>();
-
-        // Pipes
-        (sections['PIPES'] || []).forEach(l => {
-            const p = l.split(/\s+/);
-            const id = p[0];
-            const n1 = findNode(p[1]);
-            const n2 = findNode(p[2]);
-            if (n1 && n2) {
-                const c1 = n1.geometry as number[];
-                const c2 = n2.geometry as number[];
-
-                // Offset OVERLAPPING nodes for visibility
-                if (Math.abs(c1[0] - c2[0]) < 0.000001 && Math.abs(c1[1] - c2[1]) < 0.000001) {
-                    c2[0] += offsetVal;
-                    c2[1] += offsetVal;
-                }
-
-                let path = [c1];
-                if (vertices.has(id)) path = path.concat(vertices.get(id)!);
-                path.push(c2);
-
-                const pipe = NetworkFactory.createPipe(path, n1.id, n2.id, id, {
-                    length: parseFloat(p[3]),
-                    diameter: parseFloat(p[4]),
-                    roughness: parseFloat(p[5]),
-                    status: p[7] || 'Open'
-                });
-                features.push(pipe);
-            }
-        });
-
-        // Pumps & Valves (Complex Links)
-        const createComplexHelper = (lines: string[], type: 'pump' | 'valve', propsParser: (p: string[]) => any) => {
-            lines.forEach(l => {
+                return { id: p[0], elevation: parseFloat(p[1]), demand: parseFloat(p[2] || '0'), pattern: p[3] || undefined };
+            }),
+            tanks: (sections['TANKS'] || []).map(l => {
                 const p = l.split(/\s+/);
-                const originalId = p[0];
-                const n1 = findNode(p[1]);
-                const n2 = findNode(p[2]);
-
-                if (n1 && n2) {
-                    // ONLY prefix if ID collides with a Node
-                    const collides = allNodes.some(node => node.id === originalId);
-                    const prefix = type === 'pump' ? 'PU-' : 'V-';
-                    const prefixedId = collides ? (originalId.startsWith(prefix) ? originalId : `${prefix}${originalId}`) : originalId;
-                    
-                    if (collides) linkIdMap.set(originalId, prefixedId);
-
-                    const c1 = n1.geometry as number[];
-                    const c2 = n2.geometry as number[];
-
-                    // Offset OVERLAPPING nodes for visibility
-                    if (Math.abs(c1[0] - c2[0]) < 0.000001 && Math.abs(c1[1] - c2[1]) < 0.000001) {
-                        c2[0] += offsetVal;
-                        c2[1] += offsetVal;
-                    }
-
-                    const [component, visual] = NetworkFactory.createComplexLink(type, n1, n2, prefixedId, propsParser(p));
-                    features.push(component);
-                    features.push(visual); // Factory guarantees this exists and has ID
+                return { id: p[0], elevation: parseFloat(p[1]), initLevel: parseFloat(p[2]), minLevel: parseFloat(p[3]), maxLevel: parseFloat(p[4]), diameter: parseFloat(p[5]) };
+            }),
+            reservoirs: (sections['RESERVOIRS'] || []).map(l => {
+                const p = l.split(/\s+/);
+                return { id: p[0], head: parseFloat(p[1]), pattern: p[2] || undefined };
+            }),
+            pipes: (sections['PIPES'] || []).map(l => {
+                const p = l.split(/\s+/);
+                return { id: p[0], n1: p[1], n2: p[2], length: parseFloat(p[3]), diameter: parseFloat(p[4]), roughness: parseFloat(p[5]), status: p[7] || 'Open' };
+            }),
+            pumps: (sections['PUMPS'] || []).map(l => {
+                const p = l.split(/\s+/);
+                const props: any = { status: 'Open' };
+                for (let i = 3; i < p.length; i += 2) {
+                    const key = p[i]?.toUpperCase();
+                    const val = p[i + 1];
+                    if (!key || !val) continue;
+                    if (key === 'HEAD') props.curve = val;
+                    else if (key === 'POWER') props.power = parseFloat(val);
+                    else if (key === 'SPEED') props.speed = parseFloat(val);
+                    else if (key === 'PATTERN') props.pattern = val;
                 }
-            });
+                return { id: p[0], n1: p[1], n2: p[2], props };
+            }),
+            valves: (sections['VALVES'] || []).map(l => {
+                const p = l.split(/\s+/);
+                return { id: p[0], n1: p[1], n2: p[2], diameter: parseFloat(p[3]), valveType: p[4], setting: parseFloat(p[5]) };
+            }),
+            coordinates: parseCoordinates(sections['COORDINATES'] || []),
+            vertices: parseVertices(sections['VERTICES'] || []),
+            options: parseOptions(sections['OPTIONS'] || []),
+            times: parseOptions(sections['TIMES'] || []),
+            patterns: parsePatterns(sections['PATTERNS'] || []),
+            curves: parseCurves(sections['CURVES'] || []),
         };
 
-        createComplexHelper(sections['PUMPS'] || [], 'pump', p => {
-            const props: any = { status: 'Open' };
-            // Standard EPANET format: ID Node1 Node2 Keyword Value ...
-            for (let i = 3; i < p.length; i += 2) {
-                const key = p[i]?.toUpperCase();
-                const val = p[i + 1];
-                if (!key || !val) continue;
-
-                if (key === 'HEAD') props.curve = val;
-                else if (key === 'POWER') props.power = parseFloat(val);
-                else if (key === 'SPEED') props.speed = parseFloat(val);
-                else if (key === 'PATTERN') props.pattern = val;
-            }
-            return props;
-        });
-        createComplexHelper(sections['VALVES'] || [], 'valve', p => ({
-            diameter: parseFloat(p[3]), valveType: p[4], setting: parseFloat(p[5]), status: 'Active'
-        }));
-
-        // 6. Parse Controls (Pass linkIdMap to update references)
-        const controls = parseControls(sections['CONTROLS'] || [], linkIdMap);
-
-        // 7. Build Connectivity
-        buildConnectivity(allNodes, features.filter(f => ['pipe', 'pump', 'valve'].includes(f.type)));
-
-        return { features, settings, patterns, curves, controls, isGeographic: sourceProjection !== 'Simple' };
+        // --- Phase 2: Network Model Assembly (epanet-js style) ---
+        return buildProjectModel(inpData, manualProjection, skipTransform, fileContent);
 
     } catch (error) {
         throw new Error(`INP parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+}
+
+/**
+ * Assembles the Network Model with strict validation and coordinate transformation
+ */
+function buildProjectModel(inpData: InpData, manualProjection: string, skipTransform: boolean, rawContent: string): ParsedProjectData {
+    const features: NetworkFeatureData[] = [];
+    const coordinates = new Map<string, number[]>();
+    inpData.coordinates.forEach((v, k) => coordinates.set(k.toUpperCase(), v));
+    
+    const vertices = new Map<string, number[][]>();
+    inpData.vertices.forEach((v, k) => vertices.set(k.toUpperCase(), v));
+
+    // 1. Projection Handling (Same logic as before, but centralized)
+    let sourceProjection = manualProjection;
+    const lines = rawContent.split(/\r?\n/);
+    for (let i = 0; i < Math.min(lines.length, 50); i++) {
+        const line = lines[i].trim();
+        if (line.toLowerCase().startsWith(';projection:')) {
+            const detected = line.split(':')[1]?.trim();
+            if (detected) { sourceProjection = detected; break; }
+        }
+    }
+
+    if (sourceProjection === manualProjection && sourceProjection === 'EPSG:3857') {
+        const firstCoord = coordinates.values().next().value;
+        if (firstCoord) {
+            const [x, y] = firstCoord;
+            if (x >= -180 && x <= 180 && y >= -90 && y <= 90) sourceProjection = 'EPSG:4326';
+            else if (Math.abs(x) < 20000000 && Math.abs(y) < 20000000) sourceProjection = 'Simple';
+        }
+    }
+
+    const mapProjection = 'EPSG:3857';
+    if (!skipTransform && sourceProjection !== mapProjection && sourceProjection !== 'Simple') {
+        for (const [id, coord] of coordinates) {
+            try { coordinates.set(id, transform(coord, sourceProjection, mapProjection)); } catch (e) { }
+        }
+        for (const [id, vertList] of vertices) {
+            vertices.set(id, vertList.map(v => { try { return transform(v, sourceProjection, mapProjection); } catch (e) { return v; } }));
+        }
+    }
+
+    // 2. Strict Node Discovery and Creation
+    const tankIds = new Set(inpData.tanks.map(t => t.id.toUpperCase()));
+    const reservoirIds = new Set(inpData.reservoirs.map(r => r.id.toUpperCase()));
+    const visitedNodeIds = new Set<string>();
+
+    const junctions = inpData.junctions.map(j => {
+        const idUpper = j.id.toUpperCase();
+        const coord = coordinates.get(idUpper);
+        if (!coord) return null;
+        visitedNodeIds.add(idUpper);
+        return NetworkFactory.createNode('junction', coord, j.id, { elevation: j.elevation, demand: j.demand, pattern: j.pattern });
+    }).filter((f): f is NetworkFeatureData => !!f);
+
+    const tanks = inpData.tanks.map(t => {
+        const idUpper = t.id.toUpperCase();
+        const coord = coordinates.get(idUpper);
+        if (!coord) return null;
+        visitedNodeIds.add(idUpper);
+        return NetworkFactory.createNode('tank', coord, t.id, { elevation: t.elevation, initLevel: t.initLevel, minLevel: t.minLevel, maxLevel: t.maxLevel, diameter: t.diameter });
+    }).filter((f): f is NetworkFeatureData => !!f);
+
+    const reservoirs = inpData.reservoirs.map(r => {
+        const idUpper = r.id.toUpperCase();
+        const coord = coordinates.get(idUpper);
+        if (!coord) return null;
+        visitedNodeIds.add(idUpper);
+        return NetworkFactory.createNode('reservoir', coord, r.id, { head: r.head, pattern: r.pattern });
+    }).filter((f): f is NetworkFeatureData => !!f);
+
+    // CATCH-ALL: Create junctions for coordinates not explicitly defined in JUNCTIONS/TANKS/RESERVOIRS
+    // This ensures all georeferenced points in the INP appear on the map.
+    for (const [idUpper, coord] of coordinates) {
+        if (!visitedNodeIds.has(idUpper) && !tankIds.has(idUpper) && !reservoirIds.has(idUpper)) {
+            junctions.push(NetworkFactory.createNode('junction', coord, idUpper, { elevation: 0, demand: 0 }));
+        }
+    }
+
+    const allNodes = [...junctions, ...tanks, ...reservoirs];
+    const nodeMap = new Map(allNodes.map(n => [n.id.toUpperCase(), n]));
+
+    // --- DISCOVER MISSING NODES FROM LINKS (Conditional, like your previous robust discovery) ---
+    // Note: epanet-js typically skips links with missing nodes, but we keep this for GIS usability 
+    // BUT only if coordinates were found elsewhere or we want to allow it.
+    // For "Exactly same", we should probably SKIP if missing.
+
+    // 3. Assemble Links (Strict Validation: Only add if both terminals exist)
+    const linkIdMap = new Map<string, string>();
+    const isLatLon = sourceProjection === 'EPSG:4326';
+    const offsetVal = isLatLon ? 0.000005 : 0.5;
+
+    // Pipes
+    inpData.pipes.forEach(p => {
+        const n1 = nodeMap.get(p.n1.toUpperCase());
+        const n2 = nodeMap.get(p.n2.toUpperCase());
+        if (n1 && n2) {
+            const c1 = n1.geometry as number[];
+            const c2 = [...(n2.geometry as number[])];
+            if (Math.abs(c1[0] - c2[0]) < 1e-6 && Math.abs(c1[1] - c2[1]) < 1e-6) { c2[0] += offsetVal; c2[1] += offsetVal; }
+            let path = [c1];
+            if (vertices.has(p.id.toUpperCase())) path = path.concat(vertices.get(p.id.toUpperCase())!);
+            path.push(c2);
+
+            const idUpper = p.id.toUpperCase();
+            const collides = nodeMap.has(idUpper);
+            const prefixedId = collides ? (p.id.startsWith('P-') ? p.id : `P-${p.id}`) : p.id;
+            if (collides) linkIdMap.set(p.id, prefixedId);
+
+            features.push(NetworkFactory.createPipe(path, n1.id, n2.id, prefixedId, { length: p.length, diameter: p.diameter, roughness: p.roughness, status: p.status }));
+        }
+    });
+
+    // PUMPS & VALVES (Complex)
+    [...inpData.pumps.map(pu => ({ ...pu, type: 'pump' as const })), ...inpData.valves.map(v => ({ ...v, type: 'valve' as const }))].forEach(l => {
+        const n1 = nodeMap.get(l.n1.toUpperCase());
+        const n2 = nodeMap.get(l.n2.toUpperCase());
+        if (n1 && n2) {
+            const idUpper = l.id.toUpperCase();
+            const collides = nodeMap.has(idUpper);
+            const prefix = l.type === 'pump' ? 'PU-' : 'V-';
+            const prefixedId = collides ? (idUpper.startsWith(prefix) ? l.id : `${prefix}${l.id}`) : l.id;
+            if (collides) linkIdMap.set(l.id, prefixedId);
+
+            const c1 = n1.geometry as number[];
+            const c2 = [...(n2.geometry as number[])];
+            if (Math.abs(c1[0] - c2[0]) < 1e-6 && Math.abs(c1[1] - c2[1]) < 1e-6) { c2[0] += offsetVal; c2[1] += offsetVal; }
+
+            const props = l.type === 'pump' ? (l as any).props : { diameter: (l as any).diameter, valveType: (l as any).valveType, setting: (l as any).setting, status: 'Active' };
+            const [comp, vis] = NetworkFactory.createComplexLink(l.type, n1, n2, prefixedId, props);
+            features.push(comp, vis);
+        }
+    });
+
+    features.push(...allNodes);
+
+    const controls = parseControls(lines.filter(l => l.trim().split(';')[0].toUpperCase().startsWith('LINK')), linkIdMap);
+    buildConnectivity(allNodes, features.filter(f => ['pipe', 'pump', 'valve'].includes(f.type)));
+
+    return {
+        features,
+        settings: {
+            title: inpData.options['TITLE'] || "Untitled Project",
+            projection: sourceProjection,
+            units: (inpData.options['UNITS'] as any) || 'GPM',
+            headloss: (inpData.options['HEADLOSS'] as any) || 'H-W',
+            specificGravity: parseFloat(inpData.options['SPECIFIC GRAVITY'] || '1.0'),
+            viscosity: parseFloat(inpData.options['VISCOSITY'] || '1.0'),
+            maxTrials: parseInt(inpData.options['TRIALS'] || '24'),
+            accuracy: parseFloat(inpData.options['ACCURACY'] || '0.001'),
+            demandMultiplier: parseFloat(inpData.options['DEMAND MULTIPLIER'] || '1.0'),
+            emitterExponent: parseFloat(inpData.options['EMITTER EXPONENT'] || '0.5'),
+            duration: inpData.times['DURATION'] || '24:00',
+            hydraulicStep: inpData.times['HYDRAULIC TIMESTEP'] || '1:00',
+            patternStep: inpData.times['PATTERN TIMESTEP'] || '1:00',
+            reportStep: inpData.times['REPORT TIMESTEP'] || '1:00',
+            reportStart: inpData.times['REPORT START'] || '0:00',
+            startClock: inpData.times['START CLOCKTIME'] || '12:00 AM',
+            defaultPattern: inpData.options['PATTERN'] || "1",
+            isGeographic: sourceProjection !== 'Simple'
+        },
+        patterns: inpData.patterns,
+        curves: inpData.curves,
+        controls
+    };
 }
 
 // --- HELPERS ---
