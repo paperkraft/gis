@@ -105,6 +105,15 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
         color = getColor(value, range.min, range.max, activeGradient);
     }
 
+    // --- APPLY HIGHLIGHT OVERRIDE (SYMBOLOGY THEMING) ---
+    if (isHighlighted && hasHighlights) {
+        const customHighlightColor = highlightColors.get(featureId) || '#ff0000';
+        color = customHighlightColor;
+        strokeWidth += 2; // Make highlighted pipes thicker
+        pointRadius += 2; // Make highlighted nodes larger
+        opacity = 1.0;    // Ensure fully opaque
+    }
+
     // 5. Finalize Color with Opacity
     const rgbaColor = hexToRgba(color, opacity);
     const borderRgba = hexToRgba('#FFFFFF', opacity);
@@ -236,32 +245,32 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
     }
 
     // --- APPLY HIGHLIGHT OVERLAY (HALO) ---
-    if (isHighlighted && hasHighlights) {
-        const customHighlightColor = highlightColors.get(featureId) || '#ff0000';
-        
-        const haloStyle = featureType === 'pipe' || featureType === 'visual'
-            ? new Style({ 
-                // Thick semi-transparent line underneath
-                stroke: new Stroke({ 
-                    color: hexToRgba(customHighlightColor, 0.4), 
-                    width: strokeWidth + 10, 
-                    lineCap: 'round', 
-                    lineJoin: 'round' 
-                }), 
-                zIndex: 90 
-              })
-            : new Style({
-                // Thick ring or glow underneath nodes
-                image: new CircleStyle({
-                    radius: pointRadius + 6,
-                    fill: new Fill({ color: hexToRgba(customHighlightColor, 0.2) }),
-                    stroke: new Stroke({ color: hexToRgba(customHighlightColor, 0.6), width: 3 })
-                }),
-                zIndex: 90
-            });
-            
-        return Array.isArray(finalStyle) ? [haloStyle, ...finalStyle] : [haloStyle, finalStyle];
-    }
+    // if (isHighlighted && hasHighlights) {
+    //     const customHighlightColor = highlightColors.get(featureId) || '#ff0000';
+
+    //     const haloStyle = featureType === 'pipe' || featureType === 'visual'
+    //         ? new Style({
+    //             // Thick semi-transparent line underneath
+    //             stroke: new Stroke({
+    //                 color: hexToRgba(customHighlightColor, 0.4),
+    //                 width: strokeWidth + 10,
+    //                 lineCap: 'round',
+    //                 lineJoin: 'round'
+    //             }),
+    //             zIndex: 90
+    //         })
+    //         : new Style({
+    //             // Thick ring or glow underneath nodes
+    //             image: new CircleStyle({
+    //                 radius: pointRadius + 6,
+    //                 fill: new Fill({ color: hexToRgba(customHighlightColor, 0.2) }),
+    //                 stroke: new Stroke({ color: hexToRgba(customHighlightColor, 0.6), width: 3 })
+    //             }),
+    //             zIndex: 90
+    //         });
+
+    //     return Array.isArray(finalStyle) ? [haloStyle, ...finalStyle] : [haloStyle, finalStyle];
+    // }
 
     return finalStyle;
 };
