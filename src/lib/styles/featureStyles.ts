@@ -203,7 +203,7 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
              <rect x="11" y="4" width="2" height="16" fill="white" opacity="0.5"/>
         </svg>`;
         const rotation = feature.get('rotation') || 0;
-        finalStyle = getSvgIcon(svg, [24, 24], 1.0, rotation);
+        finalStyle = getSvgIcon(svg, [24, 24], 0.8, rotation);
     }
     // CONNECTOR JUNCTION
     else if (isJunctionConnectedToLink(feature)) {

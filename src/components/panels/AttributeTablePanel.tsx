@@ -105,7 +105,7 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
   const tableData = useMemo(() => {
     const data: any[] = [];
     const featureList = Array.from(features.values()).filter(
-      (f) => activeTab === "all" || f.type === activeTab
+      (f) => activeTab === "all" ? f.type !== 'visual' : f.type === activeTab
     );
 
     featureList.forEach((feature) => {
