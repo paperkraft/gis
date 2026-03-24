@@ -14,6 +14,7 @@ import { createFeatureFromData } from "@/hooks/map/useMapFeatureSync";
 import { Button } from "@/components/ui/button";
 import { TABLE_CONFIG, ColumnDef } from "@/config/attributeColumns";
 import { useUIStore } from "@/store/uiStore";
+import { useHistoryManager } from "@/hooks/useHistoryManager";
 
 interface AttributeTableProps {
   isOpen: boolean;
@@ -32,9 +33,10 @@ const TABS: { id: FeatureType | "all"; label: string; icon: any }[] = [
 
 export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
   // STORES
-  const { features, selectFeature, updateFeature } = useNetworkStore();
+  const { features, selectFeature, updateFeature, updateFeatures } = useNetworkStore();
   const { results, status: simStatus } = useSimulationStore();
   const { map } = useMapStore();
+  const { recordChange } = useHistoryManager();
 
   const { isCollapsed, sidebarWidth } = useUIStore();
   // STATE
@@ -182,6 +184,30 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
     link.href = URL.createObjectURL(blob);
     link.download = `network_${activeTab}.csv`;
     link.click();
+  };
+
+  const handleRoundOff = () => {
+    const updates: Record<string, any> = {};
+
+    tableData.forEach(row => {
+      if (row.type === 'junction' && row.elevation !== undefined) {
+        const val = Number(row.elevation);
+        if (!isNaN(val)) {
+          updates[row.id] = { ...updates[row.id], elevation: Math.round(val) };
+        }
+      } else if (row.type === 'pipe' && row.length !== undefined) {
+        const val = Number(row.length);
+        if (!isNaN(val)) {
+          updates[row.id] = { ...updates[row.id], length: Math.round(val) };
+        }
+      }
+    });
+
+    if (Object.keys(updates).length > 0) {
+      recordChange(() => {
+        updateFeatures(updates);
+      });
+    }
   };
 
   if (!isOpen) return null;
@@ -347,6 +373,19 @@ export function AttributeTable({ isOpen, onClose }: AttributeTableProps) {
           <span className="text-slate-400">|</span>
           <span>{activeTab === 'all' ? 'All Types' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1) + 's'}</span>
         </div>
+
+        {(activeTab === 'all' || activeTab === 'junction' || activeTab === 'pipe') && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRoundOff}
+            className="h-6 px-3 text-[10px] font-semibold bg-white hover:bg-blue-50 text-blue-600 border-blue-200 hover:border-blue-400 gap-1.5 shadow-sm"
+          >
+            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+            Round Off
+          </Button>
+        )}
+
         {simStatus === 'completed' && (
           <div className="flex items-center gap-1.5 text-primary font-medium">
             <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />

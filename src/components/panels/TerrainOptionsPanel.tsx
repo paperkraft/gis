@@ -1,7 +1,8 @@
 import React from 'react';
 
-import { Edit2, Mountain, Layers, Map as MapIcon } from 'lucide-react';
+import { Edit2, Mountain, Layers, Map as MapIcon, Info } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
+import { cn } from '@/lib/utils';
 
 export function TerrainOptionsPanel() {
   const { setActiveModal } = useUIStore();
@@ -48,36 +49,53 @@ export function TerrainOptionsPanel() {
   ];
 
   return (
-    <div className="flex flex-col h-full w-full bg-white dark:bg-slate-950 overflow-y-auto custom-scrollbar">
-      <div className="flex flex-col gap-4 p-4">
-        <div className="text-sm text-slate-500 mb-2">
-          Choose a Terrain Option:
+    <div className="flex flex-col h-full w-full bg-slate-50/30 overflow-hidden relative">
+      <div className="flex-1 overflow-y-auto p-4 space-y-5 custom-scrollbar">
+        
+        {/* 1. Header Info Box */}
+        <div className="bg-blue-50 border border-blue-100 rounded-md p-3 text-[11px] text-blue-800 space-y-2">
+            <div className="flex items-center gap-2 font-bold uppercase tracking-wider">
+                <Info size={14} />
+                <span>Terrain Configuration</span>
+            </div>
+            <p className="opacity-80 leading-relaxed">
+                Choose how elevation data is sourced for your network. Auto Elevation uses satellite data, while Contours provide visual guidance.
+            </p>
         </div>
-        <div className="grid grid-cols-1 gap-4">
-          {options.map((opt) => {
-            const Icon = opt.icon;
-            return (
-              <div 
-                key={opt.id} 
-                className="group cursor-pointer rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all shadow-sm hover:shadow-md"
-                onClick={opt.action}
-              >
-              <div className="p-4 flex flex-col gap-2">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                    <Icon size={20} />
-                  </div>
-                  <h3 className="font-semibold text-slate-800 dark:text-slate-200">
-                    {opt.title}
-                  </h3>
-                </div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    {opt.description}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
+
+        <div className="space-y-4">
+            {/* 2. Section Header */}
+            <h4 className="text-[10px] font-bold uppercase text-slate-400 tracking-wider px-1">
+                Available Strategies
+            </h4>
+
+            {/* 3. Options Grid */}
+            <div className="grid grid-cols-1 gap-3">
+            {options.map((opt) => {
+                const Icon = opt.icon;
+                return (
+                <button 
+                    key={opt.id} 
+                    className="group w-full text-left rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 hover:border-blue-400 hover:bg-white hover:shadow-md transition-all duration-300"
+                    onClick={opt.action}
+                >
+                    <div className="p-3 flex items-start gap-3">
+                        <div className="p-2 rounded bg-slate-100 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                            <Icon size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0 py-0.5">
+                            <h3 className="text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:text-blue-700 transition-colors">
+                            {opt.title}
+                            </h3>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                            {opt.description}
+                            </p>
+                        </div>
+                    </div>
+                </button>
+                );
+            })}
+            </div>
         </div>
       </div>
     </div>

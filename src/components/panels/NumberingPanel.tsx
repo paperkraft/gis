@@ -66,15 +66,16 @@ export function NumberingPanel() {
     
     const rootId = manualStartId || targetIds[0];
     const rootFeature = features.get(rootId);
-    const rootCoord = rootFeature?.geometry?.coordinates || [0, 0];
+    const getPoint = (g: any) => Array.isArray(g?.[0]) ? g[0] : g;
+    const rootCoord = getPoint(rootFeature?.geometry) || [0, 0];
 
     // --- STRATEGY 2: PROXIMITY (Euclidean Distance) ---
     if (sortMode === 'proximity') {
       return [...targetIds].sort((a, b) => {
         const featA = features.get(a);
         const featB = features.get(b);
-        const coordA = featA?.geometry?.coordinates || [0, 0];
-        const coordB = featB?.geometry?.coordinates || [0, 0];
+        const coordA = getPoint(featA?.geometry) || [0, 0];
+        const coordB = getPoint(featB?.geometry) || [0, 0];
         
         const distA = Math.sqrt(Math.pow(coordA[0] - rootCoord[0], 2) + Math.pow(coordA[1] - rootCoord[1], 2));
         const distB = Math.sqrt(Math.pow(coordB[0] - rootCoord[0], 2) + Math.pow(coordB[1] - rootCoord[1], 2));
@@ -87,7 +88,9 @@ export function NumberingPanel() {
       return [...targetIds].sort((a, b) => {
         const featA = features.get(a);
         const featB = features.get(b);
-        return (featA?.geometry?.coordinates?.[0] || 0) - (featB?.geometry?.coordinates?.[0] || 0);
+        const coordA = getPoint(featA?.geometry) || [0, 0];
+        const coordB = getPoint(featB?.geometry) || [0, 0];
+        return (coordA[0] || 0) - (coordB[0] || 0);
       });
     }
 

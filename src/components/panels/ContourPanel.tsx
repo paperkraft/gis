@@ -15,7 +15,7 @@ import VectorLayer from "ol/layer/Vector";
 import { Style, Stroke } from "ol/style";
 import Feature from "ol/Feature";
 
-import { UploadCloud, Layers as LayersIcon, Map as MapIcon, ChevronRight } from "lucide-react";
+import { UploadCloud, Layers as LayersIcon, Map as MapIcon, ChevronRight, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
@@ -204,18 +204,23 @@ export function ContourPanel({ isMaximized = false }: PanelProps) {
           )}
         >
           <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col gap-1 shrink-0">
-            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-              <LayersIcon className="size-5 text-primary" />
-              Contours &amp; Terrain
-            </h2>
-            <p className="text-sm text-slate-500">Upload contour lines to visualize and extract node elevations.</p>
+            {/* 1. Header Info Box */}
+            <div className="bg-blue-50 border border-blue-100 rounded-md p-3 text-[11px] text-blue-800 space-y-2">
+                <div className="flex items-center gap-2 font-bold uppercase tracking-wider">
+                    <LayersIcon size={14} className="text-primary" />
+                    <span>Contour Processing</span>
+                </div>
+                <p className="opacity-80 leading-relaxed font-normal">
+                    Upload contour lines (Shapefile/GeoJSON) to visualize terrain and automatically extract elevation data for junctions.
+                </p>
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6 custom-scrollbar">
             
             {/* Upload Section */}
             <div className="flex flex-col gap-3">
-              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">1. Upload Contour File</h3>
+              <h3 className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">1. Import Contours</h3>
               
               <input 
                 type="file" 
@@ -231,8 +236,8 @@ export function ContourPanel({ isMaximized = false }: PanelProps) {
             onClick={() => fileInputRef.current?.click()}
             disabled={loading}
           >
-            <UploadCloud className="size-6 text-slate-400" />
-            <span className="text-slate-500 font-normal">Click to upload .zip (Shapefile) or .geojson</span>
+            <UploadCloud className="size-5 text-slate-400" />
+            <span className="text-slate-500 font-normal text-xs text-center px-4">Click to upload .zip (Shapefile) or .geojson</span>
           </Button>
 
           {loading && <Progress value={undefined} className="h-1 shadow-sm" />}
@@ -240,31 +245,31 @@ export function ContourPanel({ isMaximized = false }: PanelProps) {
 
         {/* Configuration Section (if data loaded) */}
         {contourSource && properties.length > 0 && (
-          <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4">
-            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-              <MapIcon className="size-4" />
-              2. Contour Data ({featureCount} lines)
+          <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4">
+            <h3 className="text-[10px] font-bold uppercase text-slate-400 tracking-wider flex items-center gap-2">
+              <MapIcon className="size-3" />
+              2. Data Mapping ({featureCount} lines)
             </h3>
             
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-slate-500">Elevation Attribute</label>
+            <div className="flex flex-col gap-1.5 pt-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Elevation Attribute</label>
               <Select value={selectedElevProp} onValueChange={setSelectedElevProp}>
-                <SelectTrigger>
+                <SelectTrigger className="h-9 text-xs">
                   <SelectValue placeholder="Select property..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="text-xs">
                   {properties.map(p => (
-                   <SelectItem key={p} value={p}>{p}</SelectItem>
+                   <SelectItem key={p} value={p} className="text-xs">{p}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="flex flex-col gap-2 mt-4">
-              <Button onClick={handleApplyElevations} disabled={!selectedElevProp || loading} className="w-full flex gap-2">
+            <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-slate-100">
+              <Button onClick={handleApplyElevations} disabled={!selectedElevProp || loading} className="w-full flex gap-2 h-9 text-xs bg-blue-600 hover:bg-blue-700 shadow-sm">
                 Apply to Network <ChevronRight className="size-4" />
               </Button>
-              <Button variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30" onClick={handleRemoveContours}>
+              <Button variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 h-8 text-xs" onClick={handleRemoveContours}>
                 Remove Layer
               </Button>
             </div>
@@ -272,7 +277,7 @@ export function ContourPanel({ isMaximized = false }: PanelProps) {
         )}
 
         {!contourSource && !loading && (
-          <div className="h-full flex items-center justify-center p-6 text-center text-sm text-slate-400">
+          <div className="h-full flex items-center justify-center p-6 text-center text-[11px] text-slate-400 italic">
             No contours loaded. Let's start by dropping a file above.
           </div>
         )}
