@@ -126,7 +126,7 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
     }) : undefined;
 
     // Helper for SVG encoded icons
-    const getSvgIcon = (svgString: string, size: [number, number], scale: number = 1) => {
+    const getSvgIcon = (svgString: string, size: [number, number], scale: number = 1, rotation: number = 0) => {
         const encoded = encodeURIComponent(svgString);
         return new Style({
             image: new Icon({
@@ -134,6 +134,7 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
                 size: size,
                 scale: (pointRadius / 6) * scale, // Scale based on global pointRadius
                 anchor: [0.5, 0.5],
+                rotation: rotation // Apply flow direction rotation
             }),
             text: textStyle,
             zIndex: 100,
@@ -179,7 +180,8 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
             <circle cx="12" cy="12" r="10" fill="${color}" stroke="white" stroke-width="1.5"/>
             <path d="M10 8l7 4-7 4V8z" fill="white"/>
         </svg>`;
-        return getSvgIcon(svg, [24, 24], 0.8);
+        const rotation = feature.get('rotation') || 0;
+        return getSvgIcon(svg, [24, 24], 0.8, rotation);
     }
 
     // VALVE (Bow-tie Shape)
@@ -188,7 +190,8 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
              <path d="M4 6l16 12V6L4 18V6z" fill="${color}" stroke="white" stroke-width="1.5"/>
              <rect x="11" y="4" width="2" height="16" fill="white" opacity="0.5"/>
         </svg>`;
-        return getSvgIcon(svg, [24, 24], 1.0);
+        const rotation = feature.get('rotation') || 0;
+        return getSvgIcon(svg, [24, 24], 1.0, rotation);
     }
 
     // JUNCTION (Circle - Default)

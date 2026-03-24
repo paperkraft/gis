@@ -118,6 +118,11 @@ export class NetworkFactory {
         // 1. Create the Component (Point at midpoint)
         const mid = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
 
+        // Calculate Rotation (OL rotation is clockwise, atan2 is counter-clockwise)
+        const dx = end[0] - start[0];
+        const dy = end[1] - start[1];
+        const rotation = -Math.atan2(dy, dx);
+
         // Merge: Global Component Defaults <- Project Settings Defaults
         const defaultProps = {
             ...COMPONENT_TYPES[type].defaultProperties,
@@ -138,7 +143,8 @@ export class NetworkFactory {
                 id,
                 label: id,
                 startNodeId: startNodeData.id,
-                endNodeId: endNodeData.id
+                endNodeId: endNodeData.id,
+                rotation // Store rotation for styling
             }
         };
 

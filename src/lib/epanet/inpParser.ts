@@ -189,7 +189,7 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
 
         const patterns = parsePatterns(sections['PATTERNS'] || []);
         const curves = parseCurves(sections['CURVES'] || []);
-        const controls = parseControls(sections['CONTROLS'] || []);
+        // controls will be parsed after linkIdMap is ready
 
 
         const createNodeHelper = (lines: string[], type: 'junction' | 'tank' | 'reservoir', propsParser: (p: string[]) => any) => {
@@ -260,6 +260,9 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
         // Helper to find nodes
         const findNode = (id: string) => allNodes.find(n => n.id === id);
 
+        // Map to track modified Link IDs for Controls
+        const linkIdMap = new Map<string, string>();
+
         // Pipes
         (sections['PIPES'] || []).forEach(l => {
             const p = l.split(/\s+/);
@@ -294,11 +297,18 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
         const createComplexHelper = (lines: string[], type: 'pump' | 'valve', propsParser: (p: string[]) => any) => {
             lines.forEach(l => {
                 const p = l.split(/\s+/);
-                const id = p[0];
+                const originalId = p[0];
                 const n1 = findNode(p[1]);
                 const n2 = findNode(p[2]);
 
                 if (n1 && n2) {
+                    // ONLY prefix if ID collides with a Node
+                    const collides = allNodes.some(node => node.id === originalId);
+                    const prefix = type === 'pump' ? 'PU-' : 'V-';
+                    const prefixedId = collides ? (originalId.startsWith(prefix) ? originalId : `${prefix}${originalId}`) : originalId;
+                    
+                    if (collides) linkIdMap.set(originalId, prefixedId);
+
                     const c1 = n1.geometry as number[];
                     const c2 = n2.geometry as number[];
 
@@ -308,7 +318,7 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
                         c2[1] += offsetVal;
                     }
 
-                    const [component, visual] = NetworkFactory.createComplexLink(type, n1, n2, id, propsParser(p));
+                    const [component, visual] = NetworkFactory.createComplexLink(type, n1, n2, prefixedId, propsParser(p));
                     features.push(component);
                     features.push(visual); // Factory guarantees this exists and has ID
                 }
@@ -334,7 +344,10 @@ export function parseINP(fileContent: string, manualProjection: string = 'EPSG:3
             diameter: parseFloat(p[3]), valveType: p[4], setting: parseFloat(p[5]), status: 'Active'
         }));
 
-        // 6. Build Connectivity
+        // 6. Parse Controls (Pass linkIdMap to update references)
+        const controls = parseControls(sections['CONTROLS'] || [], linkIdMap);
+
+        // 7. Build Connectivity
         buildConnectivity(allNodes, features.filter(f => ['pipe', 'pump', 'valve'].includes(f.type)));
 
         return { features, settings, patterns, curves, controls, isGeographic: sourceProjection !== 'Simple' };
@@ -431,13 +444,14 @@ function parseCurves(lines: string[]): PumpCurve[] {
     return Array.from(curveMap.entries()).map(([id, points]) => ({ id, type: 'PUMP', description: `Curve ${id}`, points }));
 }
 
-function parseControls(lines: string[]): NetworkControl[] {
+function parseControls(lines: string[], linkIdMap: Map<string, string>): NetworkControl[] {
     const controls: NetworkControl[] = [];
     lines.forEach(line => {
         const parts = line.trim().split(/\s+/);
         if (parts.length < 6) return;
         if (parts[0].toUpperCase() !== 'LINK') return;
-        const linkId = parts[1];
+        const originalLinkId = parts[1];
+        const linkId = linkIdMap.get(originalLinkId) || originalLinkId;
         const status = parts[2].toUpperCase() as ControlAction;
         const typeKey = parts[4].toUpperCase();
         if (typeKey === 'TIME') {
