@@ -47,19 +47,6 @@ export function useDeleteHighlight() {
             }
         });
 
-        // Optional: Auto-pan to fit the highlighted items
-        if (highlightedFeaturesRef.current.length > 0) {
-            const extent = vectorSource.getExtent();
-
-            // let extent = createEmpty();
-            // highlightedFeaturesRef.current.forEach(f => extend(extent, f.getGeometry()?.getExtent()!));
-
-            map.getView().fit(extent, {
-                padding: [100, 100, 100, 250], // Push away from edges/modal
-                duration: 500
-            });
-        }
-
         // Cleanup function for when modal closes (cancel/confirm)
         return () => {
             highlightedFeaturesRef.current.forEach(f => f.setStyle(undefined));

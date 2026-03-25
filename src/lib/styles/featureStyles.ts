@@ -179,7 +179,10 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
             zIndex: 99,
         });
 
-        if (showPipeArrows) {
+        // LOD for arrows: also hide when zoomed out
+        const isArrowVisible = showPipeArrows && (resolution === undefined || resolution < visibilityThreshold);
+
+        if (isArrowVisible) {
             finalStyle = [baseStyle, ...createSegmentArrows(feature)];
         } else {
             finalStyle = baseStyle;
