@@ -70,6 +70,11 @@ BEGIN
         INSERT INTO line_staging SELECT properties->>'id', 'valve', ST_Transform(ST_Force2D(geom), p_utm_srid), p_valve_props || properties FROM raw_valves WHERE project_id = p_project_id;
     END IF;
 
+    -- ** OPTIMIZATION **
+    -- Add indexes for spatial joins
+    CREATE INDEX point_staging_geom_idx ON point_staging USING GIST(geom);
+    CREATE INDEX line_staging_geom_idx ON line_staging USING GIST(geom);
+
     -- 4. Create Sliced Table and Insert noded lines
     v_sql := format($sql$
         CREATE TABLE public.%I (id SERIAL PRIMARY KEY, geom GEOMETRY(LineString, %s));
@@ -93,12 +98,25 @@ BEGIN
     EXECUTE v_sql;
 
     -- 6. Extract Nodes
+    -- Add node mapping for extreme performance in link extraction
+    CREATE TEMP TABLE node_map (node_id INTEGER, mapped_id TEXT) ON COMMIT DROP;
+
+    v_sql := format($sql$
+        INSERT INTO node_map (node_id, mapped_id)
+        SELECT n.node_id, COALESCE(ps.id, 'J-' || n.node_id)
+        FROM %I.node n
+        LEFT JOIN point_staging ps ON ST_DWithin(n.geom, ps.geom, 0.001);
+    $sql$, v_topo_name);
+    EXECUTE v_sql;
+
+    CREATE INDEX node_map_node_idx ON node_map(node_id);
+
     v_sql := format($sql$
         INSERT INTO nodes (project_id, id, type, geom, properties)
         SELECT 
-            %L, COALESCE(ps.id, 'J-' || n.node_id), COALESCE(ps.type, 'junction'), ST_Transform(n.geom, 4326),
+            %L, nm.mapped_id, COALESCE(ps.type, 'junction'), ST_Transform(n.geom, 4326),
             COALESCE(ps.properties, %L::jsonb) || jsonb_build_object(
-                'id', COALESCE(ps.id, 'J-' || n.node_id),
+                'id', nm.mapped_id,
                 'connectedLinks', (
                     SELECT COALESCE(jsonb_agg(COALESCE(ls.type, 'P') || '-' || e.edge_id), '[]'::jsonb)
                     FROM %I.edge_data e
@@ -108,6 +126,7 @@ BEGIN
             )
         FROM %I.node n
         LEFT JOIN point_staging ps ON ST_DWithin(n.geom, ps.geom, 0.001)
+        JOIN node_map nm ON nm.node_id = n.node_id
     $sql$, p_project_id, p_junction_props, v_topo_name, v_topo_name);
     EXECUTE v_sql;
 
@@ -116,19 +135,21 @@ BEGIN
         INSERT INTO links (project_id, id, type, source_node_id, target_node_id, geom, properties)
         SELECT DISTINCT ON (e.edge_id)
             %L, COALESCE(ls.type, 'P') || '-' || e.edge_id, COALESCE(ls.type, 'pipe'), 
-            (SELECT n.id FROM nodes n WHERE n.project_id = %L ORDER BY n.geom <-> ST_Transform(ST_StartPoint(e.geom), 4326) LIMIT 1),
-            (SELECT n.id FROM nodes n WHERE n.project_id = %L ORDER BY n.geom <-> ST_Transform(ST_EndPoint(e.geom), 4326) LIMIT 1),
+            nm_start.mapped_id,
+            nm_end.mapped_id,
             ST_Transform(e.geom, 4326),
             COALESCE(ls.properties, %L::jsonb) || jsonb_build_object(
                 'id', COALESCE(ls.type, 'P') || '-' || e.edge_id,
                 'length', ROUND(ST_Length(ST_Transform(e.geom, 4326)::geography)::numeric, 2),
-                'startNodeId', (SELECT n.id FROM nodes n WHERE n.project_id = %L ORDER BY n.geom <-> ST_Transform(ST_StartPoint(e.geom), 4326) LIMIT 1),
-                'endNodeId', (SELECT n.id FROM nodes n WHERE n.project_id = %L ORDER BY n.geom <-> ST_Transform(ST_EndPoint(e.geom), 4326) LIMIT 1)
+                'startNodeId', nm_start.mapped_id,
+                'endNodeId', nm_end.mapped_id
             )
         FROM %I.edge_data e
         LEFT JOIN line_staging ls ON ST_DWithin(e.geom, ls.geom, 0.001)
+        LEFT JOIN node_map nm_start ON nm_start.node_id = e.start_node
+        LEFT JOIN node_map nm_end ON nm_end.node_id = e.end_node
         ORDER BY e.edge_id;
-    $sql$, p_project_id, p_project_id, p_project_id, p_pipe_props, p_project_id, p_project_id, v_topo_name);
+    $sql$, p_project_id, p_pipe_props, v_topo_name);
     EXECUTE v_sql;
 
     -- 8. Cleanup

@@ -12,8 +12,27 @@ export async function POST(req: Request) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     try {
-        const payload = await req.json();
-        const { title, description, geojson, settings, projection } = payload;
+        const formData = await req.formData();
+        const title = formData.get("title") as string;
+        const description = formData.get("description") as string;
+        const settings = JSON.parse((formData.get("settings") as string) || "{}");
+        const projection = formData.get("projection") as string;
+        
+        const file = formData.get("file") as File;
+        const fileType = formData.get("fileType") as string;
+        let geojson: any;
+
+        if (file) {
+            const buffer = await file.arrayBuffer();
+            if (fileType === 'zip' || file.name.toLowerCase().endsWith('.zip')) {
+                const shpjs = (await import('shpjs')).default;
+                geojson = await shpjs(buffer);
+                if (Array.isArray(geojson)) geojson = geojson[0];
+            } else if (fileType === 'geojson' || file.name.toLowerCase().endsWith('.json') || file.name.toLowerCase().endsWith('.geojson')) {
+                const text = new TextDecoder().decode(buffer);
+                geojson = JSON.parse(text);
+            }
+        }
 
         // 1. Setup UI Variables & Defaults
         // Matches the parameters expected by your stored procedure

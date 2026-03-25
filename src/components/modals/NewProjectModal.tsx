@@ -270,45 +270,37 @@ export function NewProjectModal() {
 
         toast.loading("Converting GIS data to network model...");
 
-        let geojson: any;
+        let geojsonText: string | null = null;
+        let fileType = 'unknown';
 
         if (importFile.name.toLowerCase().endsWith('.zip')) {
-          const buffer = await importFile.arrayBuffer();
-          geojson = await shpjs(buffer);
-          if (Array.isArray(geojson)) geojson = geojson[0];
+          fileType = 'zip';
         } else if (importFile.name.toLowerCase().endsWith('.geojson') || importFile.name.toLowerCase().endsWith('.json')) {
-          const text = await importFile.text();
-          try {
-            geojson = JSON.parse(text);
-          } catch (e) {
-            throw new Error("Failed to parse GeoJSON. The file might be too large or corrupted.");
-          }
+          fileType = 'geojson';
         } else {
           throw new Error("Unsupported file type. Please upload a .zip shapefile or .geojson");
         }
-
-        if (!geojson || !geojson.features) throw new Error("Invalid GeoJSON structure");
 
         const settings = {
           tolerance: formData.tolerance,
           maxPipeLength: +formData.maxPipeLength,
           defaultDiameter: formData.defaultDiameter,
           defaultRoughness: formData.defaultRoughness,
-        }
+        };
 
-        const payload = {
-          title: formData.title,
-          description: formData.description || `Imported from ${importFile.name}`,
-          geojson,
-          settings,
-          projection: selectedEPSG,
-        }
+        const formDataPayload = new FormData();
+        formDataPayload.append("title", formData.title);
+        formDataPayload.append("description", formData.description || `Imported from ${importFile.name}`);
+        formDataPayload.append("file", importFile);
+        formDataPayload.append("fileType", fileType);
+        formDataPayload.append("settings", JSON.stringify(settings));
+        if (selectedEPSG) formDataPayload.append("projection", selectedEPSG.toString());
 
         // Send to server for PostGIS
         const response = await fetch('/api/gis/import', {
           method: 'POST',
-          body: JSON.stringify(payload),
-          headers: { 'Content-Type': 'application/json' }
+          body: formDataPayload
+          // Do not set Content-Type, browser sets it to multipart/form-data
         });
 
         const result = await response.json();
@@ -328,47 +320,28 @@ export function NewProjectModal() {
 
         toast.loading("Processing layers and building network...");
 
-        const parseLayer = async (file: File | null) => {
-          if (!file) return null;
-          if (file.name.toLowerCase().endsWith('.zip')) {
-            const buffer = await file.arrayBuffer();
-            let geojson = await shpjs(buffer);
-            if (Array.isArray(geojson)) geojson = geojson[0];
-            return geojson;
-          } else {
-            const text = await file.text();
-            return JSON.parse(text);
-          }
-        };
+        const formDataPayload = new FormData();
+        formDataPayload.append("title", formData.title);
+        formDataPayload.append("description", formData.description || "Build from Layers");
 
-        const layerData: { [key: string]: any } = {};
+        const settings = {
+          tolerance: formData.tolerance,
+          maxPipeLength: +formData.maxPipeLength,
+          defaultDiameter: formData.defaultDiameter,
+          defaultRoughness: formData.defaultRoughness,
+        };
+        formDataPayload.append("settings", JSON.stringify(settings));
+        if (selectedEPSG) formDataPayload.append("projection", selectedEPSG.toString());
+
         for (const [key, file] of Object.entries(layers)) {
           if (file) {
-            try {
-              layerData[key] = await parseLayer(file);
-            } catch (e) {
-              console.error(`Failed to parse ${key} layer:`, e);
-            }
+            formDataPayload.append(`layer_${key}`, file);
           }
         }
 
-        const payload = {
-          title: formData.title,
-          description: formData.description || "Build from Layers",
-          layers: layerData,
-          settings: {
-            tolerance: formData.tolerance,
-            maxPipeLength: +formData.maxPipeLength,
-            defaultDiameter: formData.defaultDiameter,
-            defaultRoughness: formData.defaultRoughness,
-          },
-          projection: selectedEPSG,
-        };
-
         const response = await fetch('/api/gis/supporting-layers', {
           method: 'POST',
-          body: JSON.stringify(payload),
-          headers: { 'Content-Type': 'application/json' }
+          body: formDataPayload
         });
 
         const result = await response.json();

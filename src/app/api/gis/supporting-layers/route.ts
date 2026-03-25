@@ -12,8 +12,32 @@ export async function POST(req: Request) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     try {
-        const payload = await req.json();
-        const { title, description, layers, settings, projection } = payload;
+        const formData = await req.formData();
+        const title = formData.get("title") as string;
+        const description = formData.get("description") as string;
+        const settings = JSON.parse((formData.get("settings") as string) || "{}");
+        const projection = formData.get("projection") as string;
+
+        const layerKeys = ['pipe', 'junction', 'tank', 'reservoir', 'pump', 'valve'];
+        const layers: Record<string, any> = {};
+        
+        const shpjs = (await import('shpjs')).default;
+
+        for (const key of layerKeys) {
+            const file = formData.get(`layer_${key}`) as File;
+            if (file) {
+                const buffer = await file.arrayBuffer();
+                let geojson: any;
+                if (file.name.toLowerCase().endsWith('.zip')) {
+                    geojson = await shpjs(buffer);
+                    if (Array.isArray(geojson)) geojson = geojson[0];
+                } else {
+                    const text = new TextDecoder().decode(buffer);
+                    geojson = JSON.parse(text);
+                }
+                layers[key] = geojson;
+            }
+        }
 
         const sourceEpsg = Number(projection) || 4326;
         const utmSrid = Number(settings?.utmSrid) || (sourceEpsg !== 4326 ? sourceEpsg : 3857);

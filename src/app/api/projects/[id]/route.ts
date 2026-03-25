@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { projects, nodes, links, projectShares } from "@/db/schema";
+import { projects, nodes, links, projectShares, simulationRuns, simulationResults, bookmarks } from "@/db/schema";
 import { and, eq, inArray, sql, or, exists } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
 
@@ -256,6 +256,17 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         if (!project) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
         await db.transaction(async (tx) => {
+            // Delete simulation results by finding simulation run IDs first
+            const runs = await tx.select({ id: simulationRuns.id }).from(simulationRuns).where(eq(simulationRuns.projectId, id));
+            const runIds = runs.map(r => r.id);
+            if (runIds.length > 0) {
+                await tx.delete(simulationResults).where(inArray(simulationResults.runId, runIds));
+            }
+            
+            // Delete all other project-linked data
+            await tx.delete(simulationRuns).where(eq(simulationRuns.projectId, id));
+            await tx.delete(projectShares).where(eq(projectShares.projectId, id));
+            await tx.delete(bookmarks).where(eq(bookmarks.projectId, id));
             await tx.delete(links).where(eq(links.projectId, id));
             await tx.delete(nodes).where(eq(nodes.projectId, id));
             await tx.delete(projects).where(eq(projects.id, id));
