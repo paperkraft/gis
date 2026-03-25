@@ -17,6 +17,7 @@ import { AutoProjection, getProjectionFromLocation } from '@/lib/gis/locationToZ
 import { cn } from '@/lib/utils';
 
 import { ProjectType } from './ProjectTypeSelector';
+import { LayerUploadField } from './LayerUploadField';
 
 interface ProjectFormFieldsProps {
     projectType: ProjectType;
@@ -35,12 +36,19 @@ interface ProjectFormFieldsProps {
     selectedEPSG?: number;
     onProjectionFound?: (proj: AutoProjection) => void;
     getProjection?: (srid: number) => void;
+
+    // Multi-Layer Props
+    layers?: { [key: string]: File | null };
+    layerValidations?: { [key: string]: GisValidationResult | null };
+    layerValidating?: { [key: string]: boolean };
+    onLayerFileSelect?: (key: string, file: File | null) => void;
 }
 
 export function ProjectFormFields({
     projectType, formData, setFormData, importFile, fileInputRef, handleFileSelect,
     validating, validationResult, showProjectionSelect, selectedEPSG,
-    onProjectionFound, getProjection
+    onProjectionFound, getProjection,
+    layers, layerValidations, layerValidating, onLayerFileSelect
 
 }: ProjectFormFieldsProps) {
 
@@ -129,10 +137,60 @@ export function ProjectFormFields({
                                 />
                             </div>
                         </FormGroup>
+                    </div>
+                ) : projectType === 'layers' ? (
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <LayerUploadField
+                                label="Pipes"
+                                required
+                                file={layers?.pipe || null}
+                                onFileSelect={(f) => onLayerFileSelect?.('pipe', f)}
+                                validation={layerValidations?.pipe}
+                                validating={layerValidating?.pipe}
+                            />
+                            <LayerUploadField
+                                label="Junctions"
+                                required
+                                file={layers?.junction || null}
+                                onFileSelect={(f) => onLayerFileSelect?.('junction', f)}
+                                validation={layerValidations?.junction}
+                                validating={layerValidating?.junction}
+                            />
+                        </div>
 
-                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700 mt-2">
-                            <p className="font-bold mb-1">Starting from scratch?</p>
-                            You will start with an empty canvas. You can draw network using the toolbar, then configure simulation settings later.
+                        <div className="space-y-3 pt-2 border-t border-slate-100">
+                            <h6 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Special Components (Optional)</h6>
+                            <div className="grid grid-cols-2 gap-3">
+                                <LayerUploadField
+                                    label="Tanks"
+                                    file={layers?.tank || null}
+                                    onFileSelect={(f) => onLayerFileSelect?.('tank', f)}
+                                    validation={layerValidations?.tank}
+                                    validating={layerValidating?.tank}
+                                />
+                                <LayerUploadField
+                                    label="Reservoirs"
+                                    file={layers?.reservoir || null}
+                                    onFileSelect={(f) => onLayerFileSelect?.('reservoir', f)}
+                                    validation={layerValidations?.reservoir}
+                                    validating={layerValidating?.reservoir}
+                                />
+                                <LayerUploadField
+                                    label="Pumps"
+                                    file={layers?.pump || null}
+                                    onFileSelect={(f) => onLayerFileSelect?.('pump', f)}
+                                    validation={layerValidations?.pump}
+                                    validating={layerValidating?.pump}
+                                />
+                                <LayerUploadField
+                                    label="Valves"
+                                    file={layers?.valve || null}
+                                    onFileSelect={(f) => onLayerFileSelect?.('valve', f)}
+                                    validation={layerValidations?.valve}
+                                    validating={layerValidating?.valve}
+                                />
+                            </div>
                         </div>
                     </div>
                 ) : (
@@ -352,7 +410,6 @@ export function ProjectFormFields({
                         )}
                     </FormGroup>
                 )}
-
             </div>
         </div>
     );

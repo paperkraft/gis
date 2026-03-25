@@ -1,8 +1,8 @@
-import { FileUp, Map, PenTool } from 'lucide-react';
+import { FileUp, Layers, Map, PenTool } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
-export type ProjectType = 'blank' | 'import' | 'gis';
+export type ProjectType = 'blank' | 'import' | 'gis' | 'layers';
 interface ProjectTypeSelectorProps {
     value: ProjectType;
     onChange: (val: ProjectType) => void;
@@ -10,7 +10,7 @@ interface ProjectTypeSelectorProps {
 
 export function ProjectTypeSelector({ value, onChange }: ProjectTypeSelectorProps) {
     return (
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-4 gap-4 mb-4">
             <SelectionCard
                 active={value === 'blank'}
                 onClick={() => onChange('blank')}
@@ -31,6 +31,13 @@ export function ProjectTypeSelector({ value, onChange }: ProjectTypeSelectorProp
                 icon={Map}
                 title="Build from Lines"
                 desc="Roads to Pipes."
+            />
+            <SelectionCard
+                active={value === 'layers'}
+                onClick={() => onChange('layers')}
+                icon={Layers}
+                title="Build from Layers"
+                desc="Upload multiple GIS network layers at once."
             />
         </div>
     );

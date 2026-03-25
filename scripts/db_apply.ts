@@ -17,28 +17,29 @@ const pool = new Pool({
     connectionString: DATABASE_URL,
 });
 
-async function applyStoredProcedure() {
-    const sqlFilePath = path.join(process.cwd(), 'scripts', 'build_from_raw_lines.sql');
+async function applyStoredProcedures() {
+    const scriptsDir = path.join(process.cwd(), 'scripts');
+    const sqlFiles = fs.readdirSync(scriptsDir).filter(f => f.endsWith('.sql'));
 
+    const client = await pool.connect();
     try {
-        console.log(`Reading SQL file from: ${sqlFilePath}`);
-        const sql = fs.readFileSync(sqlFilePath, 'utf8');
+        for (const file of sqlFiles) {
+            const sqlFilePath = path.join(scriptsDir, file);
+            console.log(`Reading SQL file from: ${sqlFilePath}`);
+            const sql = fs.readFileSync(sqlFilePath, 'utf8');
 
-        console.log('Connecting to database and executing SQL...');
-        const client = await pool.connect();
-        try {
+            console.log(`Executing ${file}...`);
             await client.query(sql);
-            console.log('Successfully applied stored procedure: build_from_raw_lines');
-        } finally {
-            client.release();
+            console.log(`Successfully applied: ${file}`);
         }
     } catch (error) {
-        console.error('Error applying stored procedure:');
+        console.error('Error applying stored procedures:');
         console.error(error);
         process.exit(1);
     } finally {
+        client.release();
         await pool.end();
     }
 }
 
-applyStoredProcedure();
+applyStoredProcedures();

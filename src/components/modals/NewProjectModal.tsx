@@ -59,6 +59,19 @@ export function NewProjectModal() {
   const [showProjectionSelect, setShowProjectionSelect] = useState(false);
   const [selectedEPSG, setSelectedEPSG] = useState<number | undefined>(undefined);
 
+  // Multi-Layer State
+  const [layers, setLayers] = useState<{ [key: string]: File | null }>({
+    pipe: null,
+    junction: null,
+    tank: null,
+    reservoir: null,
+    pump: null,
+    valve: null,
+  });
+
+  const [layerValidations, setLayerValidations] = useState<{ [key: string]: GisValidationResult | null }>({});
+  const [layerValidating, setLayerValidating] = useState<{ [key: string]: boolean }>({});
+
   const isOpen = activeModal === "NEW_PROJECT";
 
   const handleReset = () => {
@@ -69,9 +82,18 @@ export function NewProjectModal() {
     setValidationResult(null);
     setShowProjectionSelect(false);
     setSelectedEPSG(undefined);
-    setFormData(DEFAULT_FORM_DATA);
     setValidating(false);
     setLoading(false);
+    setLayers({
+        pipe: null,
+        junction: null,
+        tank: null,
+        reservoir: null,
+        pump: null,
+        valve: null,
+      });
+    setLayerValidations({});
+    setLayerValidating({});
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -195,6 +217,33 @@ export function NewProjectModal() {
     setImportFile(file);
   };
 
+  const handleLayerFileSelect = async (key: string, file: File | null) => {
+    setLayers((prev) => ({ ...prev, [key]: file }));
+    if (!file) {
+      setLayerValidations((prev) => ({ ...prev, [key]: null }));
+      return;
+    }
+
+    setLayerValidating((prev) => ({ ...prev, [key]: true }));
+
+    try {
+      const result = await validateGisFile(file);
+      setLayerValidations((prev) => ({ ...prev, [key]: result }));
+
+      // If this is the first file and it has projection info, try to auto-set it
+      if (
+        (result.status === "warning" || result.message?.toLowerCase().includes("projected")) &&
+        !selectedEPSG
+      ) {
+        setShowProjectionSelect(true);
+      }
+    } catch (error) {
+      setLayerValidations((prev) => ({ ...prev, [key]: { status: 'error', message: 'Validation failed' } }));
+    } finally {
+      setLayerValidating((prev) => ({ ...prev, [key]: false }));
+    }
+  };
+
   // Projection Found Callback (From ProjectFormFields)
   const handleProjectionFound = (proj: AutoProjection) => {
     setSelectedEPSG(+proj.code); // e.g. "32643"
@@ -211,7 +260,6 @@ export function NewProjectModal() {
 
     try {
       let projectId = "";
-
       // --- PATH A: GIS IMPORT ---
       if (projectType === "gis") {
         if (!importFile || validationResult?.status === "error") {
@@ -264,20 +312,73 @@ export function NewProjectModal() {
         });
 
         const result = await response.json();
-        console.log('res', result);
-
-        if (!response.ok) {
-          throw new Error("Failed to process GIS data on server");
-        }
+        if (!response.ok) throw new Error(result.error || "Failed to process GIS data on server");
 
         toast.dismiss();
-
-        if (result.id) {
-          projectId = result.id
+        if (result.id) projectId = result.id;
+      }
+      
+      // --- PATH B: MULTI-LAYER IMPORT ---
+      else if (projectType === "layers") {
+        if (!layers.pipe || !layers.junction) {
+          toast.error("Pipes and Junctions layers are required.");
+          setLoading(false);
+          return;
         }
+
+        toast.loading("Processing layers and building network...");
+
+        const parseLayer = async (file: File | null) => {
+          if (!file) return null;
+          if (file.name.toLowerCase().endsWith('.zip')) {
+            const buffer = await file.arrayBuffer();
+            let geojson = await shpjs(buffer);
+            if (Array.isArray(geojson)) geojson = geojson[0];
+            return geojson;
+          } else {
+            const text = await file.text();
+            return JSON.parse(text);
+          }
+        };
+
+        const layerData: { [key: string]: any } = {};
+        for (const [key, file] of Object.entries(layers)) {
+          if (file) {
+            try {
+              layerData[key] = await parseLayer(file);
+            } catch (e) {
+              console.error(`Failed to parse ${key} layer:`, e);
+            }
+          }
+        }
+
+        const payload = {
+          title: formData.title,
+          description: formData.description || "Build from Layers",
+          layers: layerData,
+          settings: {
+            tolerance: formData.tolerance,
+            maxPipeLength: +formData.maxPipeLength,
+            defaultDiameter: formData.defaultDiameter,
+            defaultRoughness: formData.defaultRoughness,
+          },
+          projection: selectedEPSG,
+        };
+
+        const response = await fetch('/api/gis/supporting-layers', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Failed to process layers");
+
+        toast.dismiss();
+        if (result.id) projectId = result.id;
       }
 
-      // --- PATH B: INP IMPORT ---
+      // --- PATH C: INP IMPORT ---
       else if (projectType === "import") {
         if (!fileContent) {
           toast.error("File content is empty.");
@@ -376,6 +477,11 @@ export function NewProjectModal() {
                 selectedEPSG={selectedEPSG}
                 onProjectionFound={handleProjectionFound}
                 getProjection={getProjection}
+                // Multi-Layer Props
+                layers={layers}
+                layerValidations={layerValidations}
+                layerValidating={layerValidating}
+                onLayerFileSelect={handleLayerFileSelect}
               />
 
               {projectType === 'gis' && !importFile && (
@@ -405,6 +511,8 @@ export function NewProjectModal() {
                     !formData.title ||
                     (projectType === "gis" &&
                       (!importFile || validationResult?.status === "error" || (validationResult?.status === "warning" && !selectedEPSG))) ||
+                    (projectType === "layers" &&
+                      (!layers.pipe || !layers.junction || Object.values(layerValidations).some(v => v?.status === 'error'))) ||
                     (projectType === "import" && !importFile)
                   }
                 >
