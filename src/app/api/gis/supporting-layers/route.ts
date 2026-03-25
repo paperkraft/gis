@@ -82,7 +82,11 @@ export async function POST(req: Request) {
                     ${maxPipeLength}::double precision, 
                     ${utmSrid}::integer,
                     ${JSON.stringify(COMPONENT_TYPES.junction.defaultProperties)}::jsonb,
-                    ${JSON.stringify(COMPONENT_TYPES.pipe.defaultProperties)}::jsonb
+                    ${JSON.stringify(COMPONENT_TYPES.pipe.defaultProperties)}::jsonb,
+                    ${JSON.stringify(COMPONENT_TYPES.tank.defaultProperties)}::jsonb,
+                    ${JSON.stringify(COMPONENT_TYPES.reservoir.defaultProperties)}::jsonb,
+                    ${JSON.stringify(COMPONENT_TYPES.pump.defaultProperties)}::jsonb,
+                    ${JSON.stringify(COMPONENT_TYPES.valve.defaultProperties)}::jsonb
                 );
             `);
 

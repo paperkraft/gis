@@ -1,12 +1,16 @@
-DROP FUNCTION IF EXISTS build_from_layers(UUID, DOUBLE PRECISION, DOUBLE PRECISION, INTEGER, JSONB, JSONB);
+DROP FUNCTION IF EXISTS build_from_layers(UUID, DOUBLE PRECISION, DOUBLE PRECISION, INTEGER, JSONB, JSONB, JSONB, JSONB, JSONB, JSONB);
 
 CREATE OR REPLACE FUNCTION build_from_layers(
     p_project_id UUID,
     p_snap_tolerance DOUBLE PRECISION,
     p_max_pipe_length DOUBLE PRECISION,
     p_utm_srid INTEGER,
-    p_default_junction_props JSONB,
-    p_default_pipe_props JSONB
+    p_junction_props JSONB,
+    p_pipe_props JSONB,
+    p_tank_props JSONB,
+    p_reservoir_props JSONB,
+    p_pump_props JSONB,
+    p_valve_props JSONB
 )
 RETURNS VOID AS $$
 DECLARE
@@ -29,7 +33,7 @@ BEGIN
     -- 2. Create Topology
     PERFORM topology.CreateTopology(v_topo_name, p_utm_srid);
 
-    -- 3. Staging points
+    -- 3. Staging points and lines
     CREATE TEMP TABLE point_staging (
         id TEXT,
         type TEXT,
@@ -37,36 +41,41 @@ BEGIN
         properties JSONB
     ) ON COMMIT DROP;
 
+    CREATE TEMP TABLE line_staging (
+        id TEXT,
+        type TEXT,
+        geom GEOMETRY,
+        properties JSONB
+    ) ON COMMIT DROP;
+
+    -- Fill Point Staging
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'raw_junctions') THEN
-        INSERT INTO point_staging (id, type, geom, properties) 
-        SELECT properties->>'id', 'junction', ST_Transform(ST_Force2D(geom), p_utm_srid), properties 
-        FROM raw_junctions WHERE project_id = p_project_id;
+        INSERT INTO point_staging SELECT properties->>'id', 'junction', ST_Transform(ST_Force2D(geom), p_utm_srid), p_junction_props || properties FROM raw_junctions WHERE project_id = p_project_id;
     END IF;
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'raw_tanks') THEN
-        INSERT INTO point_staging (id, type, geom, properties) 
-        SELECT properties->>'id', 'tank', ST_Transform(ST_Force2D(geom), p_utm_srid), properties 
-        FROM raw_tanks WHERE project_id = p_project_id;
+        INSERT INTO point_staging SELECT properties->>'id', 'tank', ST_Transform(ST_Force2D(geom), p_utm_srid), p_tank_props || properties FROM raw_tanks WHERE project_id = p_project_id;
     END IF;
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'raw_reservoirs') THEN
-        INSERT INTO point_staging (id, type, geom, properties) 
-        SELECT properties->>'id', 'reservoir', ST_Transform(ST_Force2D(geom), p_utm_srid), properties 
-        FROM raw_reservoirs WHERE project_id = p_project_id;
+        INSERT INTO point_staging SELECT properties->>'id', 'reservoir', ST_Transform(ST_Force2D(geom), p_utm_srid), p_reservoir_props || properties FROM raw_reservoirs WHERE project_id = p_project_id;
     END IF;
 
-    -- 4. Create Sliced Table
-    v_sql := format($sql$
-        CREATE TABLE public.%I (
-            id SERIAL PRIMARY KEY,
-            geom GEOMETRY(LineString, %s)
-        )
-    $sql$, v_sliced_table, p_utm_srid);
-    EXECUTE v_sql;
+    -- Fill Line Staging
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'raw_pipes') THEN
+        INSERT INTO line_staging SELECT properties->>'id', 'pipe', ST_Transform(ST_Force2D(geom), p_utm_srid), p_pipe_props || properties FROM raw_pipes WHERE project_id = p_project_id;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'raw_pumps') THEN
+        INSERT INTO line_staging SELECT properties->>'id', 'pump', ST_Transform(ST_Force2D(geom), p_utm_srid), p_pump_props || properties FROM raw_pumps WHERE project_id = p_project_id;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'raw_valves') THEN
+        INSERT INTO line_staging SELECT properties->>'id', 'valve', ST_Transform(ST_Force2D(geom), p_utm_srid), p_valve_props || properties FROM raw_valves WHERE project_id = p_project_id;
+    END IF;
 
-    -- 5. Insert sliced lines
+    -- 4. Create Sliced Table and Insert noded lines
     v_sql := format($sql$
+        CREATE TABLE public.%I (id SERIAL PRIMARY KEY, geom GEOMETRY(LineString, %s));
         INSERT INTO public.%I (geom)
         WITH all_geoms AS (
-            SELECT ST_Transform(ST_Force2D(geom), %s) as geom FROM raw_pipes WHERE project_id = %L
+            SELECT geom FROM line_staging
             UNION ALL
             SELECT geom FROM point_staging
         ),
@@ -75,58 +84,54 @@ BEGIN
             FROM (SELECT ST_Collect(geom) as geom FROM all_geoms) t
         )
         SELECT geom FROM noded WHERE ST_GeometryType(geom) = 'ST_LineString'
-    $sql$, v_sliced_table, p_utm_srid, p_project_id);
+    $sql$, v_sliced_table, p_utm_srid, v_sliced_table);
     EXECUTE v_sql;
 
-    -- 6. Build Topology
+    -- 5. Add to Topology and Snap
     PERFORM topology.AddTopoGeometryColumn(v_topo_name, 'public', v_sliced_table, 'topo_geom', 'LINESTRING');
-    
-    v_sql := format($sql$
-        UPDATE public.%I SET topo_geom = topology.toTopoGeom(geom, %L, 1, %s)
-    $sql$, v_sliced_table, v_topo_name, p_snap_tolerance);
+    v_sql := format('UPDATE public.%I SET topo_geom = topology.toTopoGeom(geom, %L, 1, %s)', v_sliced_table, v_topo_name, p_snap_tolerance);
     EXECUTE v_sql;
 
-    -- 7. Extract Nodes
+    -- 6. Extract Nodes
     v_sql := format($sql$
         INSERT INTO nodes (project_id, id, type, geom, properties)
         SELECT 
-            %L, 
-            COALESCE(ps.id, 'J-' || n.node_id), 
-            COALESCE(ps.type, 'junction'), 
-            ST_Transform(n.geom, 4326),
-            (COALESCE(ps.properties, %L::jsonb) - 'connectedLinks') || jsonb_build_object(
+            %L, COALESCE(ps.id, 'J-' || n.node_id), COALESCE(ps.type, 'junction'), ST_Transform(n.geom, 4326),
+            COALESCE(ps.properties, %L::jsonb) || jsonb_build_object(
                 'id', COALESCE(ps.id, 'J-' || n.node_id),
                 'connectedLinks', (
-                    SELECT COALESCE(jsonb_agg('P-' || e.edge_id), '[]'::jsonb)
+                    SELECT COALESCE(jsonb_agg(COALESCE(ls.type, 'P') || '-' || e.edge_id), '[]'::jsonb)
                     FROM %I.edge_data e
+                    LEFT JOIN line_staging ls ON ST_DWithin(e.geom, ls.geom, 0.001)
                     WHERE e.start_node = n.node_id OR e.end_node = n.node_id
                 )
             )
         FROM %I.node n
         LEFT JOIN point_staging ps ON ST_DWithin(n.geom, ps.geom, 0.001)
-    $sql$, p_project_id, p_default_junction_props, v_topo_name, v_topo_name);
+    $sql$, p_project_id, p_junction_props, v_topo_name, v_topo_name);
     EXECUTE v_sql;
 
-    -- 8. Extract Links
+    -- 7. Extract Links
     v_sql := format($sql$
         INSERT INTO links (project_id, id, type, source_node_id, target_node_id, geom, properties)
         SELECT DISTINCT ON (e.edge_id)
-            %L, 'P-' || e.edge_id, 'pipe', 
+            %L, COALESCE(ls.type, 'P') || '-' || e.edge_id, COALESCE(ls.type, 'pipe'), 
             (SELECT n.id FROM nodes n WHERE n.project_id = %L ORDER BY n.geom <-> ST_Transform(ST_StartPoint(e.geom), 4326) LIMIT 1),
             (SELECT n.id FROM nodes n WHERE n.project_id = %L ORDER BY n.geom <-> ST_Transform(ST_EndPoint(e.geom), 4326) LIMIT 1),
             ST_Transform(e.geom, 4326),
-            %L::jsonb || jsonb_build_object(
-                'id', 'P-' || e.edge_id,
+            COALESCE(ls.properties, %L::jsonb) || jsonb_build_object(
+                'id', COALESCE(ls.type, 'P') || '-' || e.edge_id,
                 'length', ROUND(ST_Length(ST_Transform(e.geom, 4326)::geography)::numeric, 2),
                 'startNodeId', (SELECT n.id FROM nodes n WHERE n.project_id = %L ORDER BY n.geom <-> ST_Transform(ST_StartPoint(e.geom), 4326) LIMIT 1),
                 'endNodeId', (SELECT n.id FROM nodes n WHERE n.project_id = %L ORDER BY n.geom <-> ST_Transform(ST_EndPoint(e.geom), 4326) LIMIT 1)
             )
         FROM %I.edge_data e
+        LEFT JOIN line_staging ls ON ST_DWithin(e.geom, ls.geom, 0.001)
         ORDER BY e.edge_id;
-    $sql$, p_project_id, p_project_id, p_project_id, p_default_pipe_props, p_project_id, p_project_id, v_topo_name);
+    $sql$, p_project_id, p_project_id, p_project_id, p_pipe_props, p_project_id, p_project_id, v_topo_name);
     EXECUTE v_sql;
 
-    -- 9. Cleanup
+    -- 8. Cleanup
     v_sql := format('DROP TABLE IF EXISTS public.%I CASCADE', v_sliced_table);
     EXECUTE v_sql;
     PERFORM topology.DropTopology(v_topo_name);
