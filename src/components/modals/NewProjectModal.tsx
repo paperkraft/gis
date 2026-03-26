@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, Cloud } from 'lucide-react';
+import { ArrowLeft, Box, Cloud } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -20,7 +20,6 @@ import { FlowUnits } from '@/types/network';
 import { ProjectFormFields } from './new-project/ProjectFormFields';
 import { ProjectSuccessView } from './new-project/ProjectSuccessView';
 import { ProjectType, ProjectTypeSelector } from './new-project/ProjectTypeSelector';
-import shpjs from 'shpjs';
 
 const DEFAULT_FORM_DATA = {
   title: "",
@@ -42,6 +41,7 @@ export function NewProjectModal() {
   // --- STATE ---
   const [loading, setLoading] = useState(false);
   const [projectType, setProjectType] = useState<ProjectType>("blank");
+  const [isTypeSelected, setIsTypeSelected] = useState(false);
   const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
 
   // Form Data
@@ -84,14 +84,15 @@ export function NewProjectModal() {
     setSelectedEPSG(undefined);
     setValidating(false);
     setLoading(false);
+    setIsTypeSelected(false);
     setLayers({
-        pipe: null,
-        junction: null,
-        tank: null,
-        reservoir: null,
-        pump: null,
-        valve: null,
-      });
+      pipe: null,
+      junction: null,
+      tank: null,
+      reservoir: null,
+      pump: null,
+      valve: null,
+    });
     setLayerValidations({});
     setLayerValidating({});
     if (fileInputRef.current) {
@@ -309,7 +310,7 @@ export function NewProjectModal() {
         toast.dismiss();
         if (result.id) projectId = result.id;
       }
-      
+
       // --- PATH B: MULTI-LAYER IMPORT ---
       else if (projectType === "layers") {
         if (!layers.pipe || !layers.junction) {
@@ -406,8 +407,20 @@ export function NewProjectModal() {
         {/* Header */}
         <DialogHeader className="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
           <DialogTitle className="text-md font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-            <Box className="size-4 text-primary" />
-            {createdProjectId ? "Project Ready" : "Create New Project"}
+            <div className="flex items-center gap-2">
+              {isTypeSelected && !createdProjectId && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 -ml-1 h-7 w-7 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800"
+                  onClick={() => setIsTypeSelected(false)}
+                >
+                  <ArrowLeft className="size-4" />
+                </Button>
+              )}
+              <Box className="size-4 text-primary" />
+              {createdProjectId ? "Project Ready" : isTypeSelected ? `New ${projectType.toUpperCase()} Project` : "Create New Project"}
+            </div>
           </DialogTitle>
           <DialogDescription className="hidden" />
         </DialogHeader>
@@ -424,43 +437,47 @@ export function NewProjectModal() {
           // --- FORM VIEW ---
           <>
             <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
+              {!isTypeSelected ? (
+                <ProjectTypeSelector
+                  value={projectType}
+                  onChange={(t) => {
+                    setProjectType(t);
+                    setIsTypeSelected(true);
+                    setImportFile(null);
+                    setValidationResult(null);
+                    setShowProjectionSelect(false);
+                  }}
+                />
+              ) : (
+                <>
+                  <ProjectFormFields
+                    projectType={projectType}
+                    formData={formData}
+                    setFormData={setFormData}
+                    // File Props
+                    importFile={importFile}
+                    fileInputRef={fileInputRef as any}
+                    handleFileSelect={handleFileSelect}
+                    // GIS Props
+                    validating={validating}
+                    validationResult={validationResult}
+                    showProjectionSelect={showProjectionSelect}
+                    selectedEPSG={selectedEPSG}
+                    onProjectionFound={handleProjectionFound}
+                    getProjection={getProjection}
+                    // Multi-Layer Props
+                    layers={layers}
+                    layerValidations={layerValidations}
+                    layerValidating={layerValidating}
+                    onLayerFileSelect={handleLayerFileSelect}
+                  />
 
-              <ProjectTypeSelector
-                value={projectType}
-                onChange={(t) => {
-                  setProjectType(t);
-                  setImportFile(null);
-                  setValidationResult(null);
-                  setShowProjectionSelect(false);
-                }}
-              />
-
-              <ProjectFormFields
-                projectType={projectType}
-                formData={formData}
-                setFormData={setFormData}
-                // File Props
-                importFile={importFile}
-                fileInputRef={fileInputRef as any}
-                handleFileSelect={handleFileSelect}
-                // GIS Props
-                validating={validating}
-                validationResult={validationResult}
-                showProjectionSelect={showProjectionSelect}
-                selectedEPSG={selectedEPSG}
-                onProjectionFound={handleProjectionFound}
-                getProjection={getProjection}
-                // Multi-Layer Props
-                layers={layers}
-                layerValidations={layerValidations}
-                layerValidating={layerValidating}
-                onLayerFileSelect={handleLayerFileSelect}
-              />
-
-              {projectType === 'gis' && !importFile && (
-                <div className="bg-amber-50 border border-amber-100 p-2.5 rounded text-[11px] text-amber-700 leading-tight">
-                  <strong>Note:</strong> "Upload a .zip file containing at least .shp, .shx, .dbf, and .prj files." or GeoJson. We will auto-create pipes along the road centerlines.
-                </div>
+                  {projectType === 'gis' && !importFile && (
+                    <div className="bg-amber-50 border border-amber-100 mt-4 p-2.5 rounded text-[11px] text-amber-700 leading-tight">
+                      <strong>Note:</strong> "Upload a .zip file containing at least .shp, .shx, .dbf, and .prj files." or GeoJson. We will auto-create pipes along the road centerlines.
+                    </div>
+                  )}
+                </>
               )}
             </div>
 

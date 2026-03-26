@@ -72,11 +72,18 @@ export function LayerUploadField({
 
                 {file ? (
                     <>
+                        <div className='absolute top-1 right-2'>
+                            {validation?.status === 'error' ? <XCircle size={14} className="text-red-500" /> :
+                                validation?.status === 'warning' ? <AlertTriangle size={14} className="text-amber-500" /> :
+                                    <CheckCircle2 size={14} className="text-green-500" />}
+                        </div>
                         <div className="shrink-0 bg-white p-2 rounded-lg shadow-sm border border-slate-100">
-                            <FileArchive size={18} className={cn(
+
+                            <FileArchive size={16} className={cn(
                                 validation?.status === 'error' ? "text-red-500" :
-                                validation?.status === 'warning' ? "text-amber-500" : "text-green-500"
+                                    validation?.status === 'warning' ? "text-amber-500" : "text-green-500"
                             )} />
+
                         </div>
                         <div className="flex flex-col min-w-0 flex-1">
                             <span className="text-xs font-bold truncate">{file.name}</span>
@@ -88,12 +95,10 @@ export function LayerUploadField({
                                     </span>
                                 ) : validation && (
                                     <span className={cn(
-                                        "text-[9px] font-medium flex items-center gap-1",
+                                        "text-[9px] font-medium",
                                         validation.status === 'error' ? "text-red-600" :
-                                        validation.status === 'warning' ? "text-amber-600" : "text-green-600"
+                                            validation.status === 'warning' ? "text-amber-600" : "text-green-600"
                                     )}>
-                                        {validation.status === 'error' ? <XCircle size={10} /> :
-                                         validation.status === 'warning' ? <AlertTriangle size={10} /> : <CheckCircle2 size={10} />}
                                         {validation.message}
                                     </span>
                                 )}

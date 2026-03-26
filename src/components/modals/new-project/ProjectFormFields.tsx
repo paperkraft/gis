@@ -9,7 +9,6 @@ import { FormGroup } from '@/components/form-controls/FormGroup';
 import { FormInput } from '@/components/form-controls/FormInput';
 import { FormProjectionSelect } from '@/components/form-controls/FormProjectionSelect';
 import { FormSelect } from '@/components/form-controls/FormSelect';
-import { ProjectionSelect } from '@/components/shared/ProjectionSelect';
 import { Button } from '@/components/ui/button';
 import { flowUnitOptions } from '@/constants/project';
 import { GisValidationResult } from '@/lib/gis/gisValidator';
@@ -114,6 +113,37 @@ export function ProjectFormFields({
                             placeholder="Describe the project goals..."
                         />
                     </FormGroup>
+
+                    {(projectType === 'gis' || projectType === 'layers') && (
+                        <FormGroup label="Network Building Settings">
+                            <div className="grid grid-cols-2 gap-3">
+                                <FormInput
+                                    type='number'
+                                    step='0.1'
+                                    label="Tolerance (m)"
+                                    name="tolerance"
+                                    value={formData.tolerance ?? 5}
+                                    onChange={(v) => handleChange('tolerance', v)}
+                                    placeholder="e.g. 5"
+                                    description="Snapping distance for nodes."
+                                />
+
+                                <FormInput
+                                    type='number'
+                                    step='50'
+                                    label="Max Pipe (m)"
+                                    name="maxPipeLength"
+                                    value={formData.maxPipeLength ?? 150}
+                                    onChange={(v) => handleChange('maxPipeLength', v)}
+                                    placeholder="e.g. 150"
+                                    description="Split long segments."
+                                />
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-1 px-1 leading-tight">
+                                These settings control how raw GIS lines are converted into network pipes and junctions.
+                            </p>
+                        </FormGroup>
+                    )}
                 </div>
             </div>
 
@@ -195,29 +225,6 @@ export function ProjectFormFields({
                     </div>
                 ) : (
                     <FormGroup label='Source File'>
-                        {projectType === 'gis' && (
-                            <div className="grid grid-cols-2 gap-2">
-                                <FormInput
-                                    type='number'
-                                    step='0.1'
-                                    label="Tolerance (meters)"
-                                    name="tolerance"
-                                    value={formData.tolerance ?? 0.5}
-                                    onChange={(v) => handleChange('tolerance', v)}
-                                    placeholder="Tolerance for snapping nodes (default: 0.5)"
-                                />
-
-                                <FormInput
-                                    type='number'
-                                    step='50'
-                                    label="Max Pipe Length (meters)"
-                                    name="maxPipeLength"
-                                    value={formData.maxPipeLength ?? 500}
-                                    onChange={(v) => handleChange('maxPipeLength', v)}
-                                    placeholder="Maximum pipe length (default: 500)"
-                                />
-                            </div>
-                        )}
 
                         <div
                             onClick={() => fileInputRef.current?.click()}
@@ -339,7 +346,7 @@ export function ProjectFormFields({
                         {/* Projection Handler */}
                         {(projectType === 'gis' || projectType === 'import') && showProjectionSelect && (
                             <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
-                                <div className="flex items-center justify-between p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
+                                <div className="flex items-center justify-between p-3 bg-blue-50/50 border border-blue-100 rounded">
                                     <div className="flex flex-col gap-1">
                                         <span className="text-[9px] font-bold text-blue-600 uppercase tracking-tighter">Source SRS</span>
                                         <span className="text-[11px] font-bold text-blue-900 leading-none">
@@ -355,17 +362,25 @@ export function ProjectFormFields({
 
                                 <div className="space-y-4">
                                     <div className="space-y-1.5">
-                                        <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider ml-1">Manual Selection</label>
-                                        <ProjectionSelect value={projection} onChange={(v) => { setProjection(v); getProjection?.(v) }} />
+                                        <FormProjectionSelect
+                                            label="CRS (Coordinate System)"
+                                            value={projection ? `EPSG:${projection}` : ""}
+                                            onChange={(v) => {
+                                                const srid = parseInt(v.replace("EPSG:", ""), 10);
+                                                setProjection(srid);
+                                                getProjection?.(srid);
+                                            }}
+                                            description="Select the spatial reference system for your data."
+                                        />
                                     </div>
 
-                                    <div className="relative flex items-center py-1 opacity-60">
+                                    <div className="relative flex items-center">
                                         <div className="grow border-t border-slate-200"></div>
                                         <span className="shrink mx-3 text-[9px] font-bold text-slate-400 uppercase tracking-tighter">OR</span>
                                         <div className="grow border-t border-slate-200"></div>
                                     </div>
 
-                                    <div className="p-3 bg-blue-50/80 border border-blue-100 rounded-xl animate-in fade-in zoom-in-95 space-y-3 shadow-sm">
+                                    <div className="p-3 bg-blue-50/80 border border-blue-100 rounded animate-in fade-in zoom-in-95 space-y-3 shadow-sm">
                                         <div>
                                             <h6 className="text-[10px] font-bold text-blue-700 uppercase tracking-wide">
                                                 Identify Project Location
@@ -375,7 +390,7 @@ export function ProjectFormFields({
                                             </p>
                                         </div>
 
-                                        <div className="flex gap-2">
+                                        <div className="flex gap-2 items-start">
                                             <FormInput
                                                 label=""
                                                 name="location-search"
@@ -383,13 +398,13 @@ export function ProjectFormFields({
                                                 onChange={(v) => setLocationQuery(v)}
                                                 placeholder="e.g. Pune, Maharashtra, India"
                                                 onKeyDown={(e) => e.key === 'Enter' && handleLocationSearch()}
-                                                className='w-full bg-white/80'
+                                                className='w-full'
                                             />
                                             <Button
                                                 size="sm"
                                                 onClick={handleLocationSearch}
                                                 disabled={isSearching}
-                                                className="size-9 shrink-0 bg-blue-600 hover:bg-blue-700 text-white"
+                                                className="size-8 shrink-0"
                                             >
                                                 {isSearching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
                                             </Button>
