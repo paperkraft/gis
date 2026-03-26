@@ -14,13 +14,3 @@ export const headLossUnitOptions = [
     { value: "D-W", label: "Darcy-Weisbach" },
     { value: "C-M", label: "Chezy-Manning" },
 ]
-
-export const projectionList = [
-    { value: "EPSG:3857", label: "Web Mercator" },
-    { value: "EPSG:4326", label: "WGS 84" },
-    { value: "EPSG:32632", label: "UTM zone 32N" },
-    { value: "EPSG:32633", label: "UTM zone 33N" },
-    { value: "EPSG:32634", label: "UTM zone 34N" },
-    { value: "EPSG:27700", label: "British National Grid" },
-    { value: "Simple", label: "Simple X/Y (No Projection)" },
-];

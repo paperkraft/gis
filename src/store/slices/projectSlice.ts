@@ -31,12 +31,12 @@ const DEFAULT_SETTINGS: ProjectSettings = {
     title: "Untitled",
     units: "LPS",
     headloss: "H-W",
-    projection: "EPSG:3857",
+    projection: "EPSG:4326",
 
     // Hydraulics
     specificGravity: 1.0,
     viscosity: 1.0,
-    maxTrials: 40,
+    maxTrials: 10,
     accuracy: 0.001,
 
     // Controls
@@ -44,7 +44,7 @@ const DEFAULT_SETTINGS: ProjectSettings = {
     emitterExponent: 0.5,
 
     // Time Settings (EPANET Defaults)
-    duration: "24:00",
+    duration: "00:00",
     hydraulicStep: "1:00",
     patternStep: "1:00",
     reportStep: "1:00",
@@ -83,9 +83,7 @@ export const createProjectSlice: StateCreator<NetworkState, [], [], ProjectSlice
 
     generateUniqueId: (type) => {
         const counter = get().nextIdCounter[type];
-        set((state) => ({
-            nextIdCounter: { ...state.nextIdCounter, [type]: counter + 1 }
-        }));
+        set((state) => ({ nextIdCounter: { ...state.nextIdCounter, [type]: counter + 1 } }));
         const userPrefix = get().settings.componentDefaults?.[type]?.prefix;
         const prefix = userPrefix !== undefined ? userPrefix : (COMPONENT_TYPES[type]?.prefix || type.toUpperCase());
         
