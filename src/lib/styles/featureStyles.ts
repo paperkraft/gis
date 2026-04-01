@@ -23,7 +23,7 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
     if (!config) return new Style({});
 
     // 1. Get Stores
-    const { nodeColorMode, linkColorMode, labelMode, minMax, layerStyles, nodeGradient, linkGradient, highlightedFeatureIds, highlightColors } = useStyleStore.getState();
+    const { nodeColorMode, linkColorMode, labelSettings, selectedProps, minMax, layerStyles, nodeGradient, linkGradient, highlightedFeatureIds, highlightColors } = useStyleStore.getState();
     // const { results, history, currentTimeIndex } = useSimulationStore.getState();
     const { results } = useSimulationStore.getState();
     const { showLabels, showPipeArrows } = useUIStore.getState();
@@ -119,14 +119,60 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
     const borderRgba = hexToRgba('#FFFFFF', opacity);
 
     // 6. Labels
-    let labelText = feature.get("label") || featureId;
-    if (labelMode === 'elevation' && ['junction', 'tank', 'reservoir'].includes(featureType)) {
-        labelText = `${feature.get('elevation')}m`;
-    } else if (labelMode === 'diameter' && featureType === 'pipe') {
-        labelText = `${feature.get('diameter')}mm`;
-    } else if (labelMode === 'result') {
-        if (value !== null) labelText = value.toFixed(2);
+    const labels: string[] = [];
+    
+    if (labelSettings.showId) {
+        labels.push(featureId);
     }
+
+    if (labelSettings.showProp) {
+        const activeProps = selectedProps[featureType] || [];
+        activeProps.forEach(propKey => {
+            const val = feature.get(propKey);
+            if (val !== undefined && val !== null) {
+                let displayVal = val;
+                // Basic unit formatting
+                if (propKey === 'elevation') displayVal = `${val}m`;
+                else if (propKey === 'diameter') displayVal = `${val}mm`;
+                else if (propKey === 'height' || propKey === 'head') displayVal = `${val}m`;
+                else if (propKey === 'pressure') displayVal = `${val} kPa`;
+                else if (propKey === 'capacity') displayVal = `${val} L`;
+                else if (propKey === 'power') displayVal = `${val} kW`;
+                else if (propKey === 'roughness') displayVal = `${val} (C)`;
+
+                // Short forms mapping
+                const shortForms: Record<string, string> = {
+                    elevation: 'ele.',
+                    diameter: 'dia.',
+                    pressure: 'pres.',
+                    capacity: 'cap.',
+                    demand: 'dem.',
+                    population: 'pop.',
+                    roughness: 'rou.',
+                    efficiency: 'eff.',
+                    currentLevel: 'lvl.',
+                    power: 'pow.',
+                    head: 'head',
+                    headGain: 'gain',
+                    setting: 'set.',
+                    valveType: 'type'
+                };
+                
+                if (propKey === 'label') {
+                    labels.push(String(displayVal));
+                } else {
+                    const labelHead = shortForms[propKey] || propKey;
+                    labels.push(`${labelHead}: ${displayVal}`);
+                }
+            }
+        });
+    }
+
+    if (labelSettings.showSim && value !== null) {
+        labels.push(`Sim: ${value.toFixed(2)}`);
+    }
+
+    const labelText = labels.join('\n');
 
     // --- APPLY STYLES (Standardized Icons) ---
     // Hide labels at lower zoom levels (higher resolution) to improve performance

@@ -11,7 +11,9 @@ import {
   Check
 } from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
-import { useStyleStore, PRESETS } from "@/store/styleStore";
+import { useStyleStore, PRESETS, LabelSettings } from "@/store/styleStore";
+import { COMPONENT_TYPES } from "@/constants/networkComponents";
+
 import { FloatingPanel } from "./FloatingPanel";
 import { cn } from "@/lib/utils";
 
@@ -34,10 +36,13 @@ export function DisplayPanel() {
     linkColorMode,
     setLinkColorMode,
     linkGradient,
-    labelMode,
-    setLabelMode,
+    labelSettings,
+    setLabelSetting,
+    selectedProps,
+    togglePropSelection,
     setGradientPreset
   } = useStyleStore();
+
 
   return (
     <FloatingPanel
@@ -77,29 +82,57 @@ export function DisplayPanel() {
 
         {/* 2. Label Modes (Only show if labels are ON) */}
         {showLabels && (
-          <Section title="Label Content">
-            <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-md">
-              <ModeBtn
-                active={labelMode === "id"}
-                onClick={() => setLabelMode("id")}
-                icon={Hash}
-                label="ID"
-              />
-              <ModeBtn
-                active={labelMode === "elevation"}
-                onClick={() => setLabelMode("elevation")}
-                icon={Mountain}
-                label="Prop"
-              />
-              <ModeBtn
-                active={labelMode === "result"}
-                onClick={() => setLabelMode("result")}
-                icon={Activity}
-                label="Sim"
-              />
-            </div>
-          </Section>
+          <div className="space-y-4">
+            <Section title="Label Content">
+              <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-md">
+                <ModeBtn
+                  active={labelSettings.showId}
+                  onClick={() => setLabelSetting('showId', !labelSettings.showId)}
+                  icon={Hash}
+                  label="ID"
+                />
+                <ModeBtn
+                  active={labelSettings.showProp}
+                  onClick={() => setLabelSetting('showProp', !labelSettings.showProp)}
+                  icon={Mountain}
+                  label="Prop"
+                />
+                <ModeBtn
+                  active={labelSettings.showSim}
+                  onClick={() => setLabelSetting('showSim', !labelSettings.showSim)}
+                  icon={Activity}
+                  label="Sim"
+                />
+              </div>
+            </Section>
+
+            {labelSettings.showProp && (
+              <Section title="Property Selection">
+                <div className="space-y-3 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                  {Object.entries(COMPONENT_TYPES).map(([type, config]) => (
+                    <div key={type} className="space-y-1.5">
+                      <div className="flex items-center gap-1.5 px-1">
+                        <config.icon size={10} className="text-slate-400" />
+                        <span className="text-[9px] font-bold uppercase text-slate-500">{config.name}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {['label', ...Object.keys(config.defaultProperties)].map(prop => (
+                          <PropertyBadge
+                            key={prop}
+                            label={prop}
+                            active={selectedProps[type]?.includes(prop)}
+                            onClick={() => togglePropSelection(type, prop)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
+          </div>
         )}
+
 
         {/* 3. Node Symbology */}
         <Section title="Node Symbology (Colors)">
@@ -239,7 +272,24 @@ function ToggleItem({ label, description, isActive, onToggle, icon: Icon }: any)
   );
 }
 
+function PropertyBadge({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "px-1.5 py-0.5 text-[8px] font-medium rounded transition-all border",
+        active
+          ? "bg-primary/10 border-primary/30 text-primary"
+          : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
 function ModeBtn({ active, onClick, icon: Icon, label }: any) {
+
   return (
     <button
       onClick={onClick}

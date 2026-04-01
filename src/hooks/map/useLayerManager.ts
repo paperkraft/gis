@@ -32,12 +32,14 @@ export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
         nodeGradient,
         linkGradient,
 
-        labelMode,
+        labelSettings,
+        selectedProps,
         minMax,
         styleType,
         classCount,
         layerStyles
     } = useStyleStore();
+
 
     // Local State for Animation
     const animationRef = useRef<number | null>(null);
@@ -129,7 +131,9 @@ export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
         nodeGradient,
         linkGradient,
 
-        labelMode,
+        labelSettings,
+        selectedProps,
+
         minMax,
         styleType,
         classCount,

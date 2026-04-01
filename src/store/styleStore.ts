@@ -4,7 +4,13 @@ import { create } from 'zustand';
 export type NodeColorMode = 'none' | 'elevation' | 'pressure' | 'head' | 'demand';
 export type LinkColorMode = 'none' | 'diameter' | 'roughness' | 'flow' | 'velocity' | 'headloss';
 
-export type LabelMode = 'id' | 'elevation' | 'diameter' | 'result';
+export type LabelMode = 'id' | 'elevation' | 'diameter' | 'result'; // Legacy, keep for now to avoid breaking types until fully refactored or just replace it if safe.
+export interface LabelSettings {
+    showId: boolean;
+    showProp: boolean;
+    showSim: boolean;
+}
+
 export type StyleType = 'continuous' | 'discrete';
 
 export interface GradientStop {
@@ -75,7 +81,9 @@ interface StyleState {
     nodeColorMode: NodeColorMode;
     linkColorMode: LinkColorMode;
 
-    labelMode: LabelMode;
+    labelSettings: LabelSettings;
+    selectedProps: Record<string, string[]>;
+
     minMax: Record<string, { min: number, max: number }>;
 
     nodeGradient: GradientStop[];
@@ -95,7 +103,9 @@ interface StyleState {
     setNodeColorMode: (mode: NodeColorMode) => void;
     setLinkColorMode: (mode: LinkColorMode) => void;
 
-    setLabelMode: (mode: LabelMode) => void;
+    setLabelSetting: (key: keyof LabelSettings, value: boolean) => void;
+    togglePropSelection: (componentType: string, prop: string) => void;
+
     updateMinMax: (metric: string, min: number, max: number) => void;
 
     setNodeGradient: (stops: GradientStop[]) => void;
@@ -120,7 +130,20 @@ export const useStyleStore = create<StyleState>((set, get) => ({
     nodeColorMode: 'none',
     linkColorMode: 'none',
 
-    labelMode: 'id',
+    labelSettings: {
+        showId: false,
+        showProp: true,
+        showSim: false
+    },
+    selectedProps: {
+        pipe: ['label', 'diameter'],
+        junction: ['label', 'elevation'],
+        tank: ['label', 'elevation'],
+        reservoir: ['label', 'head'],
+        pump: ['label', 'power'],
+        valve: ['label', 'diameter']
+    },
+
     minMax: {
         pressure: { min: 0, max: 80 },
         velocity: { min: 0, max: 2 },
@@ -150,7 +173,34 @@ export const useStyleStore = create<StyleState>((set, get) => ({
     setNodeColorMode: (mode) => set({ nodeColorMode: mode }),
     setLinkColorMode: (mode) => set({ linkColorMode: mode }),
 
-    setLabelMode: (mode) => set({ labelMode: mode }),
+    setLabelSetting: (key, value) => set((state) => ({
+        labelSettings: { ...state.labelSettings, [key]: value }
+    })),
+
+    togglePropSelection: (componentType, prop) => set((state) => {
+        const currentProps = state.selectedProps[componentType] || [];
+        const isSelected = currentProps.includes(prop);
+        
+        let newProps;
+        if (isSelected) {
+            newProps = currentProps.filter(p => p !== prop);
+        } else {
+            // MAX 2 LIMIT: Only add if current length < 2
+            if (currentProps.length < 2) {
+                newProps = [...currentProps, prop];
+            } else {
+                return state;
+            }
+        }
+        
+        return {
+            selectedProps: {
+                ...state.selectedProps,
+                [componentType]: newProps
+            }
+        };
+    }),
+
     updateMinMax: (metric, min, max) => set((state) => ({ minMax: { ...state.minMax, [metric]: { min, max } } })),
 
     setNodeGradient: (stops) => set({ nodeGradient: stops }),

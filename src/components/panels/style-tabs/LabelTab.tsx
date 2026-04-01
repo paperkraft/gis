@@ -2,6 +2,8 @@
 
 import { Activity, Check, Cylinder, Eye, EyeOff, Mountain, Tag } from 'lucide-react';
 import React from 'react';
+import { COMPONENT_TYPES } from '@/constants/networkComponents';
+
 
 import { FormGroup } from '@/components/form-controls/FormGroup';
 import { cn } from '@/lib/utils';
@@ -10,7 +12,8 @@ import { useUIStore } from '@/store/uiStore';
 
 export function LabelTab({ layerId }: { layerId: string }) {
   const { showLabels, setShowLabels } = useUIStore();
-  const { labelMode, setLabelMode } = useStyleStore();
+  const { labelSettings, setLabelSetting, selectedProps, togglePropSelection } = useStyleStore();
+
   const isLine = ["pipe", "pump", "valve"].includes(layerId);
 
   return (
@@ -50,38 +53,48 @@ export function LabelTab({ layerId }: { layerId: string }) {
       <FormGroup label="Label Content">
         <div className="space-y-2">
           <Option
-            active={labelMode === "id"}
-            onClick={() => setLabelMode("id")}
+            active={labelSettings.showId}
+            onClick={() => setLabelSetting('showId', !labelSettings.showId)}
             label="Component ID"
             desc="e.g. P-101"
             icon={Tag}
           />
 
-          {isLine ? (
-            <Option
-              active={labelMode === "diameter"}
-              onClick={() => setLabelMode("diameter")}
-              label="Diameter"
-              desc="Size in mm"
-              icon={Cylinder}
-            />
-          ) : (
-            <Option
-              active={labelMode === "elevation"}
-              onClick={() => setLabelMode("elevation")}
-              label="Elevation"
-              desc="Height in m"
-              icon={Mountain}
-            />
+          <Option
+            active={labelSettings.showProp}
+            onClick={() => setLabelSetting('showProp', !labelSettings.showProp)}
+            label="Properties"
+            desc="Select attributes"
+            icon={isLine ? Cylinder : Mountain}
+          />
+
+          {labelSettings.showProp && (
+            <div className="ml-11 flex flex-wrap gap-1.5 pb-2">
+              {['label', ...Object.keys(COMPONENT_TYPES[layerId]?.defaultProperties || {})].map(prop => (
+                <button
+                  key={prop}
+                  onClick={() => togglePropSelection(layerId, prop)}
+                  className={cn(
+                    "px-2 py-1 text-[10px] font-medium rounded border transition-all",
+                    selectedProps[layerId]?.includes(prop)
+                      ? "bg-primary/10 border-primary/30 text-primary"
+                      : "bg-muted/30 border-transparent text-muted-foreground hover:bg-muted/50"
+                  )}
+                >
+                  {prop}
+                </button>
+              ))}
+            </div>
           )}
 
           <Option
-            active={labelMode === "result"}
-            onClick={() => setLabelMode("result")}
+            active={labelSettings.showSim}
+            onClick={() => setLabelSetting('showSim', !labelSettings.showSim)}
             label="Sim Result"
             desc="Active Variable"
             icon={Activity}
           />
+
         </div>
       </FormGroup>
     </div>
