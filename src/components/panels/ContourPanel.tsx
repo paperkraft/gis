@@ -12,13 +12,16 @@ import shpjs from "shpjs";
 import GeoJSON from "ol/format/GeoJSON";
 import VectorSource from "ol/source/Vector";
 import VectorLayer from "ol/layer/Vector";
-import { Style, Stroke } from "ol/style";
+import { Style, Stroke, Text, Fill } from "ol/style";
 import Feature from "ol/Feature";
 
-import { UploadCloud, Layers as LayersIcon, Map as MapIcon, ChevronRight, Info } from "lucide-react";
+import { UploadCloud, Layers as LayersIcon, Map as MapIcon, ChevronRight, Info, Palette, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 interface PanelProps {
   isMaximized?: boolean;
@@ -35,6 +38,10 @@ export function ContourPanel({ isMaximized = false }: PanelProps) {
   const [selectedElevProp, setSelectedElevProp] = useState<string>("");
   const [featureCount, setFeatureCount] = useState(0);
 
+  // New Appearance State
+  const [showLabels, setShowLabels] = useState(false);
+  const [contourColor, setContourColor] = useState('rgba(210, 105, 30, 0.7)');
+
   // Re-read properties if there's already a contourSource
   useEffect(() => {
     if (contourSource) {
@@ -46,6 +53,34 @@ export function ContourPanel({ isMaximized = false }: PanelProps) {
       }
     }
   }, [contourSource]);
+
+  // Helper: Create Contour Style
+  const getContourStyle = (feature: Feature) => {
+    const elevValue = selectedElevProp ? feature.get(selectedElevProp) : "";
+    
+    return new Style({
+      stroke: new Stroke({
+        color: contourColor,
+        width: 1.5,
+      }),
+      text: showLabels && elevValue !== undefined ? new Text({
+        text: String(elevValue),
+        font: 'bold 11px "Inter", sans-serif',
+        fill: new Fill({ color: contourColor }),
+        stroke: new Stroke({ color: '#fff', width: 2.5 }),
+        placement: 'line',
+        repeat: 500, // Interval between labels
+        overflow: false,
+      }) : undefined
+    });
+  };
+
+  // Effect: Sync style when settings change
+  useEffect(() => {
+    if (contourLayer) {
+      contourLayer.setStyle((feature) => getContourStyle(feature as Feature));
+    }
+  }, [contourLayer, showLabels, contourColor, selectedElevProp]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -103,12 +138,7 @@ export function ContourPanel({ isMaximized = false }: PanelProps) {
       const newSource = new VectorSource({ features });
       const newLayer = new VectorLayer({
         source: newSource,
-        style: new Style({
-          stroke: new Stroke({
-            color: 'rgba(210, 105, 30, 0.7)', // Chocolate-ish color for contours
-            width: 1.5,
-          })
-        }),
+        style: (feature) => getContourStyle(feature as Feature),
         zIndex: 5 // Ensure it displays decently over base map, below network usually
       });
 
@@ -254,7 +284,7 @@ export function ContourPanel({ isMaximized = false }: PanelProps) {
             <div className="flex flex-col gap-1.5 pt-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Elevation Attribute</label>
               <Select value={selectedElevProp} onValueChange={setSelectedElevProp}>
-                <SelectTrigger className="h-9 text-xs">
+                <SelectTrigger className="h-9 text-xs shadow-none border-slate-200">
                   <SelectValue placeholder="Select property..." />
                 </SelectTrigger>
                 <SelectContent className="text-xs">
@@ -263,6 +293,40 @@ export function ContourPanel({ isMaximized = false }: PanelProps) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Appearance Section */}
+            <div className="flex flex-col gap-4 pt-4 border-t border-slate-100">
+              <h3 className="text-[10px] font-bold uppercase text-slate-400 tracking-wider flex items-center gap-2">
+                <Palette className="size-3" />
+                3. Layer Appearance
+              </h3>
+              
+              <div className="flex flex-col gap-4 px-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-0.5">
+                    <Label className="text-[11px] font-semibold text-slate-600">Show Elevation Labels</Label>
+                    <span className="text-[10px] text-slate-400">Display values along contour lines</span>
+                  </div>
+                  <Switch 
+                     checked={showLabels} 
+                     onCheckedChange={setShowLabels}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label className="text-[11px] font-semibold text-slate-600">Stroke Color</Label>
+                  <div className="flex items-center gap-3">
+                    <Input 
+                      type="color" 
+                      value={contourColor.startsWith('rgba') ? '#D2691E' : contourColor} // Fallback to hex for input
+                      onChange={(e) => setContourColor(e.target.value)}
+                      className="w-10 h-8 p-0 border-none cursor-pointer rounded-full overflow-hidden"
+                    />
+                    <span className="text-[10px] text-slate-500 font-mono uppercase">{contourColor}</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-slate-100">
