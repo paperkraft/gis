@@ -16,7 +16,7 @@ import VectorLayer from "ol/layer/Vector";
 import { Style, Stroke, Text, Fill } from "ol/style";
 import Feature from "ol/Feature";
 
-import { UploadCloud, Layers as LayersIcon, Map as MapIcon, ChevronRight, Info, Palette, Type } from "lucide-react";
+import { UploadCloud, Layers as LayersIcon, Map as MapIcon, ChevronRight, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";

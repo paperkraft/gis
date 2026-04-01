@@ -35,15 +35,23 @@ export function NumberingPanel() {
     setPrefix(prefixes[targetType] || "");
   }, [targetType]);
 
-  // Sync manual start with active selection if not manually changed
+  // Sync manual start with active selection
   useEffect(() => {
-    if (selectedFeatureId && selectedFeatureIds.includes(selectedFeatureId)) {
+    if (selectedFeatureId && selectedFeatureIds.length === 1) {
         const feat = features.get(selectedFeatureId);
-        if (feat && feat.type === targetType) {
+        if (feat) {
+            setTargetType(feat.type);
             setManualStartId(selectedFeatureId);
+            
+            // Extract numeric part from ID if possible (e.g., "J-105" -> 105)
+            const numPart = selectedFeatureId.replace(/^\D+/, '');
+            const parsed = parseInt(numPart);
+            if (!isNaN(parsed)) {
+                setStartNumber(parsed);
+            }
         }
     }
-  }, [selectedFeatureId, selectedFeatureIds, targetType]);
+  }, [selectedFeatureId, selectedFeatureIds, features]);
 
   // Get ALL features of targetType for the dropdown
   const allFeaturesOfType = useMemo(() => {

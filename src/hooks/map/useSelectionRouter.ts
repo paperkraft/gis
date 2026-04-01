@@ -13,7 +13,7 @@ const TYPE_TO_MODAL: Record<string, WorkbenchModalType> = {
     valve: 'VALVE_PROP',
 };
 
-const PROTECTED_MODALS: WorkbenchModalType[] = ['VALIDATION', 'AUTO_ELEVATION'];
+const PROTECTED_MODALS: WorkbenchModalType[] = ['VALIDATION', 'AUTO_ELEVATION', 'NUMBERING'];
 
 /**
  * Routes feature selection events to the correct property modal.
