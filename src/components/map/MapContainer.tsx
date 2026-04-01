@@ -119,7 +119,7 @@ export function MapContainer() {
   }, [projectId, loadResults]);
 
   return (
-    <div className="relative w-full h-full bg-gray-100 dark:bg-gray-900 flex flex-col">
+    <div id="map-viewport-container" className="relative w-full h-full bg-gray-100 dark:bg-gray-900 flex flex-col">
       <div className="flex-1 relative overflow-hidden">
         <div ref={mapRef} className="w-full h-full" />
 

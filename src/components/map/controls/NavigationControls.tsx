@@ -52,8 +52,11 @@ export function NavigationControls({
   const isActiveGroup = activeTool === "zoom-box" || isFullscreen || activeRightPanel === "BOOKMARK"
 
   const toggleFullscreen = () => {
+    const container = document.getElementById('map-viewport-container');
+    if (!container) return;
+
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch((err) => {
+      container.requestFullscreen().catch((err) => {
         console.error(`Error attempting to enable fullscreen: ${err.message}`);
       });
     } else {

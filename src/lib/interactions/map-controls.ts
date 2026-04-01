@@ -7,7 +7,7 @@ export const handleZoomIn = (map: Map | null) => {
     const view = map.getView();
     const zoom = view.getZoom();
     if (zoom !== undefined) {
-        view.animate({ zoom: zoom + 1, duration: 250 });
+        view.animate({ zoom: zoom + 0.25, duration: 250 });
     }
 };
 
@@ -16,7 +16,7 @@ export const handleZoomOut = (map: Map | null) => {
     const view = map.getView();
     const zoom = view.getZoom();
     if (zoom !== undefined) {
-        view.animate({ zoom: zoom - 1, duration: 250 });
+        view.animate({ zoom: zoom - 0.25, duration: 250 });
     }
 };
 

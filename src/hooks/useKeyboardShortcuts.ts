@@ -2,7 +2,11 @@
 
 import { useEffect } from 'react';
 
-import { handleZoomToExtent } from '@/lib/interactions/map-controls';
+import {
+    handleZoomIn,
+    handleZoomOut,
+    handleZoomToExtent
+} from '@/lib/interactions/map-controls';
 import { useMapStore } from '@/store/mapStore';
 import { useNetworkStore } from '@/store/networkStore';
 import { useUIStore } from '@/store/uiStore';
@@ -102,13 +106,11 @@ export function useKeyboardShortcuts() {
             if (map) {
                 const view = map.getView();
                 if ((key === "+" || key === "=") && !ctrl) {
-                    const zoom = view.getZoom();
-                    if (zoom !== undefined) view.animate({ zoom: zoom + 1, duration: 250 });
+                    handleZoomIn(map);
                     return;
                 }
                 if (key === "-" && !ctrl) {
-                    const zoom = view.getZoom();
-                    if (zoom !== undefined) view.animate({ zoom: zoom - 1, duration: 250 });
+                    handleZoomOut(map);
                     return;
                 }
                 if (key === "f" && !ctrl) {
