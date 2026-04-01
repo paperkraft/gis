@@ -16,7 +16,7 @@ import VectorLayer from "ol/layer/Vector";
 import { Style, Stroke, Text, Fill } from "ol/style";
 import Feature from "ol/Feature";
 
-import { UploadCloud, Layers as LayersIcon, Map as MapIcon, ChevronRight, Palette } from "lucide-react";
+import { UploadCloud, Layers as LayersIcon, Map as MapIcon, ChevronRight, Palette, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
@@ -343,6 +343,45 @@ export function ContourPanel({ isMaximized = false }: PanelProps) {
       setLoading(false);
     }
   };
+  
+  const handleExportContours = async () => {
+    let geojson: any;
+    const toastId = toast.loading("Preparing export...");
+    
+    try {
+      if (contourSource && map) {
+        const format = new GeoJSON();
+        geojson = format.writeFeaturesObject(contourSource.getFeatures(), {
+          featureProjection: map.getView().getProjection(),
+          dataProjection: 'EPSG:4326'
+        });
+      } else if (hasSavedContours && projectId) {
+        setLoading(true);
+        const res = await fetch(`/api/projects/${projectId}/contours`);
+        geojson = await res.json();
+      }
+
+      if (geojson && (geojson.features?.length > 0 || Array.isArray(geojson))) {
+        const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `contours_${projectId || 'export'}.geojson`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        toast.success("Contour file exported successfully!", { id: toastId });
+      } else {
+        toast.error("No contour data found to export.", { id: toastId });
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Failed to export contours.", { id: toastId });
+    } finally {
+      if (!contourSource) setLoading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-slate-50 overflow-hidden relative w-full">
@@ -392,15 +431,26 @@ export function ContourPanel({ isMaximized = false }: PanelProps) {
           </Button>
 
           {hasSavedContours && !contourSource && (
-            <Button 
-                variant="secondary" 
-                className="mt-2 h-9 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium border border-slate-200"
-                onClick={handleLoadFromProject}
-                disabled={loading}
-            >
-                <LayersIcon className="size-3.5 mr-2" />
-                Load Contours from Project
-            </Button>
+            <div className="flex flex-col gap-2 mt-2">
+              <Button 
+                  variant="secondary" 
+                  className="h-9 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium border border-slate-200"
+                  onClick={handleLoadFromProject}
+                  disabled={loading}
+              >
+                  <LayersIcon className="size-3.5 mr-2" />
+                  Load Contours from Project
+              </Button>
+              <Button 
+                  variant="outline" 
+                  className="h-9 text-xs"
+                  onClick={handleExportContours}
+                  disabled={loading}
+              >
+                  <Download className="size-3.5 mr-2 text-slate-500" />
+                  Export Saved Contours (.geojson)
+              </Button>
+            </div>
           )}
 
           {loading && <Progress value={undefined} className="h-1 shadow-sm mt-2" />}
@@ -468,15 +518,25 @@ export function ContourPanel({ isMaximized = false }: PanelProps) {
               </Button>
               
               <div className="flex items-center gap-2 mt-1">
-                <Button 
-                   variant="outline" 
-                   size="sm" 
-                   className="flex-1 h-8 text-[10px]" 
-                   onClick={handleSaveToProject}
-                   disabled={loading}
-                >
-                    Save to Project
-                </Button>
+                 <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 h-8 text-[10px]" 
+                    onClick={handleSaveToProject}
+                    disabled={loading}
+                 >
+                     Save
+                 </Button>
+                 <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 h-8 text-[10px]" 
+                    onClick={handleExportContours}
+                    disabled={loading}
+                 >
+                     <Download className="size-3 mr-1.5 text-slate-400" />
+                     Export
+                 </Button>
                 <Button 
                     variant="ghost" 
                     size="sm" 
