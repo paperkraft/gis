@@ -63,12 +63,12 @@ export function LayerControls({ activeGroup, onToggle }: LayerControlsProps) {
       <ToolBtn
         onClick={() => handleRotateLeft(map)}
         icon={RotateCcw}
-        title="Rotate Left (45°)"
+        title="Rotate Left (5°)"
       />
       <ToolBtn
         onClick={() => handleRotateRight(map)}
         icon={RotateCw}
-        title="Rotate Right (45°)"
+        title="Rotate Right (5°)"
       />
     </ControlGroup>
   );

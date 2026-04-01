@@ -11,6 +11,8 @@ import Map from 'ol/Map';
 import { fromLonLat } from 'ol/proj';
 import VectorSource from 'ol/source/Vector';
 import View from 'ol/View';
+import DragRotate from 'ol/interaction/DragRotate';
+import { altKeyOnly } from 'ol/events/condition';
 import { useEffect, useRef, useState } from 'react';
 
 import { BoundaryLayer } from '@/lib/map/baseLayers';
@@ -93,6 +95,9 @@ export function useMapInitialization(mapTargetRef: React.RefObject<HTMLDivElemen
                         1 / 10,  // minVelocity: Must flick faster than 0.1 px/ms to trigger
                         100      // delay: Time window to calculate flick speed
                     ),
+                }),
+                new DragRotate({
+                    condition: altKeyOnly,
                 }),
             ]),
         });

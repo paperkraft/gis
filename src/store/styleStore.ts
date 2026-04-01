@@ -131,17 +131,17 @@ export const useStyleStore = create<StyleState>((set, get) => ({
     linkColorMode: 'none',
 
     labelSettings: {
-        showId: false,
-        showProp: true,
+        showId: true,
+        showProp: false,
         showSim: false
     },
     selectedProps: {
-        pipe: ['label', 'diameter'],
-        junction: ['label', 'elevation'],
-        tank: ['label', 'elevation'],
-        reservoir: ['label', 'head'],
-        pump: ['label', 'power'],
-        valve: ['label', 'diameter']
+        pipe: ['label'],
+        junction: ['label'],
+        tank: ['label'],
+        reservoir: ['label'],
+        pump: ['label'],
+        valve: ['label']
     },
 
     minMax: {
