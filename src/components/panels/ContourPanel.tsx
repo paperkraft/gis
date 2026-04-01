@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import { useMapStore } from "@/store/mapStore";
 import { useNetworkStore } from "@/store/networkStore";
 import { calculateElevationsFromContours } from "@/lib/gis/idwInterpolation";
@@ -29,6 +30,8 @@ interface PanelProps {
 
 export function ContourPanel({ isMaximized = false }: PanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const params = useParams();
+  const projectId = params?.id as string;
   
   const { map, vectorSource: networkSource, contourSource, setContourSource, contourLayer, setContourLayer } = useMapStore();
   const { updateFeature } = useNetworkStore();
@@ -37,6 +40,7 @@ export function ContourPanel({ isMaximized = false }: PanelProps) {
   const [properties, setProperties] = useState<string[]>([]);
   const [selectedElevProp, setSelectedElevProp] = useState<string>("");
   const [featureCount, setFeatureCount] = useState(0);
+  const [hasSavedContours, setHasSavedContours] = useState(false);
 
   // New Appearance State
   const [showLabels, setShowLabels] = useState(false);
@@ -81,6 +85,22 @@ export function ContourPanel({ isMaximized = false }: PanelProps) {
       contourLayer.setStyle((feature) => getContourStyle(feature as Feature));
     }
   }, [contourLayer, showLabels, contourColor, selectedElevProp]);
+
+  // Check for saved contours on mount
+  useEffect(() => {
+    if (!projectId) return;
+
+    const checkSaved = async () => {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/contours?meta=true`);
+        const data = await res.json();
+        setHasSavedContours(data.hasContours);
+      } catch (err) {
+        console.error("Check saved contours failed:", err);
+      }
+    };
+    checkSaved();
+  }, [projectId]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -220,7 +240,108 @@ export function ContourPanel({ isMaximized = false }: PanelProps) {
     setProperties([]);
     setSelectedElevProp("");
     setFeatureCount(0);
-    toast.success("Contour layer removed.");
+    toast.success("Contour layer hidden.");
+  };
+
+  const handleSaveToProject = async () => {
+    if (!contourSource || !projectId || !map) return;
+
+    setLoading(true);
+    const toastId = toast.loading("Saving contours to cloud...");
+
+    try {
+      const format = new GeoJSON();
+      const features = format.writeFeaturesObject(contourSource.getFeatures(), {
+        featureProjection: map.getView().getProjection(),
+        dataProjection: 'EPSG:4326'
+      });
+
+      const res = await fetch(`/api/projects/${projectId}/contours`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(features),
+      });
+
+      if (!res.ok) throw new Error("Failed to save contours");
+
+      setHasSavedContours(true);
+      toast.success("Contours saved to project successfully!", { id: toastId });
+    } catch (err: any) {
+      toast.error(err.message, { id: toastId });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLoadFromProject = async () => {
+    if (!projectId || !map) return;
+
+    setLoading(true);
+    const toastId = toast.loading("Loading contours from cloud...");
+
+    try {
+      const res = await fetch(`/api/projects/${projectId}/contours`);
+      const data = await res.json();
+
+      if (!data.features || data.features.length === 0) {
+        throw new Error("No contours found for this project.");
+      }
+
+      const format = new GeoJSON();
+      const features = format.readFeatures(data, {
+        dataProjection: 'EPSG:4326',
+        featureProjection: map.getView().getProjection()
+      }) as Feature[];
+
+      const newSource = new VectorSource({ features });
+      const newLayer = new VectorLayer({
+        source: newSource,
+        style: (feature) => getContourStyle(feature as Feature),
+        zIndex: 5
+      });
+
+      map.addLayer(newLayer);
+      map.getView().fit(newSource.getExtent(), { padding: [50, 50, 50, 50], duration: 800 });
+
+      setContourSource(newSource);
+      setContourLayer(newLayer);
+      setHasSavedContours(true);
+
+      // Extract properties for dropdown
+      if (features.length > 0) {
+          const props = Object.keys(features[0].getProperties()).filter(k => k !== "geometry");
+          setProperties(props);
+          setFeatureCount(features.length);
+
+          // Auto-select elevation prop if possible
+          const guessed = props.find(p => ['elev', 'elevation', 'z', 'contour'].includes(p.toLowerCase()));
+          if (guessed) setSelectedElevProp(guessed);
+      }
+
+      toast.success(`Loaded ${features.length} contour lines from project.`, { id: toastId });
+    } catch (err: any) {
+      toast.error(err.message, { id: toastId });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearContoursFromCloud = async () => {
+    if (!projectId || !confirm("Are you sure you want to delete these contours from the project permanently?")) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/contours`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete contours");
+
+      setHasSavedContours(false);
+      handleRemoveContours();
+      toast.success("Contours deleted from cloud.");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -270,7 +391,19 @@ export function ContourPanel({ isMaximized = false }: PanelProps) {
             <span className="text-slate-500 font-normal text-xs text-center px-4">Click to upload .zip (Shapefile) or .geojson</span>
           </Button>
 
-          {loading && <Progress value={undefined} className="h-1 shadow-sm" />}
+          {hasSavedContours && !contourSource && (
+            <Button 
+                variant="secondary" 
+                className="mt-2 h-9 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium border border-slate-200"
+                onClick={handleLoadFromProject}
+                disabled={loading}
+            >
+                <LayersIcon className="size-3.5 mr-2" />
+                Load Contours from Project
+            </Button>
+          )}
+
+          {loading && <Progress value={undefined} className="h-1 shadow-sm mt-2" />}
         </div>
 
         {/* Configuration Section (if data loaded) */}
@@ -333,9 +466,37 @@ export function ContourPanel({ isMaximized = false }: PanelProps) {
               <Button onClick={handleApplyElevations} disabled={!selectedElevProp || loading} className="w-full flex gap-2 h-9 text-xs bg-blue-600 hover:bg-blue-700 shadow-sm">
                 Apply to Network <ChevronRight className="size-4" />
               </Button>
-              <Button variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 h-8 text-xs" onClick={handleRemoveContours}>
-                Remove Layer
-              </Button>
+              
+              <div className="flex items-center gap-2 mt-1">
+                <Button 
+                   variant="outline" 
+                   size="sm" 
+                   className="flex-1 h-8 text-[10px]" 
+                   onClick={handleSaveToProject}
+                   disabled={loading}
+                >
+                    Save to Project
+                </Button>
+                <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="flex-1 text-red-500 hover:text-red-600 hover:bg-red-50 h-8 text-[10px]" 
+                    onClick={handleRemoveContours}
+                >
+                    Hide Layer
+                </Button>
+              </div>
+
+              {hasSavedContours && (
+                 <Button 
+                    variant="link" 
+                    className="text-slate-400 hover:text-red-400 h-6 text-[9px] mt-1" 
+                    onClick={clearContoursFromCloud}
+                    disabled={loading}
+                 >
+                    Delete from Cloud permanently
+                 </Button>
+              )}
             </div>
           </div>
         )}

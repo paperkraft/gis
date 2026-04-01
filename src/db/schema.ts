@@ -128,3 +128,15 @@ export const bookmarks = pgTable("bookmarks", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+
+// --- 6. CONTOURS ---
+export const contours = pgTable("contours", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+    properties: jsonb("properties"),
+    geom: geometry("geom", "Geometry"), // LineString or MultiLineString
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+    projectIdx: index("contour_project_idx").on(table.projectId),
+    geoIdx: index("contour_geo_idx").using("gist", table.geom),
+}));
