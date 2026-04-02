@@ -13,6 +13,7 @@ export function ProjectTreePanel() {
   const [searchTerm, setSearchTerm] = useState("");
   const {
     activeModal,
+    activePanel,
     setActiveModal,
     setActivePanel,
     layerVisibility,
@@ -41,7 +42,27 @@ export function ProjectTreePanel() {
     return counts;
   }, [features]);
 
-  // --- 2. FILTER LOGIC ---
+  // --- 2. ACTIVE CHILD HELPER ---
+  const hasActiveChild = useCallback(
+    (node: MenuItem): boolean => {
+      if (node.type === "ITEM") {
+        const isActive =
+          (node.modalType && activeModal === node.modalType) ||
+          (node.layerKey &&
+            activeModal === "STYLE_SETTINGS" &&
+            activeStyleLayer === node.layerKey) ||
+          (node.panelType && activePanel === node.panelType);
+        return !!isActive;
+      }
+      if (node.children) {
+        return node.children.some((child) => hasActiveChild(child));
+      }
+      return false;
+    },
+    [activeModal, activePanel, activeStyleLayer]
+  );
+
+  // --- 3. FILTER LOGIC ---
   const filterTree = useCallback(
     (nodes: MenuItem[], term: string): MenuItem[] => {
       return nodes
@@ -70,7 +91,7 @@ export function ProjectTreePanel() {
     return searchTerm ? filterTree(WORKBENCH_MENU, searchTerm) : WORKBENCH_MENU;
   }, [searchTerm, filterTree]);
 
-  // --- 3. RENDERER (Recursive) ---
+  // --- 4. RENDERER (Recursive) ---
   const renderTreeNodes = (nodes: MenuItem[]) => {
     return nodes.map((node) => {
       if (node.type === "GROUP") {
@@ -79,7 +100,7 @@ export function ProjectTreePanel() {
             key={node.id}
             label={node.label}
             count={node.count}
-            forceOpen={!!searchTerm}
+            forceOpen={!!searchTerm || hasActiveChild(node)}
           >
             {node.children && renderTreeNodes(node.children)}
           </TreeGroup>
@@ -94,7 +115,8 @@ export function ProjectTreePanel() {
           (node.modalType && activeModal === node.modalType) ||
           (node.layerKey &&
             activeModal === "STYLE_SETTINGS" &&
-            activeStyleLayer === node.layerKey);
+            activeStyleLayer === node.layerKey) ||
+          (node.panelType && activePanel === node.panelType);
 
         return (
           <TreeItem
@@ -107,8 +129,10 @@ export function ProjectTreePanel() {
             onClick={() => {
               if (node.modalType) setActiveModal(node.modalType);
               if (node.panelType) setActivePanel(node.panelType);
-              if (!node.modalType) setActiveModal("NONE");
-              if (!node.panelType) setActivePanel("NONE");
+              if (!node.modalType && !node.panelType) {
+                setActiveModal("NONE");
+                setActivePanel("NONE");
+              }
             }}
             onToggleVisibility={
               node.layerKey
@@ -174,7 +198,7 @@ export function ProjectTreePanel() {
               title={section.label}
               status={section.status}
               defaultOpen={section.defaultOpen}
-              forceOpen={!!searchTerm}
+              forceOpen={!!searchTerm || hasActiveChild(section)}
             >
               {section.children && renderTreeNodes(section.children)}
             </TreeSection>

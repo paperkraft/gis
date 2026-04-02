@@ -21,10 +21,8 @@ export default function TreeSection({
   useEffect(() => {
     if (forceOpen) {
       setIsOpen(true);
-    } else {
-      setIsOpen(defaultOpen);
     }
-  }, [forceOpen, defaultOpen]);
+  }, [forceOpen]);
 
   const statusColor =
     status === "ready"

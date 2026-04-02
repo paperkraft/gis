@@ -19,8 +19,6 @@ export default function TreeGroup({
   useEffect(() => {
     if (forceOpen) {
       setIsOpen(true);
-    } else {
-      setIsOpen(false);
     }
   }, [forceOpen]);
 

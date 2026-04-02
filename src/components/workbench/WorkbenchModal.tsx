@@ -32,21 +32,21 @@ export function WorkbenchModal({
   // --- DYNAMIC POSITIONING (POPOUT) ---
   const modalStyle: React.CSSProperties = isMaximized
     ? {
-        position: "absolute",
-        top: 10,
-        left: sidebarWidth + 18,
-        right: 9,
-        bottom: 38,
-        zIndex: 50,
-      }
+      position: "absolute",
+      top: 10,
+      left: sidebarWidth + 18,
+      right: 9,
+      bottom: 38,
+      zIndex: 50,
+    }
     : {
-        position: "absolute",
-        top: 10,
-        left: sidebarWidth + 18,
-        width: "320px",
-        maxHeight: "calc(100vh - 95px)",
-        zIndex: 50,
-      };
+      position: "absolute",
+      top: 10,
+      left: sidebarWidth + 18,
+      width: "320px",
+      maxHeight: "calc(100vh - 103px)",
+      zIndex: 50,
+    };
 
   return (
     <div
