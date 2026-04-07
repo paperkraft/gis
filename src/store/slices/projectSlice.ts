@@ -53,6 +53,7 @@ const DEFAULT_SETTINGS: ProjectSettings = {
 
     // Pattern
     defaultPattern: "1",
+    selectedTerrainOption: undefined,
     
     // Component Defaults (initialized from constants)
     componentDefaults: Object.fromEntries(

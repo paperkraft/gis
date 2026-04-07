@@ -1,28 +1,34 @@
 import React from 'react';
-
-import { Edit2, Mountain, Layers, Map as MapIcon, Info } from 'lucide-react';
+import { Edit2, Mountain, Layers, Map as MapIcon, Info, CheckCircle2 } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
+import { useNetworkStore } from '@/store/networkStore';
 import { cn } from '@/lib/utils';
 
 export function TerrainOptionsPanel() {
   const { setActiveModal } = useUIStore();
+  const { settings, updateSettings } = useNetworkStore();
+  const selectedOptionId = settings.selectedTerrainOption;
+
+  const handleSelect = (id: string, action: () => void) => {
+    updateSettings({ selectedTerrainOption: id });
+    action();
+  };
 
   const options = [
     {
       id: "manual",
       title: "Manual Input",
-      description: "Manually enter the elevation data for the network.",
+      description: "Manually enter the elevation data for the network nodes.",
       icon: Edit2,
       action: () => {
-        // Handle manual input action or switch modal
-        // setActiveModal("SOME_MANUAL_INPUT_MODAL");
+        // Handle manual input action if needed
         console.log("Manual Input Selected");
       }
     },
     {
       id: "auto",
       title: "Open Elevation",
-      description: "Use pre-existing elevation data available in the system.",
+      description: "Automatically fetch elevation data from global satellite datasets.",
       icon: Mountain,
       action: () => {
         setActiveModal("AUTO_ELEVATION");
@@ -31,7 +37,7 @@ export function TerrainOptionsPanel() {
     {
       id: "contours",
       title: "Contours",
-      description: "Display contour lines on the map to assist with network drawing.",
+      description: "Upload and interpolate elevations from contour line spatial files.",
       icon: Layers,
       action: () => {
         setActiveModal("CONTOURS_PANEL");
@@ -40,7 +46,7 @@ export function TerrainOptionsPanel() {
     {
       id: "combined",
       title: "Open Elevation + Contours",
-      description: "Combine both elevation data and contour lines for more detailed terrain information.",
+      description: "Combine satellite data with contour lines for premium accuracy.",
       icon: MapIcon,
       action: () => {
         setActiveModal("CONTOURS_PANEL");
@@ -59,7 +65,7 @@ export function TerrainOptionsPanel() {
                 <span>Terrain Configuration</span>
             </div>
             <p className="opacity-80 leading-relaxed">
-                Choose how elevation data is sourced for your network. Auto Elevation uses satellite data, while Contours provide visual guidance.
+                Choose how elevation data is sourced for your network. Auto Elevation uses satellite data, while Contours provide visual guidance and interpolation sources.
             </p>
         </div>
 
@@ -73,21 +79,46 @@ export function TerrainOptionsPanel() {
             <div className="grid grid-cols-1 gap-3">
             {options.map((opt) => {
                 const Icon = opt.icon;
+                const isSelected = selectedOptionId === opt.id;
+                
                 return (
                 <button 
                     key={opt.id} 
-                    className="group w-full text-left rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 hover:border-blue-400 hover:bg-white hover:shadow-md transition-all duration-300"
-                    onClick={opt.action}
+                    className={cn(
+                      "group w-full text-left rounded-lg border transition-all duration-300 relative",
+                      isSelected 
+                        ? "border-blue-500 bg-blue-50/30 shadow-sm ring-1 ring-blue-500/20" 
+                        : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 hover:border-slate-300 hover:shadow-md"
+                    )}
+                    onClick={() => handleSelect(opt.id, opt.action)}
                 >
-                    <div className="p-3 flex items-start gap-3">
-                        <div className="p-2 rounded bg-slate-100 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                            <Icon size={16} />
+                    {/* Selected Status Indicator (Top Right) */}
+                    {isSelected && (
+                      <div className="absolute top-2 right-2 text-blue-600 animate-in fade-in zoom-in duration-300">
+                        <CheckCircle2 size={16} fill="currentColor" className="text-white fill-blue-600" />
+                      </div>
+                    )}
+
+                    <div className="p-3 flex items-start gap-4">
+                        <div className={cn(
+                          "p-2.5 rounded-lg transition-colors",
+                          isSelected 
+                            ? "bg-blue-600 text-white" 
+                            : "bg-slate-100 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600"
+                        )}>
+                            <Icon size={18} />
                         </div>
                         <div className="flex-1 min-w-0 py-0.5">
-                            <h3 className="text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:text-blue-700 transition-colors">
+                            <h3 className={cn(
+                              "text-sm font-bold transition-colors",
+                              isSelected ? "text-blue-900" : "text-slate-700 dark:text-slate-200 group-hover:text-blue-700"
+                            )}>
                             {opt.title}
                             </h3>
-                            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                            <p className={cn(
+                              "text-[11px] mt-0.5 leading-relaxed",
+                              isSelected ? "text-blue-700/70" : "text-slate-500 dark:text-slate-400"
+                            )}>
                             {opt.description}
                             </p>
                         </div>
