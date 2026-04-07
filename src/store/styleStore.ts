@@ -9,6 +9,7 @@ export interface LabelSettings {
     showId: boolean;
     showProp: boolean;
     showSim: boolean;
+    fontSize: number;
 }
 
 export type StyleType = 'continuous' | 'discrete';
@@ -103,7 +104,7 @@ interface StyleState {
     setNodeColorMode: (mode: NodeColorMode) => void;
     setLinkColorMode: (mode: LinkColorMode) => void;
 
-    setLabelSetting: (key: keyof LabelSettings, value: boolean) => void;
+    setLabelSetting: (key: keyof LabelSettings, value: any) => void;
     togglePropSelection: (componentType: string, prop: string) => void;
 
     updateMinMax: (metric: string, min: number, max: number) => void;
@@ -133,7 +134,8 @@ export const useStyleStore = create<StyleState>((set, get) => ({
     labelSettings: {
         showId: true,
         showProp: false,
-        showSim: false
+        showSim: false,
+        fontSize: 10
     },
     selectedProps: {
         pipe: ['label'],

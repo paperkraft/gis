@@ -2,6 +2,20 @@ import { ComponentConfig } from "@/types/network";
 import { Circle, Hand, Hexagon, LucideIcon, Minus, MousePointer2, Pentagon, SplinePointer, Square, Triangle } from "lucide-react";
 
 export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
+    pipe: {
+        name: "Pipe",
+        prefix: "P",
+        icon: Minus,
+        color: "#334155",
+        description: "Water transmission line",
+        defaultProperties: {
+            diameter: 150,
+            material: "PVC",
+            roughness: 130,
+            status: "open",
+        },
+        createsJunction: false,
+    },
     junction: {
         name: "Junction",
         prefix: "J",
@@ -9,7 +23,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
         color: "#6BCC8B",
         description: "Network connection point",
         defaultProperties: {
-            elevation: 100,
+            elevation: 0,
             demand: 0,
             population: 0,
             status: "active",
@@ -24,7 +38,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
         description: "Water storage facility",
         defaultProperties: {
             capacity: 500000,
-            elevation: 120,
+            elevation: 0,
             diameter: 30,
             currentLevel: 400000,
             status: "active",
@@ -39,7 +53,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
         description: "Infinite water source",
         defaultProperties: {
             head: 180,
-            elevation: 150,
+            elevation: 0,
             status: "active",
         },
         createsJunction: true,
@@ -71,21 +85,7 @@ export const COMPONENT_TYPES: Record<string, ComponentConfig> = {
             setting: 40,
         },
         createsJunction: false,
-    },
-    pipe: {
-        name: "Pipe",
-        prefix: "P",
-        icon: Minus,
-        color: "#334155",
-        description: "Water transmission line",
-        defaultProperties: {
-            diameter: 150,
-            material: "PVC",
-            roughness: 130,
-            status: "open",
-        },
-        createsJunction: false,
-    },
+    }
 };
 
 export const SNAPPING_TOLERANCE = 20;

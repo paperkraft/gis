@@ -181,7 +181,7 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
 
     const textStyle = isLabelVisible ? new Text({
         text: labelText?.toString(),
-        font: '10px "Inter", sans-serif',
+        font: `${labelSettings.fontSize || 10}px "Inter", sans-serif`,
         fill: new Fill({ color: '#374151' }),
         stroke: new Stroke({ color: '#FFFFFF', width: 3 }),
         offsetY: featureType === 'pipe' ? 15 : 20, // Increased offset for icons

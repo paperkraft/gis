@@ -8,8 +8,20 @@ import {
   Activity,
   Hash,
   Mountain,
-  Check
+  Check,
+  Plus,
+  Minus,
+  ChevronDown
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { useUIStore } from "@/store/uiStore";
 import { useStyleStore, PRESETS, LabelSettings } from "@/store/styleStore";
 import { COMPONENT_TYPES } from "@/constants/networkComponents";
@@ -106,27 +118,72 @@ export function DisplayPanel() {
               </div>
             </Section>
 
+            <Section title="Label Size">
+              <div className="flex items-center justify-between gap-4 px-1">
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-slate-500 font-medium">Font Size</span>
+                  <span className="text-xs font-bold text-primary">{labelSettings.fontSize || 10}px</span>
+                </div>
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-md">
+                  <button 
+                    onClick={() => setLabelSetting('fontSize', Math.max(6, (labelSettings.fontSize || 10) - 1))}
+                    className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded transition-colors"
+                  >
+                    <Minus size={12} />
+                  </button>
+                  <button 
+                    onClick={() => setLabelSetting('fontSize', Math.min(24, (labelSettings.fontSize || 10) + 1))}
+                    className="p-1 hover:bg-white dark:hover:bg-slate-700 rounded transition-colors"
+                  >
+                    <Plus size={12} />
+                  </button>
+                </div>
+              </div>
+            </Section>
+
             {labelSettings.showProp && (
               <Section title="Property Selection">
-                <div className="space-y-3 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
-                  {Object.entries(COMPONENT_TYPES).map(([type, config]) => (
-                    <div key={type} className="space-y-1.5">
-                      <div className="flex items-center gap-1.5 px-1">
-                        <config.icon size={10} className="text-slate-400" />
-                        <span className="text-[9px] font-bold uppercase text-slate-500">{config.name}</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(COMPONENT_TYPES).map(([type, config]) => {
+                    const activeProps = selectedProps[type] || [];
+                    return (
+                      <div key={type} className="space-y-1">
+                        <div className="flex items-center gap-1 px-1 opacity-70">
+                          <config.icon size={8} />
+                          <span className="text-[8px] font-bold uppercase">{config.name}</span>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-full h-7 px-2 text-[10px] justify-between font-normal border-slate-200 dark:border-slate-800 hover:bg-slate-50"
+                            >
+                              <span className="truncate">
+                                {activeProps.length === 0 ? "Select..." : activeProps.join(", ")}
+                              </span>
+                              <ChevronDown size={10} className="opacity-50 shrink-0" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-48 overflow-y-auto max-h-64 custom-scrollbar">
+                            <DropdownMenuLabel className="text-[10px] font-bold uppercase text-slate-400">Properties ({config.name})</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {['label', ...Object.keys(config.defaultProperties)].map(prop => (
+                              <DropdownMenuCheckboxItem
+                                key={prop}
+                                checked={activeProps.includes(prop)}
+                                onCheckedChange={() => togglePropSelection(type, prop)}
+                                className="text-xs"
+                                disabled={!activeProps.includes(prop) && activeProps.length >= 2}
+                              >
+                                {prop}
+                              </DropdownMenuCheckboxItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
-                      <div className="flex flex-wrap gap-1">
-                        {['label', ...Object.keys(config.defaultProperties)].map(prop => (
-                          <PropertyBadge
-                            key={prop}
-                            label={prop}
-                            active={selectedProps[type]?.includes(prop)}
-                            onClick={() => togglePropSelection(type, prop)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </Section>
             )}
