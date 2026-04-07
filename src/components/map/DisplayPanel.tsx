@@ -290,14 +290,10 @@ export function DisplayPanel() {
             </SelectContent>
           </Select>
           
-          {nodeColorMode !== 'none' && (
-            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-               <PaletteSelector 
-                currentGradient={nodeGradient} 
-                onSelect={(preset) => setGradientPreset('node', preset)} 
-              />
-            </div>
-          )}
+          <div className="mt-1 flex items-center gap-1.5 px-0.5">
+            <Activity size={10} className="text-slate-400" />
+            <span className="text-[9px] text-slate-400 italic">Right-click on map legend to edit symbology</span>
+          </div>
         </Section>
 
         {/* 4. Link Symbology */}
@@ -316,14 +312,10 @@ export function DisplayPanel() {
             </SelectContent>
           </Select>
 
-          {linkColorMode !== 'none' && (
-            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <PaletteSelector 
-                currentGradient={linkGradient} 
-                onSelect={(preset) => setGradientPreset('link', preset)} 
-              />
-            </div>
-          )}
+          <div className="mt-1 flex items-center gap-1.5 px-0.5">
+            <Activity size={10} className="text-slate-400" />
+            <span className="text-[9px] text-slate-400 italic">Right-click on map legend to edit symbology</span>
+          </div>
         </Section>
       </div>
     </FloatingPanel>

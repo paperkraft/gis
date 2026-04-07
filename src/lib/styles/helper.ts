@@ -76,20 +76,74 @@ export function hexToRgba(color: string, alpha: number = 1): string {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export function getColor(value: number, min: number, max: number, stops: GradientStop[]): string {
+// Calculate Quantile Breaks
+export function calculateQuantiles(data: number[], count: number): number[] {
+    if (!data || data.length === 0) return [];
+    
+    // Sort data
+    const sorted = [...data].sort((a, b) => a - b);
+    const breaks: number[] = [];
+    
+    for (let i = 1; i < count; i++) {
+        const index = Math.floor((i / count) * sorted.length);
+        breaks.push(sorted[index]);
+    }
+    
+    return breaks.map((b) => parseFloat(b.toFixed(2)));
+}
+
+export function getColor(
+    value: number, 
+    min: number, 
+    max: number, 
+    stops: GradientStop[],
+    classification: 'equal_interval' | 'quantile' | 'manual' = 'equal_interval',
+    customBreaks: number[] = [],
+    reverse: boolean = false
+): string {
     if (value === undefined || value === null || isNaN(value)) return '#999999';
 
     const { styleType, classCount } = useStyleStore.getState();
 
-    let t = ((value - min) / (max - min)) * 100;
-    t = Math.max(0, Math.min(100, t));
-
-    if (styleType === 'discrete') {
-        const step = 100 / classCount;
-        const binIndex = Math.min(Math.floor(t / step), classCount - 1);
-        const binCenter = (binIndex * step) + (step / 2);
-        return interpolateColor(binCenter, stops);
+    // 1. Handle Reverse
+    let activeStops = stops;
+    if (reverse) {
+        activeStops = stops.map((s, i) => ({
+            offset: s.offset,
+            color: stops[stops.length - 1 - i].color
+        }));
     }
 
-    return interpolateColor(t, stops);
+    // 2. Continuous
+    if (styleType === 'continuous') {
+        let t = ((value - min) / (max - min)) * 100;
+        t = Math.max(0, Math.min(100, t));
+        return interpolateColor(t, activeStops);
+    }
+
+    // 3. Discrete (Classification)
+    let binIndex = 0;
+
+    if (classification === 'quantile') {
+        // Use customBreaks which should contain quantile threshold values
+        binIndex = customBreaks.findIndex(b => value <= b);
+        if (binIndex === -1) binIndex = customBreaks.length; // Above last break
+    } 
+    else if (classification === 'manual') {
+        // Use customBreaks provided by user
+        binIndex = customBreaks.findIndex(b => value <= b);
+        if (binIndex === -1) binIndex = customBreaks.length;
+    }
+    else {
+        // Equal Interval (Default)
+        let t = ((value - min) / (max - min)) * 100;
+        t = Math.max(0, Math.min(100, t));
+        const step = 100 / classCount;
+        binIndex = Math.min(Math.floor(t / step), classCount - 1);
+    }
+
+    // Get color for center of bin to avoid edge issues
+    const step = 100 / classCount;
+    const binCenter = (binIndex * step) + (step / 2);
+    return interpolateColor(binCenter, activeStops);
 }

@@ -37,7 +37,13 @@ export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
         minMax,
         styleType,
         classCount,
-        layerStyles
+        layerStyles,
+        nodeClassification,
+        linkClassification,
+        nodeCustomBreaks,
+        linkCustomBreaks,
+        nodeReverse,
+        linkReverse
     } = useStyleStore();
 
 
@@ -137,6 +143,12 @@ export function useLayerManager({ vectorLayer }: UseLayerManagerProps) {
         minMax,
         styleType,
         classCount,
-        layerStyles
+        layerStyles,
+        nodeClassification,
+        linkClassification,
+        nodeCustomBreaks,
+        linkCustomBreaks,
+        nodeReverse,
+        linkReverse
     ]);
 }

@@ -23,7 +23,12 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
     if (!config) return new Style({});
 
     // 1. Get Stores
-    const { nodeColorMode, linkColorMode, labelSettings, selectedProps, minMax, layerStyles, nodeGradient, linkGradient, highlightedFeatureIds, highlightColors } = useStyleStore.getState();
+    const { 
+        nodeColorMode, linkColorMode, labelSettings, selectedProps, minMax, 
+        layerStyles, nodeGradient, linkGradient, highlightedFeatureIds, highlightColors,
+        nodeClassification, linkClassification, nodeCustomBreaks, linkCustomBreaks,
+        nodeReverse, linkReverse
+    } = useStyleStore.getState();
     // const { results, history, currentTimeIndex } = useSimulationStore.getState();
     const { results } = useSimulationStore.getState();
     const { showLabels, showPipeArrows } = useUIStore.getState();
@@ -108,7 +113,12 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
 
     // 4. Apply Gradient Override
     if (value !== null && currentMode !== 'none') {
-        color = getColor(value, range.min, range.max, activeGradient);
+        const isNode = ['junction', 'tank', 'reservoir'].includes(featureType);
+        const classification = isNode ? nodeClassification : linkClassification;
+        const customBreaks = isNode ? nodeCustomBreaks : linkCustomBreaks;
+        const reverse = isNode ? nodeReverse : linkReverse;
+
+        color = getColor(value, range.min, range.max, activeGradient, classification, customBreaks, reverse);
     }
 
     // --- APPLY HIGHLIGHT OVERRIDE (SYMBOLOGY THEMING) ---

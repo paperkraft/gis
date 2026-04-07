@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { ChevronDown, Activity, GitCommit, GripVertical } from 'lucide-react';
 import { useStyleStore, GradientStop, NodeColorMode, LinkColorMode } from '@/store/styleStore';
 import { getColor } from '@/lib/styles/helper';
+import { LegendEditor } from './LegendEditor';
 import { cn } from '@/lib/utils';
 import {
     DropdownMenu,
@@ -31,14 +32,27 @@ export function Legend() {
     const {
         nodeColorMode, linkColorMode, minMax,
         nodeGradient, linkGradient,
-        classCount, setNodeColorMode, setLinkColorMode
+        classCount, setNodeColorMode, setLinkColorMode,
+        nodeClassification, linkClassification,
+        nodeCustomBreaks, linkCustomBreaks,
+        nodeReverse, linkReverse,
+        nodeLegendFramed, linkLegendFramed
     } = useStyleStore();
+
+    const [activeEditor, setActiveEditor] = useState<'node' | 'link' | null>(null);
+    const [editorPos, setEditorPos] = useState({ x: 100, y: 100 });
+
+    const handleEdit = (type: 'node' | 'link', e: React.MouseEvent) => {
+        setEditorPos({ x: e.clientX, y: e.clientY });
+        setActiveEditor(type);
+    };
 
     return (
         <div className="fixed inset-0 pointer-events-none z-20 font-sans">
             {/* Link Legend */}
             {linkColorMode !== 'none' && minMax[linkColorMode] && (
                 <EPANETLegendItem
+                    type="link"
                     title={linkColorMode}
                     icon={<Activity size={13} />}
                     range={minMax[linkColorMode]}
@@ -47,12 +61,18 @@ export function Legend() {
                     defaultPosition={{ bottom: 40, right: 64 }}
                     options={LINK_OPTIONS}
                     onOptionSelect={setLinkColorMode}
+                    onEdit={(e) => handleEdit('link', e)}
+                    classification={linkClassification}
+                    customBreaks={linkCustomBreaks}
+                    reverse={linkReverse}
+                    framed={linkLegendFramed}
                 />
             )}
 
             {/* Node Legend */}
             {nodeColorMode !== 'none' && minMax[nodeColorMode] && (
                 <EPANETLegendItem
+                    type="node"
                     title={nodeColorMode}
                     icon={<GitCommit size={13} />}
                     range={minMax[nodeColorMode]}
@@ -61,8 +81,21 @@ export function Legend() {
                     defaultPosition={{ bottom: 40, right: 240 }}
                     options={NODE_OPTIONS}
                     onOptionSelect={setNodeColorMode}
+                    onEdit={(e) => handleEdit('node', e)}
+                    classification={nodeClassification}
+                    customBreaks={nodeCustomBreaks}
+                    reverse={nodeReverse}
+                    framed={nodeLegendFramed}
                 />
             )}
+
+            <LegendEditor
+                isOpen={activeEditor !== null}
+                onClose={() => setActiveEditor(null)}
+                type={activeEditor || 'node'}
+                initialX={editorPos.x}
+                initialY={editorPos.y}
+            />
         </div>
     );
 }
@@ -70,6 +103,7 @@ export function Legend() {
 // --- SUB-COMPONENT ---
 
 interface LegendItemProps {
+    type: 'node' | 'link';
     title: string;
     icon: React.ReactNode;
     range: { min: number; max: number };
@@ -78,9 +112,17 @@ interface LegendItemProps {
     defaultPosition: { top?: number; left?: number; bottom?: number; right?: number };
     options: { value: string; label: string }[];
     onOptionSelect: (value: any) => void;
+    onEdit: (e: React.MouseEvent) => void;
+    classification: 'equal_interval' | 'quantile' | 'manual';
+    customBreaks: number[];
+    reverse: boolean;
+    framed: boolean;
 }
 
-function EPANETLegendItem({ title, icon, range, stops, classCount, defaultPosition, options, onOptionSelect }: LegendItemProps) {
+function EPANETLegendItem({
+    type, title, icon, range, stops, classCount, defaultPosition, options,
+    onOptionSelect, onEdit, classification, customBreaks, reverse, framed
+}: LegendItemProps) {
     // Position state
     const [position, setPosition] = useState<{ x: number | null, y: number | null }>({ x: null, y: null });
     const [isDragging, setIsDragging] = useState(false);
@@ -135,40 +177,65 @@ function EPANETLegendItem({ title, icon, range, stops, classCount, defaultPositi
             right: defaultPosition.right
         };
 
-    // Calculate Bins (Intervals)
-    const step = (range.max - range.min) / classCount;
+    const handleContextMenu = (e: React.MouseEvent) => {
+        e.preventDefault();
+        onEdit(e);
+    };
+
+    // Calculate Bins (Dynamic based on classification)
     const bins = [];
+    const hasCustomBreaks = customBreaks && customBreaks.length > 0;
 
-    // Generate ranges from Top (Max) to Bottom (Min)
-    for (let i = classCount - 1; i >= 0; i--) {
-        const lower = range.min + (i * step);
-        const upper = range.min + ((i + 1) * step);
+    if (hasCustomBreaks) {
+        // Ensure we have a valid thresholds list: [min, ...breaks, max]
+        const thresholds = [range.min, ...customBreaks, range.max].sort((a, b) => a - b);
 
-        // Get the color for the center of this bin
-        const centerVal = lower + (step / 2);
-        const binColor = getColor(centerVal, range.min, range.max, stops);
+        for (let i = thresholds.length - 1; i > 0; i--) {
+            const lower = thresholds[i - 1];
+            const upper = thresholds[i];
+            const centerVal = lower + (upper - lower) / 2;
+            const binColor = getColor(centerVal, range.min, range.max, stops, classification, customBreaks, reverse);
 
-        bins.push({
-            color: binColor,
-            label: `${lower.toFixed(1)} - ${upper.toFixed(1)}`,
-            min: lower,
-            max: upper
-        });
+            bins.push({
+                color: binColor,
+                label: `${lower.toFixed(2)} - ${upper.toFixed(2)}`,
+            });
+        }
+    } else {
+        // Equal Interval (Default)
+        const step = (range.max - range.min) / classCount;
+        for (let i = classCount - 1; i >= 0; i--) {
+            const lower = range.min + (i * step);
+            const upper = range.min + ((i + 1) * step);
+            const centerVal = lower + (step / 2);
+            const binColor = getColor(centerVal, range.min, range.max, stops, 'equal_interval', [], reverse);
+
+            bins.push({
+                color: binColor,
+                label: `${lower.toFixed(1)} - ${upper.toFixed(1)}`,
+            });
+        }
     }
 
     return (
         <div
             ref={itemRef}
             style={style}
+            onContextMenu={handleContextMenu}
             className={cn(
-                "pointer-events-auto bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-md border border-gray-300 dark:border-gray-700 shadow-xl overflow-hidden w-40 transition-shadow",
-                isDragging && "shadow-2xl opacity-90 cursor-grabbing z-50"
+                "pointer-events-auto transition-shadow rounded-sm duration-200",
+                framed
+                    ? "bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-gray-300 dark:border-gray-700 shadow-xl overflow-hidden"
+                    : "bg-transparent border-transparent shadow-none",
+                isDragging && "shadow-2xl opacity-90 cursor-grabbing z-50",
+                !framed && "hover:bg-white/5" // Subtle hint when hovering frameless
             )}
         >
             {/* Header */}
             <div
                 onMouseDown={handleMouseDown}
                 className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 transition-colors cursor-grab active:cursor-grabbing group/header"
+                title="Right-click to edit symbology"
             >
                 <div className="flex items-center gap-2 text-xs font-bold text-gray-700 dark:text-gray-200 capitalize">
                     <GripVertical size={12} className="text-gray-300 group-hover/header:text-gray-400 -ml-1 transition-colors" />

@@ -100,6 +100,17 @@ interface StyleState {
     highlightedFeatureIds: Set<string>;
     highlightColors: Map<string, string>;
 
+    nodeClassification: 'equal_interval' | 'quantile' | 'manual';
+    linkClassification: 'equal_interval' | 'quantile' | 'manual';
+
+    nodeCustomBreaks: number[];
+    linkCustomBreaks: number[];
+
+    nodeReverse: boolean;
+    linkReverse: boolean;
+    nodeLegendFramed: boolean;
+    linkLegendFramed: boolean;
+
     // --- Actions ---
     setNodeColorMode: (mode: NodeColorMode) => void;
     setLinkColorMode: (mode: LinkColorMode) => void;
@@ -112,6 +123,11 @@ interface StyleState {
     setNodeGradient: (stops: GradientStop[]) => void;
     setLinkGradient: (stops: GradientStop[]) => void;
     setGradientPreset: (type: 'node' | 'link', preset: keyof typeof PRESETS) => void;
+
+    setClassification: (type: 'node' | 'link', method: 'equal_interval' | 'quantile' | 'manual') => void;
+    setCustomBreaks: (type: 'node' | 'link', breaks: number[]) => void;
+    toggleReverse: (type: 'node' | 'link') => void;
+    setLegendFramed: (type: 'node' | 'link', framed: boolean) => void;
 
     setStyleType: (type: StyleType) => void;
     setClassCount: (count: number) => void;
@@ -130,6 +146,17 @@ export const useStyleStore = create<StyleState>((set, get) => ({
     // Defaults
     nodeColorMode: 'none',
     linkColorMode: 'none',
+
+    nodeClassification: 'equal_interval',
+    linkClassification: 'equal_interval',
+
+    nodeCustomBreaks: [],
+    linkCustomBreaks: [],
+
+    nodeReverse: false,
+    linkReverse: false,
+    nodeLegendFramed: true,
+    linkLegendFramed: true,
 
     labelSettings: {
         showId: true,
@@ -209,6 +236,22 @@ export const useStyleStore = create<StyleState>((set, get) => ({
     setLinkGradient: (stops) => set({ linkGradient: stops }),
     setGradientPreset: (type: 'node' | 'link', preset: keyof typeof PRESETS) => set(state => ({
         [type === 'node' ? 'nodeGradient' : 'linkGradient']: PRESETS[preset]
+    })),
+
+    setClassification: (type, method) => set((state) => ({
+        [type === 'node' ? 'nodeClassification' : 'linkClassification']: method
+    })),
+
+    setCustomBreaks: (type, breaks) => set((state) => ({
+        [type === 'node' ? 'nodeCustomBreaks' : 'linkCustomBreaks']: breaks
+    })),
+
+    toggleReverse: (type) => set((state) => ({
+        [type === 'node' ? 'nodeReverse' : 'linkReverse']: !state[type === 'node' ? 'nodeReverse' : 'linkReverse']
+    })),
+
+    setLegendFramed: (type, framed) => set((state) => ({
+        [type === 'node' ? 'nodeLegendFramed' : 'linkLegendFramed']: framed
     })),
 
     setStyleType: (type) => set({ styleType: type }),
