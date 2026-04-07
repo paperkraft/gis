@@ -30,6 +30,8 @@ export type MenuItem = {
     children?: MenuItem[];
     modalType?: WorkbenchModalType;
     panelType?: WorkbenchPanelType;
+    statusIndicator?: "pending" | "visited" | "none";
+    isMandatory?: boolean;
 };
 
 // 2. The Real Data
@@ -62,8 +64,8 @@ export const WORKBENCH_MENU: MenuItem[] = [
                 label: "Settings",
                 icon: Settings,
                 children: [
-                    { id: "set_proj", type: "ITEM", label: "Project Settings", modalType: "PROJECT_SETTINGS" },
-                    { id: "set_attr", type: "ITEM", label: "Default Attribute", modalType: "DEFAULT_ATTRIBUTES" },
+                    { id: "set_proj", type: "ITEM", label: "Project Settings", modalType: "PROJECT_SETTINGS", isMandatory: true },
+                    { id: "set_attr", type: "ITEM", label: "Default Attribute", modalType: "DEFAULT_ATTRIBUTES", isMandatory: true },
                     { id: "set_time", type: "ITEM", label: "Time Pattern" },
                     { id: "set_demand", type: "ITEM", label: "Demand Pattern" },
                     { id: "set_data", type: "ITEM", label: "Data Tables (Pipe / Valve)" },
@@ -75,7 +77,8 @@ export const WORKBENCH_MENU: MenuItem[] = [
                 type: "ITEM", 
                 label: "Terrain", 
                 icon: Map, 
-                modalType: "TERRAIN_OPTIONS" 
+                modalType: "TERRAIN_OPTIONS",
+                isMandatory: true
             },
             { id: "itm_valid", type: "ITEM", label: "Validate", icon: ActivityIcon, modalType: "VALIDATION" },
             { id: "itm_headworks", type: "ITEM", label: "Headworks", icon: Box },

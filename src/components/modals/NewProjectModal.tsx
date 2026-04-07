@@ -35,7 +35,7 @@ const DEFAULT_FORM_DATA = {
 
 export function NewProjectModal() {
   const router = useRouter();
-  const { activeModal, setActiveModal, refreshProjects } = useUIStore();
+  const { activeModal, setActiveModal, refreshProjects, initializeNewProjectMenuStatus } = useUIStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- STATE ---
@@ -391,6 +391,7 @@ export function NewProjectModal() {
         setCreatedProjectId(projectId);
         setLoading(false);
         refreshProjects();
+        initializeNewProjectMenuStatus();
       }
     } catch (error: any) {
       console.error(error);

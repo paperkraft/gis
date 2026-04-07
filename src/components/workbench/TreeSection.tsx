@@ -25,11 +25,13 @@ export default function TreeSection({
   }, [forceOpen]);
 
   const statusColor =
-    status === "ready"
-      ? "bg-green-500"
-      : status === "warning"
-      ? "bg-amber-400"
-      : "bg-slate-300";
+    status === "pending"
+      ? "bg-red-500 animate-pulse"
+      : status === "ready" || status === "visited"
+        ? "bg-green-500"
+        : status === "warning"
+          ? "bg-amber-400"
+          : "bg-slate-300";
 
   return (
     <div className="mb-1">
@@ -38,16 +40,15 @@ export default function TreeSection({
         className="w-full flex items-center px-2 py-1.5 hover:bg-slate-50 transition-colors group"
       >
         <span
-          className={`text-slate-400 mr-1 transition-transform duration-200 ${
-            isOpen ? "rotate-90" : ""
-          }`}
+          className={`text-slate-400 mr-1 transition-transform duration-200 ${isOpen ? "rotate-90" : ""
+            }`}
         >
           <ChevronRight size={10} />
         </span>
         <span className="text-[11px] font-bold uppercase text-slate-500 tracking-wider flex-1 text-left group-hover:text-slate-700">
           {title}
         </span>
-        <div className={`w-1.5 h-1.5 rounded-full ${statusColor}`} />
+        <div className={`size-1.5 rounded-full shrink-0 ${statusColor}`} />
       </button>
 
       {isOpen && (

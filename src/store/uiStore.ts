@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { layerType } from '@/constants/map';
 import { WorkbenchModalType } from '@/components/workbench/modal_registry';
 import { Feature } from 'ol';
+import { WORKBENCH_MENU, MenuItem } from '@/data/workbenchMenu';
 export type FlowAnimationStyle = 'dashes' | 'particles' | 'glow' | 'combined';
 
 export type ToolType =
@@ -63,6 +64,8 @@ interface DeleteContext {
     onCancel: () => void;
 }
 
+export type MenuStatus = 'pending' | 'visited' | 'none';
+
 interface UIState {
 
     // project refresh key
@@ -116,6 +119,11 @@ interface UIState {
     deleteContext: DeleteContext | null;
 
     activeStyleLayer: string | null;
+
+    // Menu Status tracking
+    menuStatus: Record<string, MenuStatus>;
+    setMenuStatus: (id: string, status: MenuStatus) => void;
+    initializeNewProjectMenuStatus: () => void;
 
 
     // project refresh utility
@@ -234,6 +242,7 @@ const DEFAULT_STATE = {
     deleteContext: null,
     activeStyleLayer: null,
 
+    menuStatus: {},
 };
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -250,6 +259,26 @@ export const useUIStore = create<UIState>((set, get) => ({
     setMergeContext: (context) => set({ mergeContext: context }),
     setDeleteContext: (context) => set({ deleteContext: context }),
     setActiveStyleLayer: (layer) => set({ activeStyleLayer: layer }),
+
+    setMenuStatus: (id, status) => set((state) => ({
+        menuStatus: { ...state.menuStatus, [id]: status }
+    })),
+
+    initializeNewProjectMenuStatus: () => {
+        const statuses: Record<string, MenuStatus> = {};
+        
+        const scan = (nodes: MenuItem[]) => {
+            nodes.forEach(node => {
+                if (node.isMandatory) {
+                    statuses[node.id] = 'pending';
+                }
+                if (node.children) scan(node.children);
+            });
+        };
+        
+        scan(WORKBENCH_MENU);
+        set({ menuStatus: statuses });
+    },
 
     // Modal actions
     setKeyboardShortcutsModalOpen: (open) => set({ keyboardShortcutsModalOpen: open }),

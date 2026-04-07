@@ -20,6 +20,8 @@ export function ProjectTreePanel() {
     toggleLayerVisibility,
     activeStyleLayer,
     setContextMenu,
+    menuStatus,
+    setMenuStatus,
   } = useUIStore();
 
   const { features } = useNetworkStore();
@@ -62,6 +64,27 @@ export function ProjectTreePanel() {
     [activeModal, activePanel, activeStyleLayer]
   );
 
+  // --- 2.5 STATUS HELPER ---
+  const getStatus = useCallback(
+    (node: MenuItem): "pending" | "visited" | "none" => {
+      // For ITEM, just look up the store
+      if (node.type === "ITEM") {
+        return menuStatus[node.id] || "none";
+      }
+      
+      // For GROUP, if any child is pending, the group is pending
+      if (node.children) {
+        const statuses = node.children.map(child => getStatus(child));
+        if (statuses.some(s => s === "pending")) return "pending";
+        // If all children that *had* statuses are now visited, return visited
+        if (statuses.some(s => s === "visited") && !statuses.includes("pending")) return "visited";
+      }
+      
+      return "none";
+    },
+    [menuStatus]
+  );
+
   // --- 3. FILTER LOGIC ---
   const filterTree = useCallback(
     (nodes: MenuItem[], term: string): MenuItem[] => {
@@ -101,6 +124,7 @@ export function ProjectTreePanel() {
             label={node.label}
             count={node.count}
             forceOpen={!!searchTerm || hasActiveChild(node)}
+            status={getStatus(node)}
           >
             {node.children && renderTreeNodes(node.children)}
           </TreeGroup>
@@ -129,6 +153,12 @@ export function ProjectTreePanel() {
             onClick={() => {
               if (node.modalType) setActiveModal(node.modalType);
               if (node.panelType) setActivePanel(node.panelType);
+              
+              // Mark as visited if it has a status
+              if (menuStatus[node.id]) {
+                setMenuStatus(node.id, "visited");
+              }
+
               if (!node.modalType && !node.panelType) {
                 setActiveModal("NONE");
                 setActivePanel("NONE");
@@ -155,6 +185,7 @@ export function ProjectTreePanel() {
                 }
                 : undefined
             }
+            status={getStatus(node)}
           />
         );
       }
@@ -196,7 +227,7 @@ export function ProjectTreePanel() {
             <TreeSection
               key={section.id}
               title={section.label}
-              status={section.status}
+              status={getStatus(section) !== "none" ? getStatus(section) : section.status}
               defaultOpen={section.defaultOpen}
               forceOpen={!!searchTerm || hasActiveChild(section)}
             >

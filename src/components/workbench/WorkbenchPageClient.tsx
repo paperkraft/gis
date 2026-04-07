@@ -46,11 +46,7 @@ export default function WorkbenchPageClient({ user }: WorkbenchPageClientProps) 
             router.replace("/");
             console.error("Project load returned false");
           } else {
-            // Trigger Default Values panel for blank projects
-            const features = useNetworkStore.getState().features;
-            if (features.size === 0) {
-              useUIStore.getState().setActiveModal("DEFAULT_ATTRIBUTES");
-            }
+            setLoading(false);
           }
         } catch (e) {
           console.error("Project load failed", e);

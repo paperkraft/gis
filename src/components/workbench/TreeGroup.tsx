@@ -6,6 +6,7 @@ interface TreeGroupProps {
   count?: number;
   children: ReactNode;
   forceOpen: boolean;
+  status?: "pending" | "visited" | "none";
 }
 
 export default function TreeGroup({
@@ -13,6 +14,7 @@ export default function TreeGroup({
   count,
   children,
   forceOpen = false,
+  status = "none",
 }: TreeGroupProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -30,11 +32,16 @@ export default function TreeGroup({
       >
         <ChevronRight
           size={12}
-          className={`mr-1.5 text-slate-400 transition-transform ${
-            isOpen ? "rotate-90" : ""
-          }`}
+          className={`mr-1.5 text-slate-400 transition-transform ${isOpen ? "rotate-90" : ""
+            }`}
         />
         <span className="text-xs truncate flex-1">{label}</span>
+        {status === "pending" && (
+          <div className="size-1.5 rounded-full shrink-0 bg-red-500 animate-pulse" />
+        )}
+        {status === "visited" && (
+          <div className="size-1.5 rounded-full shrink-0 bg-emerald-500" />
+        )}
         {count && (
           <span className="text-[9px] bg-slate-100 text-slate-400 px-1 rounded">
             {count}
