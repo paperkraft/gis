@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { ChevronDown, Activity, GitCommit, GripVertical } from 'lucide-react';
 import { useStyleStore, GradientStop, NodeColorMode, LinkColorMode } from '@/store/styleStore';
-import { getColor } from '@/lib/styles/helper';
+import { getColor, calculateLegendBins, getUnit } from '@/lib/styles/helper';
 import { LegendEditor } from './LegendEditor';
 import { cn } from '@/lib/utils';
 import {
@@ -182,48 +182,17 @@ function EPANETLegendItem({
         onEdit(e);
     };
 
-    // Calculate Bins (Dynamic based on classification)
-    const bins = [];
-    const hasCustomBreaks = customBreaks && customBreaks.length > 0;
-
-    if (hasCustomBreaks) {
-        // Ensure we have a valid thresholds list: [min, ...breaks, max]
-        const thresholds = [range.min, ...customBreaks, range.max].sort((a, b) => a - b);
-
-        for (let i = thresholds.length - 1; i > 0; i--) {
-            const lower = thresholds[i - 1];
-            const upper = thresholds[i];
-            const centerVal = lower + (upper - lower) / 2;
-            const binColor = getColor(centerVal, range.min, range.max, stops, classification, customBreaks, reverse);
-
-            bins.push({
-                color: binColor,
-                label: `${lower.toFixed(2)} - ${upper.toFixed(2)}`,
-            });
-        }
-    } else {
-        // Equal Interval (Default)
-        const step = (range.max - range.min) / classCount;
-        for (let i = classCount - 1; i >= 0; i--) {
-            const lower = range.min + (i * step);
-            const upper = range.min + ((i + 1) * step);
-            const centerVal = lower + (step / 2);
-            const binColor = getColor(centerVal, range.min, range.max, stops, 'equal_interval', [], reverse);
-
-            bins.push({
-                color: binColor,
-                label: `${lower.toFixed(1)} - ${upper.toFixed(1)}`,
-            });
-        }
-    }
+    // Calculate Bins using Shared Helper
+    const bins = calculateLegendBins(range, stops, classCount, classification, customBreaks, reverse);
 
     return (
         <div
             ref={itemRef}
+            id={`legend-${type}`}
             style={style}
             onContextMenu={handleContextMenu}
             className={cn(
-                "pointer-events-auto transition-shadow rounded-sm duration-200",
+                "pointer-events-auto rounded-sm",
                 framed
                     ? "bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-gray-300 dark:border-gray-700 shadow-xl overflow-hidden"
                     : "bg-transparent border-transparent shadow-none",
@@ -294,16 +263,4 @@ function EPANETLegendItem({
     );
 }
 
-// Helper to guess units based on attribute name
-function getUnit(attribute: string) {
-    const attr = attribute.toLowerCase();
-    if (attr.includes('pressure')) return 'm (Head)';
-    if (attr.includes('velocity')) return 'm/s';
-    if (attr.includes('flow')) return 'LPS';
-    if (attr.includes('diameter')) return 'mm';
-    if (attr.includes('head')) return 'm';
-    if (attr.includes('elevation')) return 'm';
-    if (attr.includes('headloss')) return 'm/km';
-    if (attr.includes('demand')) return 'LPS';
-    return '';
-}
+

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useStyleStore, PRESETS } from '@/store/styleStore';
 import { useSimulationStore } from '@/store/simulationStore';
-import { calculateQuantiles } from '@/lib/styles/helper';
+import { calculateQuantiles, getUnit } from '@/lib/styles/helper';
 import { cn } from '@/lib/utils';
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -44,7 +44,9 @@ export function LegendEditor({ isOpen, onClose, type, initialX = 100, initialY =
     toggleReverse,
     setLegendFramed,
     setNodeGradient,
-    setLinkGradient
+    setLinkGradient,
+    nodeClassification,
+    linkClassification,
   } = useStyleStore();
 
   const { results } = useSimulationStore();
@@ -55,6 +57,7 @@ export function LegendEditor({ isOpen, onClose, type, initialX = 100, initialY =
   const gradient = type === 'node' ? nodeGradient : linkGradient;
   const breaks = type === 'node' ? nodeCustomBreaks : linkCustomBreaks;
   const range = minMax[metric] || { min: 0, max: 100 };
+  const activeClassification = type === 'node' ? nodeClassification : linkClassification;
 
   // 1. Handle Reverse for Preview
   const displayGradient = useMemo(() => {
@@ -78,8 +81,8 @@ export function LegendEditor({ isOpen, onClose, type, initialX = 100, initialY =
   useEffect(() => {
     if (isOpen && !lastOpenState.current) {
       const initialBreaks = breaks.length > 0
-        ? breaks.map(b => b.toString())
-        : Array.from({ length: classCount - 1 }, (_, i) => (range.min + (i + 1) * ((range.max - range.min) / classCount)).toString());
+        ? breaks.map(b => (typeof b === 'number' ? b.toFixed(2) : b))
+        : Array.from({ length: classCount - 1 }, (_, i) => (range.min + (i + 1) * ((range.max - range.min) / classCount)).toFixed(2));
 
       setLocalBreaks(initialBreaks);
       setPosition({ x: initialX, y: initialY });
@@ -128,7 +131,7 @@ export function LegendEditor({ isOpen, onClose, type, initialX = 100, initialY =
   const handleEqualQuantiles = () => {
     setClassification(type, 'quantile');
     const newBreaks = calculateQuantiles(currentValues, classCount);
-    setLocalBreaks(newBreaks.map(b => b.toString()));
+    setLocalBreaks(newBreaks.map(b => b.toFixed(2)));
   };
 
   const handleOK = () => {
@@ -223,16 +226,32 @@ export function LegendEditor({ isOpen, onClose, type, initialX = 100, initialY =
 
         {/* Center Column: Method Buttons (Action Group) */}
         <div className="flex flex-col gap-1.5 w-26 justify-center">
-          <Button variant="outline" size="sm" onClick={handleEqualIntervals} className="h-7 px-2 text-[9px] font-semibold border-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800">
+          <Button
+            variant={'outline'}
+            size="sm"
+            onClick={handleEqualIntervals}
+            className={cn(
+              "h-7 text-[9px] font-semibold rounded-sm",
+              activeClassification === 'equal_interval' ? "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20" : ""
+            )}
+          >
             Equal Intervals
           </Button>
-          <Button variant="outline" size="sm" onClick={handleEqualQuantiles} className="h-7 px-2 text-[9px] font-semibold border-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800">
+          <Button
+            variant={'outline'}
+            size="sm"
+            onClick={handleEqualQuantiles}
+            className={cn(
+              "h-7 text-[9px] font-semibold rounded-sm",
+              activeClassification === 'quantile' ? "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20" : ""
+            )}
+          >
             Equal Quantiles
           </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-7 px-2 text-[9px] font-semibold border-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 gap-1">
+              <Button variant="outline" size="sm" className="h-7 px-2 text-[9px] font-semibold rounded-sm gap-1">
                 <Palette size={10} className="text-slate-400" />
                 Color Ramp
               </Button>
@@ -255,15 +274,15 @@ export function LegendEditor({ isOpen, onClose, type, initialX = 100, initialY =
           </DropdownMenu>
 
           <Button
-            variant={reverse ? "default" : "outline"}
+            variant={'outline'}
             size="sm"
             onClick={() => toggleReverse(type)}
             className={cn(
-              "h-7 px-2 text-[9px] font-semibold gap-1.5 transition-all text-left justify-start",
-              reverse ? "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20" : "border-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+              "h-7 px-2 text-[9px] font-semibold rounded-sm gap-1.5 transition-all text-left justify-start",
+              reverse ? "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20" : ""
             )}
           >
-            <ArrowUpDown size={10} className={cn(reverse ? "text-primary" : "text-slate-400")} />
+            <ArrowUpDown className={cn(reverse ? "text-primary" : "text-slate-400")} />
             {reverse ? "Reversed" : "Standard"}
           </Button>
         </div>
@@ -273,10 +292,10 @@ export function LegendEditor({ isOpen, onClose, type, initialX = 100, initialY =
 
         {/* Right Column: OK / Cancel */}
         <div className="flex flex-col gap-1.5 w-18">
-          <Button onClick={handleOK} variant="default" size="sm" className="h-[26px] font-bold tracking-wide shadow-md shadow-primary/20 text-[10px]">
+          <Button onClick={handleOK} variant="default" size="sm" className="h-7 font-bold tracking-wide text-[10px]">
             OK
           </Button>
-          <Button onClick={onClose} variant="secondary" size="sm" className="h-[26px] font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-[10px]">
+          <Button onClick={onClose} variant="outline" size="sm" className="h-7 font-semibold text-[10px]">
             Cancel
           </Button>
 
@@ -301,16 +320,4 @@ export function LegendEditor({ isOpen, onClose, type, initialX = 100, initialY =
   );
 }
 
-// Unit helper
-function getUnit(attribute: string) {
-  const attr = attribute?.toLowerCase() || '';
-  if (attr.includes('pressure')) return 'm (Head)';
-  if (attr.includes('velocity')) return 'm/s';
-  if (attr.includes('flow')) return 'LPS';
-  if (attr.includes('diameter')) return 'mm';
-  if (attr.includes('head')) return 'm';
-  if (attr.includes('elevation')) return 'm';
-  if (attr.includes('headloss')) return 'm/km';
-  if (attr.includes('demand')) return 'LPS';
-  return '';
-}
+

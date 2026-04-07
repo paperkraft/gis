@@ -1,6 +1,7 @@
 import { Map } from 'ol';
 import { fromLonLat } from 'ol/proj';
 import { useNetworkStore } from '@/store/networkStore';
+import { LegendBin } from '@/lib/styles/helper';
 
 export const handleZoomIn = (map: Map | null) => {
     if (!map) return;
@@ -110,6 +111,15 @@ export const handleRotateRight = (map: Map | null) => {
     map.getView().animate({ rotation: current + Math.PI / 36, duration: 250 });
 };
 
+export interface LegendData {
+    title: string;
+    unit: string;
+    bins: LegendBin[];
+    x?: number; // Relative X percentage (0-100)
+    y?: number; // Relative Y percentage (0-100)
+    framed?: boolean;
+}
+
 export interface PrintOptions {
     pageSize?: 'A4' | 'A3' | 'Letter' | 'Legal';
     orientation?: 'landscape' | 'portrait';
@@ -121,7 +131,8 @@ export interface PrintOptions {
     logoUrl?: string;
     drawnBy?: string;
     checkedBy?: string;
-    networkExtent?: number[]; // [minX, minY, maxX, maxY] <-- Add this
+    networkExtent?: number[]; // [minX, minY, maxX, maxY]
+    legends?: LegendData[];
 }
 
 export const handlePrint = (map: Map | null, options: PrintOptions = {}) => {
@@ -138,7 +149,8 @@ export const handlePrint = (map: Map | null, options: PrintOptions = {}) => {
         drawnBy = 'SYS',
         checkedBy = '-',
         networkExtent,
-        logoUrl
+        logoUrl,
+        legends = []
     } = options;
 
     const isPortrait = orientation === 'portrait';
@@ -362,7 +374,7 @@ export const handlePrint = (map: Map | null, options: PrintOptions = {}) => {
                             width: 100%;
                             box-sizing: border-box;
                             display: grid;
-                            grid-template-columns: ${logoUrl ? '2fr 1.5fr 1.8fr 90px' : '2fr 1.5fr 1.5fr'};
+                            grid-template-columns: 3.5fr 200px 160px 200px 120px;
                             border-top: 2px solid #000;
                             background: white;
                             flex-shrink: 0;
@@ -388,6 +400,7 @@ export const handlePrint = (map: Map | null, options: PrintOptions = {}) => {
                             justify-content: center;
                             padding: 6px;
                             background: #fff;
+                            border-right: 1.5px solid #000;
                         }
                         
                         .logo-img {
@@ -435,26 +448,109 @@ export const handlePrint = (map: Map | null, options: PrintOptions = {}) => {
                             letter-spacing: 0.05em;
                         }
 
-                        .meta-grid {
-                            display: grid;
-                            grid-template-columns: 1fr 1fr;
-                            grid-template-rows: 1fr 1fr;
-                            padding: 0;
-                        }
-                        .meta-cell {
-                            padding: 4px 8px;
-                            display: flex;
-                            flex-direction: column;
-                            justify-content: center;
-                        }
                         .meta-value {
                             font-size: 11px;
+                        }
+
+                        /* Standard Metadata Cells */
+                        .meta-group {
+                            display: grid;
+                            grid-template-rows: repeat(3, 1fr);
+                            border-right: 1.5px solid #000;
+                        }
+                        .meta-item {
+                            display: flex;
+                            align-items: center;
+                            padding: 0 8px;
+                            border-bottom: 1px solid #eee;
+                            gap: 6px;
+                        }
+                        .meta-item:last-child {
+                            border-bottom: none;
+                        }
+                        .meta-label {
+                            font-size: 7px;
+                            font-weight: 800;
+                            color: #64748b;
+                            text-transform: uppercase;
+                            width: 50px;
+                            flex-shrink: 0;
+                        }
+                        .meta-content {
+                            font-size: 10px;
+                            font-weight: 700;
+                            color: #000;
+                            text-transform: uppercase;
+                        }
+
+                        .branding-title {
+                            font-size: 16px;
+                            font-weight: 900;
+                            color: #000;
+                            letter-spacing: 0.1em;
+                            line-height: 1;
+                        }
+                        .branding-subtitle {
+                            font-size: 8px;
+                            font-weight: 700;
+                            color: #64748b;
+                            text-transform: uppercase;
+                            letter-spacing: 0.05em;
+                            margin-top: 2px;
+                        }
+
+                        /* Legend Styles */
+                        .print-legend {
+                            position: absolute;
+                            padding: 6px;
+                            min-width: 100px;
+                            z-index: 50;
+                            font-family: monospace;
+                        }
+                        .print-legend.framed {
+                            background: rgba(255, 255, 255, 0.95);
+                            border: 1px solid #000;
+                            box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+                        }
+                        .legend-title {
+                            font-size: 9px;
+                            font-weight: bold;
+                            text-transform: uppercase;
+                            border-bottom: 1px solid #eee;
+                            margin-bottom: 4px;
+                            padding-bottom: 2px;
+                        }
+                        .legend-title.framed {
+                            border-bottom: 1px solid #000;
+                        }
+                        .legend-item {
+                            display: flex;
+                            align-items: center;
+                            gap: 6px;
+                            margin-bottom: 2px;
+                        }
+                        .legend-color {
+                            width: 12px;
+                            height: 12px;
+                            border: 0.5px solid rgba(0,0,0,0.2);
+                        }
+                        .legend-label {
+                            font-size: 10px;
+                            color: #333;
+                        }
+                        .legend-unit {
+                            font-size: 7px;
+                            color: #666;
+                            text-align: center;
+                            margin-top: 4px;
+                            border-top: 0.5px solid #eee;
+                            padding-top: 2px;
                         }
                     </style>
                 </head>
                 <body>
                     <div class="cad-frame">
-                        <div class="map-viewport">
+                        <div class="map-viewport" id="map-viewport">
                             <img src="${dataUrl}" class="map-image" />
                             
                             ${showNorthArrow ? `
@@ -465,46 +561,74 @@ export const handlePrint = (map: Map | null, options: PrintOptions = {}) => {
                                 </svg>
                             </div>
                             ` : ''}
+
+                            ${legends.map(lgd => `
+                                <div class="print-legend ${lgd.framed ? 'framed' : ''}" style="left: ${lgd.x ?? 80}%; top: ${lgd.y ?? 70}%;">
+                                    <div class="legend-title ${lgd.framed ? 'framed' : ''}">${lgd.title}</div>
+                                    ${lgd.bins.map(bin => `
+                                        <div class="legend-item">
+                                            <div class="legend-color" style="background-color: ${bin.color}"></div>
+                                            <div class="legend-label">${bin.label}</div>
+                                        </div>
+                                    `).join('')}
+                                    <div class="legend-unit">VALUES IN ${lgd.unit}</div>
+                                </div>
+                            `).join('')}
                         </div>
 
                         ${showTitle ? `
                         <div class="title-block">
+                            <!-- Section 1: Project Details -->
                             <div class="tb-section">
-                                <span class="tb-label">Project Title</span>
-                                <h1 class="tb-value">${projectTitle}</h1>
-                                ${showDescription ? `<div class="tb-desc">${projectDescription}</div>` : ''}
+                                <span class="tb-label">Project Details</span>
+                                <h1 class="tb-value" style="font-size: 16px; margin: 2px 0; color: #000;">${projectTitle}</h1>
+                                ${showDescription ? `<div class="tb-desc" style="font-size: 9px; opacity: 0.8;">${projectDescription}</div>` : ''}
                             </div>
                             
-                            <div class="tb-section">
-                                <span class="tb-label">Application</span>
-                                <div class="branding-title">SIGMA TOOLBOX</div>
-                                <div class="tb-desc">Water Network GIS Application</div>
+                            <!-- Section 2: Merged Branding -->
+                            <div class="tb-section" style="align-items: center; justify-content: center; text-align: center; background: #fafafa;">
+                                ${logoUrl ? `<img src="${logoUrl}" style="max-height: 28px; margin-bottom: 4px; object-fit: contain;" alt="Logo" />` : ''}
+                                <div class="branding-subtitle" style="font-size: 7px; margin-bottom: 1px;">BY</div>
+                                <div class="branding-title" style="font-size: 12px; line-height: 1.1;">SIGMA INFRAPLAN</div>
+                                <div class="branding-subtitle" style="font-size: 7px;">ENGINEERING PVT. LTD.</div>
                             </div>
 
-                            <div class="tb-section meta-grid" ${logoUrl ? '' : 'style="border-right: none;"'}>
-                                <div class="meta-cell" style="border-right: 1.5px solid #000; border-bottom: 1.5px solid #000;">
-                                    <span class="tb-label">Date</span>
-                                    <div class="tb-value meta-value">${dateString}</div>
+                            <!-- Section 3: Control Info -->
+                            <div class="meta-group">
+                                <div class="meta-item">
+                                    <span class="meta-label">Date</span>
+                                    <span class="meta-content">${dateString}</span>
                                 </div>
-                                <div class="meta-cell" style="border-bottom: 1.5px solid #000;">
-                                    <span class="tb-label">Drawn By</span>
-                                    <div class="tb-value meta-value">${drawnBy}</div>
+                                <div class="meta-item">
+                                    <span class="meta-label">Scale</span>
+                                    <span class="meta-content">N.T.S.</span>
                                 </div>
-                                <div class="meta-cell" style="border-right: 1.5px solid #000;">
-                                    <span class="tb-label">Scale</span>
-                                    <div class="tb-value meta-value">N.T.S.</div>
-                                </div>
-                                <div class="meta-cell">
-                                    <span class="tb-label">Checked By</span>
-                                    <div class="tb-value meta-value">${checkedBy}</div>
+                                <div class="meta-item">
+                                    <span class="meta-label">Revision</span>
+                                    <span class="meta-content">001</span>
                                 </div>
                             </div>
 
-                            ${logoUrl ? `
-                            <div class="tb-logo-section">
-                                <img src="${logoUrl}" class="logo-img" alt="Company Logo" />
+                            <!-- Section 4: Personnel -->
+                            <div class="meta-group">
+                                <div class="meta-item">
+                                    <span class="meta-label">Drawn</span>
+                                    <span class="meta-content">${drawnBy}</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">Checked</span>
+                                    <span class="meta-content">${checkedBy}</span>
+                                </div>
+                                <div class="meta-item">
+                                    <span class="meta-label">Approved</span>
+                                    <span class="meta-content">-</span>
+                                </div>
                             </div>
-                            ` : ''}
+
+                            <!-- Section 5: Client/Seal -->
+                            <div class="tb-section" style="border-right: none; align-items: center; justify-content: center; background: #fff;">
+                                <span class="tb-label" style="opacity: 0.4;">CLIENT SEAL / LOGO</span>
+                            </div>
                         </div>
                         ` : ''}
                     </div>

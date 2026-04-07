@@ -3,10 +3,12 @@
 import { Printer, Compass, Type } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { handlePrint, PrintOptions } from "@/lib/interactions/map-controls";
+import { handlePrint, PrintOptions, LegendData } from "@/lib/interactions/map-controls";
 import { useMapStore } from "@/store/mapStore";
 import { useNetworkStore } from "@/store/networkStore";
 import { useUIStore } from "@/store/uiStore";
+import { useStyleStore } from "@/store/styleStore";
+import { calculateLegendBins, getUnit } from "@/lib/styles/helper";
 import { FloatingPanel } from "./FloatingPanel";
 import { FormGroup } from "../form-controls/FormGroup";
 import { FormSelect } from "../form-controls/FormSelect";
@@ -59,8 +61,60 @@ export function PrintPanel() {
       });
     }
 
-    // 2. Execute Print
-    handlePrint(map, { ...options, networkExtent: extent });
+    // 2. Legend Data
+    const { 
+      nodeColorMode, linkColorMode, minMax,
+      nodeGradient, linkGradient, classCount,
+      nodeClassification, linkClassification,
+      nodeCustomBreaks, linkCustomBreaks,
+      nodeReverse, linkReverse,
+      nodeLegendFramed, linkLegendFramed
+    } = useStyleStore.getState();
+
+    const legends: LegendData[] = [];
+    const mapEl = document.getElementById('map-viewport-container');
+    const mapRect = mapEl?.getBoundingClientRect();
+
+    // Node Legend
+    if (nodeColorMode !== 'none') {
+      const el = document.getElementById('legend-node');
+      const rect = el?.getBoundingClientRect();
+      let x = 80, y = 70; // Default fallback
+      if (rect && mapRect) {
+        x = ((rect.left - mapRect.left) / mapRect.width) * 100;
+        y = ((rect.top - mapRect.top) / mapRect.height) * 100;
+      }
+
+      legends.push({
+        title: nodeColorMode,
+        unit: getUnit(nodeColorMode),
+        bins: calculateLegendBins(minMax[nodeColorMode], nodeGradient, classCount, nodeClassification, nodeCustomBreaks, nodeReverse),
+        x, y,
+        framed: nodeLegendFramed
+      });
+    }
+
+    // Link Legend
+    if (linkColorMode !== 'none') {
+      const el = document.getElementById('legend-link');
+      const rect = el?.getBoundingClientRect();
+      let x = 70, y = 70; // Default fallback
+      if (rect && mapRect) {
+        x = ((rect.left - mapRect.left) / mapRect.width) * 100;
+        y = ((rect.top - mapRect.top) / mapRect.height) * 100;
+      }
+
+      legends.push({
+        title: linkColorMode,
+        unit: getUnit(linkColorMode),
+        bins: calculateLegendBins(minMax[linkColorMode], linkGradient, classCount, linkClassification, linkCustomBreaks, linkReverse),
+        x, y,
+        framed: linkLegendFramed
+      });
+    }
+
+    // 3. Execute Print
+    handlePrint(map, { ...options, networkExtent: extent, legends });
     handleClose();
   };
 

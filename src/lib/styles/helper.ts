@@ -92,6 +92,69 @@ export function calculateQuantiles(data: number[], count: number): number[] {
     return breaks.map((b) => parseFloat(b.toFixed(2)));
 }
 
+export interface LegendBin {
+    color: string;
+    label: string;
+}
+
+export function calculateLegendBins(
+    range: { min: number; max: number },
+    stops: GradientStop[],
+    classCount: number,
+    classification: 'equal_interval' | 'quantile' | 'manual',
+    customBreaks: number[],
+    reverse: boolean
+): LegendBin[] {
+    const bins: LegendBin[] = [];
+    const hasCustomBreaks = customBreaks && customBreaks.length > 0 && (classification === 'manual' || classification === 'quantile');
+
+    if (hasCustomBreaks) {
+        // Ensure we have a valid thresholds list: [min, ...breaks, max]
+        const thresholds = [range.min, ...customBreaks, range.max].sort((a, b) => a - b);
+
+        for (let i = thresholds.length - 1; i > 0; i--) {
+            const lower = thresholds[i - 1];
+            const upper = thresholds[i];
+            const centerVal = lower + (upper - lower) / 2;
+            const binColor = getColor(centerVal, range.min, range.max, stops, classification, customBreaks, reverse);
+
+            bins.push({
+                color: binColor,
+                label: `${upper.toFixed(2)}`,
+            });
+        }
+    } else {
+        // Equal Interval (Default)
+        const step = (range.max - range.min) / classCount;
+        for (let i = classCount - 1; i >= 0; i--) {
+            const lower = range.min + (i * step);
+            const upper = range.min + ((i + 1) * step);
+            const centerVal = lower + (step / 2);
+            const binColor = getColor(centerVal, range.min, range.max, stops, 'equal_interval', [], reverse);
+
+            bins.push({
+                color: binColor,
+                label: `${upper.toFixed(2)}`,
+            });
+        }
+    }
+    return bins;
+}
+
+// Unit helper
+export function getUnit(attribute: string) {
+    const attr = attribute?.toLowerCase() || '';
+    if (attr.includes('pressure')) return 'm (Head)';
+    if (attr.includes('velocity')) return 'm/s';
+    if (attr.includes('flow')) return 'LPS';
+    if (attr.includes('diameter')) return 'mm';
+    if (attr.includes('head')) return 'm';
+    if (attr.includes('elevation')) return 'm';
+    if (attr.includes('headloss')) return 'm/km';
+    if (attr.includes('demand')) return 'LPS';
+    return '';
+}
+
 export function getColor(
     value: number, 
     min: number, 
