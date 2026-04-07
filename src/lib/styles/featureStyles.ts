@@ -7,7 +7,7 @@ import { FeatureType } from '@/types/network';
 import { createSegmentArrows } from './pipeArrowStyles';
 import { useMapStore } from '@/store/mapStore';
 import { useUIStore } from '@/store/uiStore';
-import { getColor, hexToRgba } from './helper';
+import { getColor, hexToRgba, getUnit } from './helper';
 
 export const getFeatureStyle = (feature: Feature, resolution?: number): Style | Style[] => {
     const featureType = feature.get("type") as FeatureType;
@@ -156,36 +156,18 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
                 else if (propKey === 'power') displayVal = `${val} kW`;
                 else if (propKey === 'roughness') displayVal = `${val} (C)`;
 
-                // Short forms mapping
-                const shortForms: Record<string, string> = {
-                    elevation: 'ele.',
-                    diameter: 'dia.',
-                    pressure: 'pres.',
-                    capacity: 'cap.',
-                    demand: 'dem.',
-                    population: 'pop.',
-                    roughness: 'rou.',
-                    efficiency: 'eff.',
-                    currentLevel: 'lvl.',
-                    power: 'pow.',
-                    head: 'head',
-                    headGain: 'gain',
-                    setting: 'set.',
-                    valveType: 'type'
-                };
-                
                 if (propKey === 'label') {
                     labels.push(String(displayVal));
                 } else {
-                    const labelHead = shortForms[propKey] || propKey;
-                    labels.push(`${labelHead}: ${displayVal}`);
+                    labels.push(`${displayVal}`);
                 }
             }
         });
     }
 
     if (labelSettings.showSim && value !== null) {
-        labels.push(`Sim: ${value.toFixed(2)}`);
+        const unit = getUnit(currentMode);
+        labels.push(`${value.toFixed(2)}${unit ? ' ' + unit : ''}`);
     }
 
     const labelText = labels.join('\n');
