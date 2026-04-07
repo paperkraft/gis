@@ -32,7 +32,7 @@ export interface LayerStyle {
 
 const DEFAULT_LAYER_STYLES: Record<string, LayerStyle> = {
     pipe: { color: '#3b82f6', width: 2, opacity: 1, visible: true, autoScale: true },
-    junction: { color: '#10b981', radius: 5, strokeWidth: 1, opacity: 1, visible: true },
+    junction: { color: '#10b981', radius: 5, strokeWidth: 1, opacity: 1, visible: true, autoScale: true },
     reservoir: { color: '#8b5cf6', radius: 8, strokeWidth: 2, opacity: 1, visible: true },
     tank: { color: '#0066cc', radius: 8, strokeWidth: 2, opacity: 1, visible: true },
     valve: { color: '#f97316', width: 4, opacity: 1, visible: true },

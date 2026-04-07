@@ -11,8 +11,10 @@ import {
   Check,
   Plus,
   Minus,
-  ChevronDown
+  ChevronDown,
+  Maximize2
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +23,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useUIStore } from "@/store/uiStore";
 import { useStyleStore, PRESETS, LabelSettings } from "@/store/styleStore";
@@ -52,7 +61,9 @@ export function DisplayPanel() {
     setLabelSetting,
     selectedProps,
     togglePropSelection,
-    setGradientPreset
+    setGradientPreset,
+    layerStyles,
+    updateStyle
   } = useStyleStore();
 
 
@@ -190,36 +201,94 @@ export function DisplayPanel() {
           </div>
         )}
 
+        <Section title="Sizing & Scale">
+           <div className="space-y-3">
+            {/* Pipe Scaling */}
+            <div className="space-y-2 p-2 bg-slate-50 dark:bg-slate-900/50 rounded-md border border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                   <Maximize2 size={12} className="text-slate-400" />
+                   <span className="text-[10px] font-bold uppercase text-slate-500">Pipe Scaling</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-medium text-slate-400">Auto</span>
+                  <Switch 
+                    checked={layerStyles.pipe?.autoScale ?? true}
+                    onCheckedChange={(val) => updateStyle('pipe', { autoScale: val })}
+                  />
+                </div>
+              </div>
+              
+              {!(layerStyles.pipe?.autoScale ?? true) && (
+                <div className="space-y-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex justify-between text-[9px] text-slate-400">
+                    <span>Custom Width</span>
+                    <span className="font-bold text-primary">{layerStyles.pipe?.width || 2}px</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="1" 
+                    max="20" 
+                    step="0.5"
+                    value={layerStyles.pipe?.width || 2}
+                    onChange={(e) => updateStyle('pipe', { width: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Junction Scaling */}
+            <div className="space-y-2 p-2 bg-slate-50 dark:bg-slate-900/50 rounded-md border border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                   <Maximize2 size={12} className="text-slate-400" />
+                   <span className="text-[10px] font-bold uppercase text-slate-500">Junction Scaling</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-medium text-slate-400">Auto</span>
+                  <Switch 
+                    checked={layerStyles.junction?.autoScale ?? true}
+                    onCheckedChange={(val) => updateStyle('junction', { autoScale: val })}
+                  />
+                </div>
+              </div>
+              
+              {!(layerStyles.junction?.autoScale ?? true) && (
+                <div className="space-y-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex justify-between text-[9px] text-slate-400">
+                    <span>Custom Size</span>
+                    <span className="font-bold text-primary">{layerStyles.junction?.radius || 5}px</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="2" 
+                    max="24" 
+                    step="1"
+                    value={layerStyles.junction?.radius || 5}
+                    onChange={(e) => updateStyle('junction', { radius: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </Section>
 
         {/* 3. Node Symbology */}
         <Section title="Node Symbology (Colors)">
-          <div className="flex flex-wrap gap-2">
-            <SymbologyBadge
-              label="Default"
-              active={nodeColorMode === "none"}
-              onClick={() => setNodeColorMode("none")}
-            />
-            <SymbologyBadge
-              label="Pressure"
-              active={nodeColorMode === "pressure"}
-              onClick={() => setNodeColorMode("pressure")}
-            />
-            <SymbologyBadge
-              label="Head"
-              active={nodeColorMode === "head"}
-              onClick={() => setNodeColorMode("head")}
-            />
-            <SymbologyBadge
-              label="Demand"
-              active={nodeColorMode === "demand"}
-              onClick={() => setNodeColorMode("demand")}
-            />
-            <SymbologyBadge
-              label="Elevation"
-              active={nodeColorMode === "elevation"}
-              onClick={() => setNodeColorMode("elevation")}
-            />
-          </div>
+          <Select value={nodeColorMode} onValueChange={(val: any) => setNodeColorMode(val)}>
+            <SelectTrigger className="w-full h-8 text-xs">
+              <SelectValue placeholder="Select mode" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Default</SelectItem>
+              <SelectItem value="pressure">Pressure</SelectItem>
+              <SelectItem value="head">Head</SelectItem>
+              <SelectItem value="demand">Demand</SelectItem>
+              <SelectItem value="elevation">Elevation</SelectItem>
+            </SelectContent>
+          </Select>
           
           {nodeColorMode !== 'none' && (
             <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
@@ -233,38 +302,19 @@ export function DisplayPanel() {
 
         {/* 4. Link Symbology */}
         <Section title="Link Symbology (Colors)">
-          <div className="flex flex-wrap gap-2">
-            <SymbologyBadge
-              label="Default"
-              active={linkColorMode === "none"}
-              onClick={() => setLinkColorMode("none")}
-            />
-            <SymbologyBadge
-              label="Velocity"
-              active={linkColorMode === "velocity"}
-              onClick={() => setLinkColorMode("velocity")}
-            />
-            <SymbologyBadge
-              label="Flow"
-              active={linkColorMode === "flow"}
-              onClick={() => setLinkColorMode("flow")}
-            />
-            <SymbologyBadge
-              label="Headloss"
-              active={linkColorMode === "headloss"}
-              onClick={() => setLinkColorMode("headloss")}
-            />
-            <SymbologyBadge
-              label="Diameter"
-              active={linkColorMode === "diameter"}
-              onClick={() => setLinkColorMode("diameter")}
-            />
-            <SymbologyBadge
-              label="Roughness"
-              active={linkColorMode === "roughness"}
-              onClick={() => setLinkColorMode("roughness")}
-            />
-          </div>
+          <Select value={linkColorMode} onValueChange={(val: any) => setLinkColorMode(val)}>
+            <SelectTrigger className="w-full h-8 text-xs">
+              <SelectValue placeholder="Select mode" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Default</SelectItem>
+              <SelectItem value="velocity">Velocity</SelectItem>
+              <SelectItem value="flow">Flow</SelectItem>
+              <SelectItem value="headloss">Headloss</SelectItem>
+              <SelectItem value="diameter">Diameter</SelectItem>
+              <SelectItem value="roughness">Roughness</SelectItem>
+            </SelectContent>
+          </Select>
 
           {linkColorMode !== 'none' && (
             <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">

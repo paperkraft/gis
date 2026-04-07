@@ -88,6 +88,12 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
     else if (['junction', 'tank', 'reservoir'].includes(featureType)) {
         currentMode = nodeColorMode;
         activeGradient = nodeGradient;
+
+        // Auto Scale Logic for Junctions
+        if (featureType === 'junction' && isAutoScale) {
+             pointRadius = 5; // Fixed standard size for "auto" junctions
+        }
+
         if (currentMode === 'elevation') {
             value = feature.get('elevation');
             range = { min: 0, max: 100 };
