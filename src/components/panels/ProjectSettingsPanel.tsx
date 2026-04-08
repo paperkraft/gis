@@ -1,11 +1,14 @@
 "use client";
 
 import { Save } from "lucide-react";
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { flowUnitOptions, headLossUnitOptions } from "@/constants/project";
+import { ProjectService } from "@/lib/services/ProjectService";
 import { useNetworkStore } from "@/store/networkStore";
+import { useUIStore } from "@/store/uiStore";
 
 import { FormGroup } from "../form-controls/FormGroup";
 import { FormInput } from "../form-controls/FormInput";
@@ -14,7 +17,9 @@ import { FormProjectionSelect } from "../form-controls/FormProjectionSelect";
 import { toast } from "sonner";
 
 export function ProjectSettingsPanel() {
+  const params = useParams();
   const { settings, updateSettings, patterns } = useNetworkStore();
+  const { setMenuStatus } = useUIStore();
 
   const [formData, setFormData] = useState(settings);
   const [hasChanges, setHasChanges] = useState(false);
@@ -39,8 +44,30 @@ export function ProjectSettingsPanel() {
   };
 
   const handleSave = () => {
-    updateSettings(formData);
+    // 1. Update mandatory status in project settings
+    const updatedStatuses = { 
+      ...(settings.mandatorySetupStatuses || {}), 
+      "set_proj": "visited" as const 
+    };
+    
+    // 2. Persist to network store
+    updateSettings({ 
+      ...formData, 
+      mandatorySetupStatuses: updatedStatuses 
+    });
+
     setHasChanges(false);
+    
+    // 3. UI Status Sync
+    setMenuStatus("set_proj", "visited");
+
+    // 4. Auto-Save to Backend
+    setTimeout(() => {
+        if (params?.id) {
+            ProjectService.saveCurrentProject(params.id as string);
+        }
+    }, 100);
+
     toast.success("Project settings updated");
   };
 

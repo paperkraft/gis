@@ -14,6 +14,7 @@ import { AutoProjection } from '@/lib/gis/locationToZone';
 import { ProjectService } from '@/lib/services/ProjectService';
 import { analyzeInpCoordinates } from '@/lib/epanet/inpParser';
 import { useUIStore } from '@/store/uiStore';
+import { getInitialMandatoryStatuses } from '@/data/workbenchMenu';
 import { FlowUnits } from '@/types/network';
 
 // Import Sub-components
@@ -296,6 +297,9 @@ export function NewProjectModal() {
         formDataPayload.append("fileType", fileType);
         formDataPayload.append("settings", JSON.stringify(settings));
         if (selectedEPSG) formDataPayload.append("projection", selectedEPSG.toString());
+        
+        const initialStatuses = getInitialMandatoryStatuses();
+        formDataPayload.append("mandatorySetupStatuses", JSON.stringify(initialStatuses));
 
         // Send to server for PostGIS
         const response = await fetch('/api/gis/import', {
@@ -333,6 +337,9 @@ export function NewProjectModal() {
         };
         formDataPayload.append("settings", JSON.stringify(settings));
         if (selectedEPSG) formDataPayload.append("projection", selectedEPSG.toString());
+
+        const initialStatuses = getInitialMandatoryStatuses();
+        formDataPayload.append("mandatorySetupStatuses", JSON.stringify(initialStatuses));
 
         for (const [key, file] of Object.entries(layers)) {
           if (file) {
@@ -391,7 +398,7 @@ export function NewProjectModal() {
         setCreatedProjectId(projectId);
         setLoading(false);
         refreshProjects();
-        initializeNewProjectMenuStatus();
+        initializeNewProjectMenuStatus(projectId);
       }
     } catch (error: any) {
       console.error(error);

@@ -99,6 +99,7 @@ export interface ProjectSettings {
     statistic?: 'NONE' | 'AVERAGE' | 'MINIMUM' | 'MAXIMUM' | 'RANGE';
     isGeographic?: boolean;
     selectedTerrainOption?: string;
+    mandatorySetupStatuses?: Record<string, 'pending' | 'visited'>;
     componentDefaults?: Record<string, Record<string, any>>;
 }
 export interface TimePattern {

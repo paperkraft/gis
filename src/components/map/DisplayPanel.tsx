@@ -48,20 +48,20 @@ export function DisplayPanel() {
     setShowPipeArrows,
     showVertices,
     setShowVertices,
+    isProjectInitialized
   } = useUIStore();
+
+  const isLocked = !isProjectInitialized();
 
   const {
     nodeColorMode,
     setNodeColorMode,
-    nodeGradient,
     linkColorMode,
     setLinkColorMode,
-    linkGradient,
     labelSettings,
     setLabelSetting,
     selectedProps,
     togglePropSelection,
-    setGradientPreset,
     layerStyles,
     updateStyle
   } = useStyleStore();
@@ -75,7 +75,12 @@ export function DisplayPanel() {
       onClose={() => setActiveRightPanel('NONE')}
       className="w-72"
     >
-      <div className="space-y-6 py-2">
+      <div className={cn("space-y-6 py-2 transition-all duration-300", isLocked && "opacity-60 pointer-events-none grayscale-[0.5]")}>
+        {isLocked && (
+          <div className="bg-amber-50 border border-amber-200 rounded p-2 text-[11px] text-amber-700 leading-tight mb-2">
+            <strong>Setup Required:</strong> Complete mandatory project configuration to enable display settings.
+          </div>
+        )}
         {/* 1. Global Visibility */}
         <Section title="Visibility & Details">
           <div className="grid grid-cols-1 gap-2">
@@ -371,21 +376,6 @@ function ToggleItem({ label, description, isActive, onToggle, icon: Icon }: any)
   );
 }
 
-function PropertyBadge({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "px-1.5 py-0.5 text-[8px] font-medium rounded transition-all border",
-        active
-          ? "bg-primary/10 border-primary/30 text-primary"
-          : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
-      )}
-    >
-      {label}
-    </button>
-  );
-}
 
 function ModeBtn({ active, onClick, icon: Icon, label }: any) {
 
@@ -405,60 +395,5 @@ function ModeBtn({ active, onClick, icon: Icon, label }: any) {
   );
 }
 
-function SymbologyBadge({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "px-2.5 py-1 text-[10px] font-medium rounded-full border transition-all flex items-center gap-1.5",
-        active
-          ? "bg-primary border-primary text-white shadow-md shadow-primary/20"
-          : "bg-white border-slate-200 text-slate-600 hover:border-primary/40 hover:text-primary"
-      )}
-    >
-      {active && <Check size={10} strokeWidth={3} />}
-      {label}
-    </button>
-  );
-}
 
-function PaletteSelector({ currentGradient, onSelect }: { currentGradient: any[], onSelect: (preset: keyof typeof PRESETS) => void }) {
-    return (
-        <div className="space-y-2">
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Color Palette</span>
-            <div className="flex flex-wrap gap-1.5">
-                {(Object.keys(PRESETS) as Array<keyof typeof PRESETS>).map((key) => {
-                    const preset = PRESETS[key];
-                    const isActive = JSON.stringify(currentGradient) === JSON.stringify(preset);
-                    
-                    return (
-                        <button
-                            key={key}
-                            onClick={() => onSelect(key)}
-                            className={cn(
-                                "flex-1 min-w-[50px] h-5 rounded-sm border p-0.5 transition-all overflow-hidden relative group",
-                                isActive ? "border-primary ring-1 ring-primary/30" : "border-slate-200 hover:border-slate-300"
-                            )}
-                            title={key}
-                        >
-                            <div className="w-full h-full rounded-[1px] flex">
-                                {preset.map((stop, i) => (
-                                    <div 
-                                        key={i} 
-                                        className="flex-1 h-full" 
-                                        style={{ backgroundColor: stop.color }} 
-                                    />
-                                ))}
-                            </div>
-                            {isActive && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-                                    <Check size={10} className="text-white drop-shadow-md" strokeWidth={3} />
-                                </div>
-                            )}
-                        </button>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}
+

@@ -1,16 +1,40 @@
 import React from 'react';
+import { useParams } from 'next/navigation';
 import { Edit2, Mountain, Layers, Map as MapIcon, Info, CheckCircle2 } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
 import { useNetworkStore } from '@/store/networkStore';
+import { ProjectService } from '@/lib/services/ProjectService';
 import { cn } from '@/lib/utils';
 
 export function TerrainOptionsPanel() {
-  const { setActiveModal } = useUIStore();
+  const params = useParams();
+  const { setActiveModal, setMenuStatus } = useUIStore();
   const { settings, updateSettings } = useNetworkStore();
   const selectedOptionId = settings.selectedTerrainOption;
 
   const handleSelect = (id: string, action: () => void) => {
-    updateSettings({ selectedTerrainOption: id });
+    // 1. Update mandatory status in project settings
+    const updatedStatuses = { 
+      ...(settings.mandatorySetupStatuses || {}), 
+      "itm_terrain": "visited" as const 
+    };
+
+    // 2. Persist to network store
+    updateSettings({ 
+      selectedTerrainOption: id,
+      mandatorySetupStatuses: updatedStatuses 
+    });
+
+    // 3. UI Status Sync
+    setMenuStatus("itm_terrain", "visited");
+
+    // 4. Auto-Save to Backend
+    setTimeout(() => {
+        if (params?.id) {
+            ProjectService.saveCurrentProject(params.id as string);
+        }
+    }, 100);
+
     action();
   };
 

@@ -120,10 +120,12 @@ interface UIState {
 
     activeStyleLayer: string | null;
 
-    // Menu Status tracking
+    // Menu Status tracking (Hydrated from Project Settings)
     menuStatus: Record<string, MenuStatus>;
     setMenuStatus: (id: string, status: MenuStatus) => void;
-    initializeNewProjectMenuStatus: () => void;
+    syncMenuStatusFromSettings: (statuses?: Record<string, 'pending' | 'visited'>) => void;
+    initializeNewProjectMenuStatus: (projectId: string) => void;
+    resetMenuStatus: () => void;
 
 
     // project refresh utility
@@ -267,7 +269,13 @@ export const useUIStore = create<UIState>((set, get) => ({
         menuStatus: { ...state.menuStatus, [id]: status }
     })),
 
-    initializeNewProjectMenuStatus: () => {
+    syncMenuStatusFromSettings: (statuses) => set({
+        menuStatus: (statuses as Record<string, MenuStatus>) || {}
+    }),
+
+    resetMenuStatus: () => set({ menuStatus: {} }),
+
+    initializeNewProjectMenuStatus: (projectId: string) => {
         const statuses: Record<string, MenuStatus> = {};
         
         const scan = (nodes: MenuItem[]) => {
@@ -280,6 +288,7 @@ export const useUIStore = create<UIState>((set, get) => ({
         };
         
         scan(WORKBENCH_MENU);
+        
         set({ menuStatus: statuses });
     },
 
@@ -394,9 +403,13 @@ export const useUIStore = create<UIState>((set, get) => ({
     resetToDefaultState: () => set({ ...DEFAULT_STATE }),
 
     isProjectInitialized: () => {
-        const menuStatus = get().menuStatus;
-        const mandatoryItems: string[] = [];
+        const { menuStatus } = get();
         
+        // --- BACKEND-PERSISTED ISOLATION LOGIC ---
+        // Every mandatory item is defined in the menu data.
+        // We simply check if any of them are 'pending' in the current store,
+        // which is hydrated from the project settings when the project loads.
+        const mandatoryItems: string[] = [];
         const scan = (nodes: MenuItem[]) => {
             nodes.forEach(node => {
                 if (node.isMandatory) mandatoryItems.push(node.id);
@@ -405,11 +418,14 @@ export const useUIStore = create<UIState>((set, get) => ({
         };
         scan(WORKBENCH_MENU);
         
-        // If there are no mandatory items, it's initialized
+        // If there are no mandatory items defined, it's initialized
         if (mandatoryItems.length === 0) return true;
         
-        // If any mandatory item is 'pending', the project is NOT initialized.
-        // This ensures old projects (where menuStatus is empty/undefined) are considered initialized.
+        // If we don't have any status record in the store (e.g. existing project with no pending data),
+        // we consider it fully initialized/unlocked.
+        if (Object.keys(menuStatus).length === 0) return true;
+        
+        // If any mandatory item is explicitly 'pending', the project stays locked.
         return !mandatoryItems.some(id => menuStatus[id] === 'pending');
     },
 }));

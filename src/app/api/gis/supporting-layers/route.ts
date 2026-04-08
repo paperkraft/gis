@@ -17,6 +17,8 @@ export async function POST(req: Request) {
         const description = formData.get("description") as string;
         const settings = JSON.parse((formData.get("settings") as string) || "{}");
         const projection = formData.get("projection") as string;
+        const mandatorySetupStatusesRaw = formData.get("mandatorySetupStatuses") as string;
+        const mandatorySetupStatuses = mandatorySetupStatusesRaw ? JSON.parse(mandatorySetupStatusesRaw) : undefined;
 
         const layerKeys = ['pipe', 'junction', 'tank', 'reservoir', 'pump', 'valve'];
         const layers: Record<string, any> = {};
@@ -55,7 +57,8 @@ export async function POST(req: Request) {
                     title, 
                     description,
                     projection: projString,
-                    isGeographic: projString !== 'Simple'
+                    isGeographic: projString !== 'Simple',
+                    mandatorySetupStatuses: mandatorySetupStatuses
                 },
                 ownerId: session.id
             }).returning({ id: projects.id });

@@ -1,6 +1,8 @@
 import { transform } from 'ol/proj';
 
 import { useNetworkStore } from '@/store/networkStore';
+import { useUIStore } from '@/store/uiStore';
+import { getInitialMandatoryStatuses } from '@/data/workbenchMenu';
 import { NetworkFeatureData, ProjectSettings } from '@/types/network';
 
 export interface ProjectMetadata {
@@ -117,6 +119,10 @@ export class ProjectService {
                 curves: data.settings.curves,
                 controls: data.settings.controls
             });
+            
+            // Sync Setup Gating Status from Backend Settings
+            const { syncMenuStatusFromSettings } = useUIStore.getState();
+            syncMenuStatusFromSettings(data.settings.mandatorySetupStatuses);
 
             return true;
         } catch (e) {
@@ -127,11 +133,19 @@ export class ProjectService {
 
     // --- CREATE BLANK ---
     static async createProjectFromSettings(name: string, description: string, settings: ProjectSettings): Promise<string> {
+        // Initialize Mandatory Setup Statuses for New Projects (Dynamic Discovery)
+        const initialStatuses = getInitialMandatoryStatuses();
+
         // Construct empty project payload
         const payload = {
             title: name,
             description: description,
-            settings: { ...settings, title: name, description: description },
+            settings: { 
+                ...settings, 
+                title: name, 
+                description: description,
+                mandatorySetupStatuses: initialStatuses
+            },
         };
 
         try {
@@ -288,6 +302,8 @@ export class ProjectService {
     // --- CREATE FROM FILE (Server-Side) ---
     static async createProjectFromFile(name: string, description: string, inpContent: string, sourceProjection: string = 'EPSG:3857'): Promise<string> {
         try {
+            const initialStatuses = getInitialMandatoryStatuses();
+
             const res = await fetch('/api/projects/import', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -295,7 +311,8 @@ export class ProjectService {
                     title: name,
                     description,
                     inpContent,
-                    sourceProjection
+                    sourceProjection,
+                    mandatorySetupStatuses: initialStatuses // Pass to backend
                 })
             });
 

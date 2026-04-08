@@ -1,18 +1,23 @@
 "use client";
 
 import { ChevronDown, ChevronRight, Save } from "lucide-react";
+import { useParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { COMPONENT_TYPES } from "@/constants/networkComponents";
+import { ProjectService } from "@/lib/services/ProjectService";
 import { useNetworkStore } from "@/store/networkStore";
+import { useUIStore } from "@/store/uiStore";
 
 import { FormGroup } from "../form-controls/FormGroup";
 import { FormInput } from "../form-controls/FormInput";
 
 export function DefaultAttributesPanel() {
+  const params = useParams();
   const { settings, updateSettings } = useNetworkStore();
+  const { setMenuStatus } = useUIStore();
 
   const [defaults, setDefaults] = useState(settings.componentDefaults || {});
   const [hasChanges, setHasChanges] = useState(false);
@@ -30,8 +35,30 @@ export function DefaultAttributesPanel() {
   };
 
   const handleSave = () => {
-    updateSettings({ componentDefaults: defaults });
+    // 1. Update mandatory status in project settings
+    const updatedStatuses = { 
+      ...(settings.mandatorySetupStatuses || {}), 
+      "set_attr": "visited" as const 
+    };
+
+    // 2. Persist to network store
+    updateSettings({ 
+      componentDefaults: defaults,
+      mandatorySetupStatuses: updatedStatuses 
+    });
+
     setHasChanges(false);
+
+    // 3. UI Status Sync
+    setMenuStatus("set_attr", "visited");
+
+    // 4. Auto-Save to Backend
+    setTimeout(() => {
+        if (params?.id) {
+            ProjectService.saveCurrentProject(params.id as string);
+        }
+    }, 100);
+
     toast.success("Component defaults updated");
   };
 

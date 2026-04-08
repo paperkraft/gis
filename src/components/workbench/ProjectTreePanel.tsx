@@ -153,11 +153,6 @@ export function ProjectTreePanel() {
             onClick={() => {
               if (node.modalType) setActiveModal(node.modalType);
               if (node.panelType) setActivePanel(node.panelType);
-              
-              // Mark as visited if it has a status
-              if (menuStatus[node.id]) {
-                setMenuStatus(node.id, "visited");
-              }
 
               if (!node.modalType && !node.panelType) {
                 setActiveModal("NONE");

@@ -34,7 +34,22 @@ export type MenuItem = {
     isMandatory?: boolean;
 };
 
-// 2. The Real Data
+// 2. The Discovery Helpers
+export const getInitialMandatoryStatuses = (): Record<string, 'pending'> => {
+    const statuses: Record<string, 'pending'> = {};
+    const scan = (nodes: MenuItem[]) => {
+        nodes.forEach(node => {
+            if (node.isMandatory) {
+                statuses[node.id] = 'pending';
+            }
+            if (node.children) scan(node.children);
+        });
+    };
+    scan(WORKBENCH_MENU);
+    return statuses;
+};
+
+// 3. The Real Data
 export const WORKBENCH_MENU: MenuItem[] = [
     // --- ROOT 1: NETWORKS ---
     {

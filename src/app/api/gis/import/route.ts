@@ -17,6 +17,8 @@ export async function POST(req: Request) {
         const description = formData.get("description") as string;
         const settings = JSON.parse((formData.get("settings") as string) || "{}");
         const projection = formData.get("projection") as string;
+        const mandatorySetupStatusesRaw = formData.get("mandatorySetupStatuses") as string;
+        const mandatorySetupStatuses = mandatorySetupStatusesRaw ? JSON.parse(mandatorySetupStatusesRaw) : undefined;
         
         const file = formData.get("file") as File;
         const fileType = formData.get("fileType") as string;
@@ -85,7 +87,8 @@ export async function POST(req: Request) {
                     title, 
                     description,
                     projection: projString,
-                    isGeographic: projString !== 'Simple' && projString !== 'EPSG:Simple'
+                    isGeographic: projString !== 'Simple' && projString !== 'EPSG:Simple',
+                    mandatorySetupStatuses: mandatorySetupStatuses
                 },
                 ownerId: session.id
             }).returning({ id: projects.id });

@@ -6,6 +6,7 @@ import { BaseLayerType, useBaseLayer } from "@/hooks/useBaseLayer";
 import { useMapStore } from "@/store/mapStore";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { useUIStore } from "@/store/uiStore";
 
 interface BaseLayerPickerProps {
   current: BaseLayerType;
@@ -21,6 +22,9 @@ export function BaseLayerPicker({
 }: BaseLayerPickerProps) {
   const { setBaseLayer } = useBaseLayer();
   const { showGrid, setShowGrid } = useMapStore();
+  const { isProjectInitialized } = useUIStore();
+
+  const isLocked = !isProjectInitialized();
 
   if (!isOpen) return null;
 
@@ -31,7 +35,15 @@ export function BaseLayerPicker({
 
   return (
     <div className="absolute bottom-0 right-11 z-50 mb-0 animate-in fade-in slide-in-from-right-4 duration-200">
-      <div className="bg-background p-2 py-3 rounded-sm shadow-lg grid grid-cols-3 gap-1 w-64 ring-1 ring-slate-900/5">
+      <div className={cn(
+        "bg-background p-2 py-3 rounded-sm shadow-lg grid grid-cols-3 gap-1 w-64 ring-1 ring-slate-900/5 transition-all",
+        isLocked && "opacity-60 pointer-events-none grayscale-[0.5]"
+      )}>
+        {isLocked && (
+          <div className="col-span-3 bg-amber-50 border border-amber-200 rounded p-1.5 text-[9px] text-amber-700 leading-tight mb-2 text-center">
+            Setup Required to change base map
+          </div>
+        )}
         {/* 1. STREETS (Standard) */}
         <LayerOption
           label="Streets"

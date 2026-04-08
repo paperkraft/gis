@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     try {
-        const { title, description, inpContent, sourceProjection } = await req.json();
+        const { title, description, inpContent, sourceProjection, mandatorySetupStatuses } = await req.json();
 
         if (!inpContent) return NextResponse.json({ error: "No INP content provided" }, { status: 400 });
 
@@ -36,7 +36,8 @@ export async function POST(req: NextRequest) {
                     curves: data.curves,
                     controls: data.controls,
                     isGeographic: sourceProjection !== 'Simple',
-                    projection: sourceProjection
+                    projection: sourceProjection,
+                    mandatorySetupStatuses: mandatorySetupStatuses
                 },
                 ownerId: session.id
             }).returning({ id: projects.id });
