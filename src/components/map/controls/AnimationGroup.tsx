@@ -6,9 +6,10 @@ import { ControlGroup, Divider, ToolBtn } from "./Shared";
 interface AnimationGroupProps {
   activeGroup: string | null;
   onToggle: (id: string) => void;
+  disabled?: boolean;
 }
 
-export function AnimationGroup({ activeGroup, onToggle }: AnimationGroupProps) {
+export function AnimationGroup({ activeGroup, onToggle, disabled = false }: AnimationGroupProps) {
   const {
     isFlowAnimating,
     flowAnimationSpeed,
@@ -26,6 +27,7 @@ export function AnimationGroup({ activeGroup, onToggle }: AnimationGroupProps) {
       isActiveGroup={isFlowAnimating}
       activeGroup={activeGroup}
       onToggle={onToggle}
+      disabled={disabled}
     >
       <ToolBtn
         onClick={() => setIsFlowAnimating(!isFlowAnimating)}

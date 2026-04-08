@@ -7,11 +7,13 @@ import { useHistoryManager } from "@/hooks/useHistoryManager";
 interface EditingControlsProps {
   activeGroup: string | null;
   onToggle: (id: string) => void;
+  disabled?: boolean;
 }
 
 export function EditingControls({
   activeGroup,
   onToggle,
+  disabled = false,
 }: EditingControlsProps) {
   const { activeTool, setActiveTool, isSnappingEnabled, setIsSnappingEnabled, setActiveModal } =
     useUIStore();
@@ -32,6 +34,7 @@ export function EditingControls({
       isActiveGroup={isEditingActive}
       activeGroup={activeGroup}
       onToggle={onToggle}
+      disabled={disabled}
     >
       <ToolBtn
         onClick={() => setActiveTool("select-box")}

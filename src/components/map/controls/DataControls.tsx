@@ -8,9 +8,10 @@ import { ControlGroup, ToolBtn } from "./Shared";
 interface DataControlsProps {
   activeGroup: string | null;
   onToggle: (id: string) => void;
+  disabled?: boolean;
 }
 
-export function DataControls({ activeGroup, onToggle }: DataControlsProps) {
+export function DataControls({ activeGroup, onToggle, disabled = false }: DataControlsProps) {
   const {
     activeModal,
     showAttributeTable,
@@ -31,6 +32,7 @@ export function DataControls({ activeGroup, onToggle }: DataControlsProps) {
         isActiveGroup={isActiveGroup}
         activeGroup={activeGroup}
         onToggle={onToggle}
+        disabled={disabled}
       >
         <ToolBtn
           onClick={() => setShowAttributeTable(true)}
@@ -38,6 +40,7 @@ export function DataControls({ activeGroup, onToggle }: DataControlsProps) {
           icon={Table2}
           title="Attribute Table"
           label="Table"
+          disabled={disabled}
         />
 
         <ToolBtn
@@ -46,6 +49,7 @@ export function DataControls({ activeGroup, onToggle }: DataControlsProps) {
           icon={Filter}
           title="Select by Attribute"
           label="Query"
+          disabled={disabled}
         />
       </ControlGroup>
     </>

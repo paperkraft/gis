@@ -9,6 +9,7 @@ interface ControlGroupProps {
   activeGroup: string | null;
   onToggle: (id: string) => void;
   isActiveGroup?: boolean;
+  disabled?: boolean;
 }
 
 // Tooltip for vertical stack buttons (appears to the LEFT)
@@ -37,6 +38,7 @@ export const ControlGroup = ({
   activeGroup,
   onToggle,
   isActiveGroup = false,
+  disabled = false,
 }: ControlGroupProps) => {
   const isOpen = activeGroup === id;
 
@@ -44,16 +46,19 @@ export const ControlGroup = ({
     <div className="relative flex flex-row-reverse items-center gap-1">
       {/* Main Group Button */}
       <button
-        onClick={() => onToggle(id)}
+        onClick={() => !disabled && onToggle(id)}
+        disabled={disabled}
         className={cn(
-          "relative group size-8 flex items-center justify-center rounded transition-all duration-200 active:scale-95",
+          "relative group size-8 flex items-center justify-center rounded transition-all duration-200",
+          !disabled && "active:scale-95",
           isOpen || isActiveGroup
             ? "bg-blue-100 dark:bg-blue-900/40 text-primary dark:text-blue-400"
-            : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-blue-400"
+            : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-blue-400",
+          disabled && "opacity-40 grayscale cursor-not-allowed"
         )}
       >
         <Icon className="size-4" />
-        {!isOpen && <LeftTooltip text={label} />}
+        {!isOpen && <LeftTooltip text={disabled ? `${label} (Setup Required)` : label} />}
       </button>
 
       {/* Expanded Horizontal Bar */}
@@ -93,16 +98,17 @@ export const ToolBtn = ({
   disabled?: boolean;
 }) => (
   <button
-    onClick={onClick}
+    onClick={() => !disabled && onClick()}
     className={cn(
-      "relative group flex items-center justify-center rounded transition-all duration-200 active:scale-95",
+      "relative group flex items-center justify-center rounded transition-all duration-200",
+      !disabled && "active:scale-95",
       label ? "px-1.5 gap-1 h-6" : "size-6",
       isActive
         ? "bg-blue-100 dark:bg-blue-900/40 text-primary dark:text-blue-400"
         : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-blue-400",
+      disabled && "opacity-40 grayscale cursor-not-allowed",
       className
     )}
-    // title={title}
     disabled={disabled}
     data-search-toggle={
       title === "Location Search" || title === "Search" ? "true" : undefined
@@ -121,7 +127,7 @@ export const ToolBtn = ({
         {label}
       </span>
     )}
-    <BottomTooltip text={title} />
+    <BottomTooltip text={disabled ? `${title} (Setup Required)` : title} />
   </button>
 );
 
@@ -137,6 +143,7 @@ export const StandaloneControl = ({
   colorClass,
   colorStyle,
   className,
+  disabled = false,
 }: {
   onClick: () => void;
   isActive?: boolean;
@@ -145,18 +152,22 @@ export const StandaloneControl = ({
   colorClass?: string;
   colorStyle?: string;
   className?: string;
+  disabled?: boolean;
 }) => (
   <button
-    onClick={onClick}
+    onClick={() => !disabled && onClick()}
+    disabled={disabled}
     className={cn(
-      "relative group size-8 flex items-center justify-center rounded transition-all duration-200 active:scale-95",
+      "relative group size-8 flex items-center justify-center rounded transition-all duration-200",
+      !disabled && "active:scale-95",
       isActive
         ? "bg-blue-100 dark:bg-blue-900/40 text-primary dark:text-blue-400"
         : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-blue-400",
+      disabled && "opacity-40 grayscale cursor-not-allowed",
       className
     )}
   >
     <Icon className={cn("size-4", colorClass)} style={{ color: colorStyle }} />
-    <LeftTooltip text={title} />
+    <LeftTooltip text={disabled ? `${title} (Setup Required)` : title} />
   </button>
 );

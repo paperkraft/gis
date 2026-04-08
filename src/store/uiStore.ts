@@ -183,6 +183,9 @@ interface UIState {
     // Utility - Reset all tools
     resetAllTools: () => void;
     resetToDefaultState: () => void;
+
+    // Derived State
+    isProjectInitialized: () => boolean;
 }
 
 const DEFAULT_STATE = {
@@ -389,4 +392,24 @@ export const useUIStore = create<UIState>((set, get) => ({
     },
 
     resetToDefaultState: () => set({ ...DEFAULT_STATE }),
+
+    isProjectInitialized: () => {
+        const menuStatus = get().menuStatus;
+        const mandatoryItems: string[] = [];
+        
+        const scan = (nodes: MenuItem[]) => {
+            nodes.forEach(node => {
+                if (node.isMandatory) mandatoryItems.push(node.id);
+                if (node.children) scan(node.children);
+            });
+        };
+        scan(WORKBENCH_MENU);
+        
+        // If there are no mandatory items, it's initialized
+        if (mandatoryItems.length === 0) return true;
+        
+        // If any mandatory item is 'pending', the project is NOT initialized.
+        // This ensures old projects (where menuStatus is empty/undefined) are considered initialized.
+        return !mandatoryItems.some(id => menuStatus[id] === 'pending');
+    },
 }));

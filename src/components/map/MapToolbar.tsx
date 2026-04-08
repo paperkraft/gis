@@ -6,7 +6,8 @@ import { ToolBtn } from "./controls/Shared";
 import { cn } from "@/lib/utils";
 
 export function MapToolbar() {
-  const { activeTool, setActiveTool } = useUIStore();
+  const { activeTool, setActiveTool, isProjectInitialized } = useUIStore();
+  const isInitialized = isProjectInitialized();
 
   return (
     <div
@@ -42,6 +43,7 @@ export function MapToolbar() {
             title={tooltip}
             className="size-7"
             colorStyle={isActive ? "" : tool.color}
+            disabled={!isInitialized}
           />
         );
       })}

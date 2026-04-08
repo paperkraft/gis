@@ -1,6 +1,6 @@
 "use client";
 
-import { DownloadCloud, FileDown, Monitor, Printer } from "lucide-react";
+import { FileDown, Monitor, Printer } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -27,11 +27,12 @@ import { StandaloneControl } from "./controls/Shared";
 export function MapControls() {
 
   const {
-    activeModal,
     activeRightPanel,
     setActiveRightPanel,
-    setActiveModal,
+    isProjectInitialized,
   } = useUIStore();
+
+  const isInitialized = isProjectInitialized();
 
   const controlsRef = useRef<HTMLDivElement>(null);
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
@@ -85,16 +86,17 @@ export function MapControls() {
           onClick={() => setActiveRightPanel('DISPLAY')}
         />
 
-        <EditingControls activeGroup={activeGroup} onToggle={toggleGroup} />
-        <MeasurementGroup activeGroup={activeGroup} onToggle={toggleGroup} />
-        <AnimationGroup activeGroup={activeGroup} onToggle={toggleGroup} />
-        <DataControls activeGroup={activeGroup} onToggle={toggleGroup} />
+        <EditingControls activeGroup={activeGroup} onToggle={toggleGroup} disabled={!isInitialized} />
+        <MeasurementGroup activeGroup={activeGroup} onToggle={toggleGroup} disabled={!isInitialized} />
+        <AnimationGroup activeGroup={activeGroup} onToggle={toggleGroup} disabled={!isInitialized} />
+        <DataControls activeGroup={activeGroup} onToggle={toggleGroup} disabled={!isInitialized} />
 
         <StandaloneControl
           icon={Printer}
           title="Print Map"
           isActive={activeRightPanel === 'PRINT_MAP'}
           onClick={() => setActiveRightPanel('PRINT_MAP')}
+          disabled={!isInitialized}
         />
 
         <StandaloneControl
@@ -102,6 +104,7 @@ export function MapControls() {
           title="Export Network"
           isActive={activeRightPanel === "EXPORT_PROJECT"}
           onClick={() => setActiveRightPanel("EXPORT_PROJECT")}
+          disabled={!isInitialized}
         />
       </div>
 

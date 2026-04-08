@@ -8,11 +8,13 @@ import { ControlGroup, ToolBtn } from './Shared';
 interface MeasurementGroupProps {
   activeGroup: string | null;
   onToggle: (id: string) => void;
+  disabled?: boolean;
 }
 
 export function MeasurementGroup({
   activeGroup,
   onToggle,
+  disabled = false,
 }: MeasurementGroupProps) {
   const {
     measurementType,
@@ -38,6 +40,7 @@ export function MeasurementGroup({
       isActiveGroup={measurementActive}
       activeGroup={activeGroup}
       onToggle={onToggle}
+      disabled={disabled}
     >
       <ToolBtn
         onClick={() => toggleMeasurement("distance")}

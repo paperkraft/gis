@@ -40,7 +40,7 @@ export function NewProjectModal() {
 
   // --- STATE ---
   const [loading, setLoading] = useState(false);
-  const [projectType, setProjectType] = useState<ProjectType>("blank");
+  const [projectType, setProjectType] = useState<ProjectType>(null);
   const [isTypeSelected, setIsTypeSelected] = useState(false);
   const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
 
@@ -75,7 +75,7 @@ export function NewProjectModal() {
   const isOpen = activeModal === "NEW_PROJECT";
 
   const handleReset = () => {
-    setProjectType("blank");
+    setProjectType(null);
     setImportFile(null);
     setFileContent("");
     setCreatedProjectId("");
@@ -420,7 +420,7 @@ export function NewProjectModal() {
                 </Button>
               )}
               <Box className="size-4 text-primary" />
-              {createdProjectId ? "Project Ready" : isTypeSelected ? `New ${projectType.toUpperCase()} Project` : "Create New Project"}
+              {createdProjectId ? "Project Ready" : (isTypeSelected && projectType) ? `New ${projectType.toUpperCase()} Project` : "Create New Project"}
             </div>
           </DialogTitle>
           <DialogDescription className="hidden" />
@@ -430,7 +430,7 @@ export function NewProjectModal() {
           // --- SUCCESS VIEW ---
           <ProjectSuccessView
             title={formData.title}
-            projectType={projectType}
+            projectType={projectType || 'blank'}
             onClose={handleClose}
             onOpen={handleOpenProject}
           />
@@ -452,7 +452,7 @@ export function NewProjectModal() {
               ) : (
                 <>
                   <ProjectFormFields
-                    projectType={projectType}
+                    projectType={projectType || 'blank'}
                     formData={formData}
                     setFormData={setFormData}
                     // File Props

@@ -2,7 +2,7 @@ import { FileUp, Layers, Map, PenTool } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
-export type ProjectType = 'blank' | 'import' | 'gis' | 'layers';
+export type ProjectType = 'blank' | 'import' | 'gis' | 'layers' | null;
 interface ProjectTypeSelectorProps {
     value: ProjectType;
     onChange: (val: ProjectType) => void;
