@@ -48,18 +48,29 @@ function SelectionCard({ active, onClick, icon: Icon, title, desc }: any) {
         <div
             onClick={onClick}
             className={cn(
-                "cursor-pointer rounded-xl border-2 p-4 flex flex-col gap-3 transition-all",
+                "group cursor-pointer rounded-xl border-2 p-4 flex flex-col gap-3 transition-all duration-300",
+                "hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.97] active:duration-75", // Hover & Active effects
                 active
-                    ? "border-primary bg-primary/5 dark:bg-blue-900/10"
-                    : "border-slate-100 hover:border-slate-200 bg-white"
+                    ? "border-primary bg-primary/5 dark:bg-blue-900/10 shadow-md ring-1 ring-primary/20"
+                    : "border-slate-100 hover:border-primary/40 bg-white dark:bg-slate-900 dark:border-slate-800"
             )}
         >
-            <div className={cn("p-2 rounded-lg w-fit", active ? "bg-primary text-white" : "bg-slate-100 text-slate-500")}>
+            <div className={cn(
+                "p-2 rounded-lg w-fit transition-all duration-300", 
+                active 
+                    ? "bg-primary text-white shadow-primary/30 shadow-lg scale-110" 
+                    : "bg-slate-100 text-slate-500 group-hover:bg-primary/10 group-hover:text-primary group-hover:scale-110"
+            )}>
                 <Icon size={20} />
             </div>
             <div>
-                <h3 className={cn("font-bold text-sm", active ? "text-blue-900" : "text-slate-700")}>{title}</h3>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">{desc}</p>
+                <h3 className={cn(
+                    "font-bold text-sm transition-colors", 
+                    active ? "text-primary" : "text-slate-700 group-hover:text-primary"
+                )}>
+                    {title}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed line-clamp-2">{desc}</p>
             </div>
         </div>
     );

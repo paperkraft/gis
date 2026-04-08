@@ -229,8 +229,9 @@ export function ProjectFormFields({
                         <div
                             onClick={() => fileInputRef.current?.click()}
                             className={cn(
-                                "relative mt-2 border-2 border-dashed rounded-xl h-36 flex flex-col items-center justify-center text-slate-400 transition-all cursor-pointer",
-                                importFile ? "border-green-400 bg-green-50 text-green-600" : "border-slate-200 hover:border-blue-400 hover:text-blue-500 bg-slate-50/50",
+                                "group relative mt-2 border-2 border-dashed rounded-xl h-36 flex flex-col items-center justify-center text-slate-400 transition-all duration-300 cursor-pointer",
+                                "hover:shadow-lg hover:-translate-y-1 active:scale-[0.98]",
+                                importFile ? "border-green-400 bg-green-50 text-green-600" : "border-slate-200 hover:border-primary/40 hover:bg-primary/5 hover:text-primary bg-slate-50/50",
                                 // validationResult
                                 validationResult?.status === 'error' && "border-red-400 bg-red-50 text-red-600 hover:border-red-500 hover:text-red-700",
                                 validationResult?.status === 'warning' && "border-amber-400 bg-amber-50 text-amber-600 hover:border-amber-500 hover:text-amber-700"

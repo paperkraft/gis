@@ -52,14 +52,15 @@ export function LayerUploadField({
             <div
                 onClick={() => !file && inputRef.current?.click()}
                 className={cn(
-                    "relative border-2 border-dashed rounded-xl p-3 flex items-center gap-3 transition-all cursor-pointer min-h-[60px]",
+                    "group relative border-2 border-dashed rounded-xl p-3 flex items-center gap-3 transition-all duration-300 cursor-pointer min-h-[60px]",
+                    "hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98]",
                     file
                         ? validation?.status === 'error'
                             ? "border-red-400 bg-red-50 text-red-600"
                             : validation?.status === 'warning'
                                 ? "border-amber-400 bg-amber-50 text-amber-600"
                                 : "border-green-400 bg-green-50 text-green-600 shadow-sm"
-                        : "border-slate-200 hover:border-blue-400 hover:text-blue-500 bg-slate-50/50"
+                        : "border-slate-200 hover:border-primary/40 hover:bg-primary/5 hover:text-primary bg-slate-50/50"
                 )}
             >
                 <input
