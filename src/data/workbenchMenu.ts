@@ -123,7 +123,7 @@ export const WORKBENCH_MENU: MenuItem[] = [
                     { id: "tool_append", type: "ITEM", label: "Append Network" },
                     { id: "tool_elev", type: "ITEM", label: "Assign Elevation" },
                     { id: "tool_trace", type: "ITEM", label: "Tracing Network" },
-                    { id: "tool_numb", type: "ITEM", label: "Numbering Network" },
+                    { id: "tool_numb", type: "ITEM", label: "Numbering Network", modalType: "NUMBERING" },
                     { id: "tool_iso", type: "ITEM", label: "Insert Isolation Valves" },
                     { id: "tool_loss", type: "ITEM", label: "Calculate Loss Coefficient" },
                     { id: "tool_loop", type: "ITEM", label: "Convert Loop To Branch" },
