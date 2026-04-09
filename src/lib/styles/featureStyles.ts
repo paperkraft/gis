@@ -187,7 +187,7 @@ export const getFeatureStyle = (feature: Feature, resolution?: number): Style | 
     }) : undefined;
 
     // 4. LOD Visibility Check (Hide complex icons when zoomed out for performance)
-    const visibilityThreshold = 5;
+    const visibilityThreshold = 24; // Visible until resolution 24 (~Zoom 12.5)
     const isFeatureVisible = resolution === undefined || resolution < visibilityThreshold;
     const isComplexNode = ['junction', 'tank', 'reservoir'].includes(featureType);
     const isComplexLink = ['pump', 'valve'].includes(featureType);
