@@ -1,10 +1,7 @@
 "use client";
-
-import { Command, Keyboard, Layers, Map as MapIcon, PenTool, X } from 'lucide-react';
 import React from 'react';
-
+import { Command, Keyboard, Layers, Map as MapIcon, PenTool, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 
 interface KeyboardShortcutsModalProps {
   isOpen: boolean;
@@ -21,11 +18,10 @@ export function KeyboardShortcutsModal({
     {
       title: "Essentials",
       icon: Command,
-      color: "text-blue-500",
       shortcuts: [
         { label: "Save Project", keys: ["Ctrl", "S"] },
         { label: "Undo", keys: ["Ctrl", "Z"] },
-        { label: "Redo", keys: ["Ctrl", "Y"] },
+        { label: "Redo", keys: ["Ctrl", "Shift", "Z"] },
         { label: "Delete Selection", keys: ["Del"] },
         { label: "Cancel / Deselect", keys: ["Esc"] },
       ],
@@ -33,7 +29,6 @@ export function KeyboardShortcutsModal({
     {
       title: "Drawing Tools",
       icon: PenTool,
-      color: "text-purple-500",
       shortcuts: [
         { label: "Add Junction", keys: ["1"] },
         { label: "Add Tank", keys: ["2"] },
@@ -46,7 +41,6 @@ export function KeyboardShortcutsModal({
     {
       title: "Map Navigation",
       icon: MapIcon,
-      color: "text-green-500",
       shortcuts: [
         { label: "Pan Tool", keys: ["H"] },
         { label: "Select Tool", keys: ["S"] },
@@ -59,7 +53,6 @@ export function KeyboardShortcutsModal({
     {
       title: "Panels & Views",
       icon: Layers,
-      color: "text-orange-500",
       shortcuts: [
         { label: "Toggle Attribute Table", keys: ["T"] },
         { label: "Toggle Sidebar", keys: ["Ctrl", "B"] },
@@ -69,55 +62,56 @@ export function KeyboardShortcutsModal({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20 dark:border-gray-700/50 flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 max-h-[85vh]">
-        {/* HEADER */}
-        <div className="px-6 py-4 border-b border-gray-200/50 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50 flex justify-between items-center shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-xl shadow-sm">
-              <Keyboard className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                Keyboard Shortcuts
-              </h2>
-              <p className="text-xs text-gray-500">Supercharge your workflow</p>
-            </div>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      {/* BACKDROP */}
+      <div 
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] animate-in fade-in duration-300" 
+        onClick={onClose}
+      />
+      
+      {/* MODAL CONTAINER */}
+      <div className="relative w-full max-w-2xl bg-background shadow-2xl rounded-sm border border-slate-200 flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 max-h-[85vh]">
+        
+        {/* HEADER (Matching WorkbenchModal style) */}
+        <div className="h-10 bg-slate-50 border-b border-slate-200 flex items-center justify-between px-4 select-none shrink-0">
+          <div className="flex items-center gap-2.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+            <Keyboard size={14} className="text-slate-400" />
+            <span>Keyboard Shortcuts</span>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-200/50 dark:hover:bg-gray-700/50 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
+            className="text-slate-400 hover:text-destructive transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X size={16} />
           </button>
         </div>
 
         {/* BODY */}
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8">
+        <div className="flex-1 overflow-y-auto p-6 bg-background custom-scrollbar">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
             {categories.map((category) => (
-              <div key={category.title} className="space-y-3">
-                <div className="flex items-center gap-2 pb-2 border-b border-gray-100 dark:border-gray-800">
-                  <category.icon className={cn("w-4 h-4", category.color)} />
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+              <div key={category.title} className="flex flex-col gap-3">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                  <category.icon size={14} className="text-slate-400" />
+                  <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     {category.title}
                   </h3>
                 </div>
 
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2.5">
                   {category.shortcuts.map((shortcut, idx) => (
                     <div
                       key={idx}
                       className="flex items-center justify-between group"
                     >
-                      <span className="text-sm text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-200 transition-colors">
+                      <span className="text-xs font-medium text-slate-600">
                         {shortcut.label}
                       </span>
                       <div className="flex gap-1">
                         {shortcut.keys.map((key) => (
                           <kbd
                             key={key}
-                            className="min-w-6 h-6 px-1.5 flex items-center justify-center text-[10px] font-bold font-mono text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 border-b-2 border-gray-200 dark:border-gray-700 rounded-md shadow-sm transition-transform group-hover:translate-y-0.5 group-hover:border-b-0"
+                            className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[9px] font-bold font-mono text-slate-500 bg-slate-50 border border-slate-200 rounded shadow-[0_1px_1px_rgba(0,0,0,0.1)]"
                           >
                             {key}
                           </kbd>
@@ -132,13 +126,14 @@ export function KeyboardShortcutsModal({
         </div>
 
         {/* FOOTER */}
-        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200/50 dark:border-gray-700/50 flex justify-end shrink-0">
+        <div className="h-12 px-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end shrink-0">
           <Button
             variant="outline"
+            size="sm"
             onClick={onClose}
-            className="hover:bg-white dark:hover:bg-gray-800"
+            className="h-8 text-xs bg-background hover:bg-slate-100"
           >
-            Close
+            Done
           </Button>
         </div>
       </div>

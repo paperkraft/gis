@@ -30,6 +30,7 @@ import { MapToolbar } from "./MapToolbar";
 import { MapControls } from "./MapControls";
 import { MapLayers } from "./MapLayers";
 import { MapContextMenu } from "./MapContextMenu";
+import { KeyboardShortcutsModal } from "../modals/KeyboardShortcutsModal";
 
 export function MapContainer() {
   const params = useParams();
@@ -46,7 +47,7 @@ export function MapContainer() {
 
   // Network store
   const featureCount = useNetworkStore((s) => s.features.size);
-  const { activeTool } = useUIStore();
+  const { activeTool, keyboardShortcutsModalOpen, setKeyboardShortcutsModalOpen } = useUIStore();
 
   // --- Auto-Zoom on Load ---
   useEffect(() => {
@@ -142,6 +143,11 @@ export function MapContainer() {
       </div>
 
       <StatusBar />
+      
+      <KeyboardShortcutsModal 
+        isOpen={keyboardShortcutsModalOpen} 
+        onClose={() => setKeyboardShortcutsModalOpen(false)} 
+      />
     </div>
   );
 }
