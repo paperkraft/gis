@@ -8,6 +8,13 @@
       "when": 1773938927187,
       "tag": "0000_lethal_fantastic_four",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1775800832897,
+      "tag": "0001_lowly_wiccan",
+      "breakpoints": true
     }
   ]
 }
